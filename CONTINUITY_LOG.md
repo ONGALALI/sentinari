@@ -462,3 +462,11 @@ Decided: **future request, not now** (code churn on the eve of the machine migra
 package layout, tests/ dir, pyproject.toml, docs/, CI (ruff+mypy+pytest), pre-commit, pre-release data-path audit
 (every `data/...` reference must point at a configurable root before any repo move). Tracked in this log; do NOT
 lose sight of it on the new machine.
+
+### §17 addendum — Sentinel repo safety sweep + baseline tag (2026-09-21, ~04:20 SAST)
+Owner asked to "start with the commit to ensure we are safe" for Sentinel.git containing ONLY the Sentinel app. Verified:
+- **Scope**: 102 tracked files = Sentinel code + docs only. Index audit: 0 files under data/, VocationalLLM/, .freebuff/, Logs/; no 1-run-key.txt, no .env, no *.key, no ingest_status.json.
+- **Secrets**: git grep for real credential formats (Google AIza…, OpenAI sk-…, AWS AKIA…, GitHub ghp_…, Slack xox…, PEM private keys, `api_key/password/secret/token: <16+ char value>`) → **zero hits**. Generic "key/token" matches are code identifiers only.
+- **Integrity**: git fsck exit 0; working tree clean (0 uncommitted).
+- **Safety point**: annotated tag `v0.1.0-lean-baseline` on 5b6085f — any future experiment can be measured/reset against it (`git describe`, `git diff v0.1.0-lean-baseline`).
+Rule going forward: every commit in this repo must keep the app lean — if a change wants to track data/, models, or ETDP, stop and reconsider.
