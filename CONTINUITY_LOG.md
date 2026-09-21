@@ -607,3 +607,24 @@ Owner reported five issues (priority order). All fixed and verified live on :807
 **Bonus bug found by live testing:** fresh `/find` inserts never received their DB id (`item["id"] = cur.lastrowid` was missing) — Approve/Reject/Load buttons on brand-new results would have 404'd. Fixed.
 
 Known quirk (pre-existing, not from §21): a server killed mid-boot on this laptop can leave a wedged socket that accepts but never answers — external tool timeouts (e.g. curl exit 28) may mask a healthy app. Always verify `curl /ui/playground` after a forced restart.
+
+---
+
+## §22 — OpenAlex as primary R&D source; PDF quality layer; review-while-loading safety (2026-09-21)
+
+**Owner's directives this session:** OpenAlex is the primary R&D source (owner calls it a "treasure trove" — cited, moderated, high-standard works); focus on enhancing its methods/process; investigate download formats (.csv/.xml vs .pdf); port the ETDP three-layer PDF sanitizer quality; prioritize candidate lineups 2020→current, most-cited top-down.
+
+### Concurrency question answered (owner reviews/rejects while a Load runs)
+SAFE by design — verified against the code:
+- Loads run in their own background thread and only touch the gemma library DB, guarded by `_INGEST_WRITE_LOCK` + a 30s busy timeout (`ingestion.py`). Review actions only touch `skill_review_candidates` (different DB) — no shared write path.
+- Reject during a load deletes only the candidates row; the running load is unaffected, and its finalize UPDATE (by candidate id) matches zero rows harmlessly. The one nuance: rejecting the dataset *currently loading* does not abort that download (it already started) — by design.
+- Owner's one-at-a-time loading discipline is ideal on this laptop; approving/rejecting/test-listing concurrently has no effect on load progress or ingestion.
+
+### What was built
+1. **Lineup priority (owner directive):** `search_openalex_works` now defaults to `from_publication_date:2020-01-01` (pass `from_year` to widen) and stable-sorts candidates most-cited first (relevance order preserved within equal citations). Verified live: `6342 → 5258 → 3509 → 2696 → 2053 → 1758 → 1144 → 909 → 646`, all 2020+.
+2. **PDF quality layer:** SMI's `parsing.py` already carried the full layered stack from the ETDP era (poppler → Dangerzone → docling → Stirling → OCR + noise stripping) — dormant because config never enabled it. Now ACTIVE via `settings.yaml → pdf_preprocess: engine=pipeline`:
+   - Primary: **poppler/pdftotext** (found on this machine via Git's bundled tools), `-layout` mode.
+   - Deeper layers (Dangerzone sanitize, docling AI extraction, Stirling, EasyOCR) auto-engage **as soon as they're installed** — no code changes needed; they are also available on the new rig by installing them.
+   - New `_polish_pdf_text()` quality pass on ALL pdf text: de-hyphenation across line breaks, soft-wrap joins (paragraph breaks preserved), whitespace collapse, page-artifact line removal. Verified on a real 73K-char PDF (engine label `poppler`).
+3. **Download formats — investigated, decision recorded:** OpenAlex/PMC scholarly download reality: PDFs where publishers provide them, HTML full text otherwise (already Sentinel's preference — cleaner text, no PDF parsing), metadata JSON as final fallback. CSV is only offered for OpenAlex's *bulk dataset exports* (full-database snapshots, GBs — a bulk-loading lane for the new rig, NOT per-paper downloads); XML is PubMed's internal format already handled by `_pmc_full_text`. Conclusion: keep the current PDF→HTML→JSON cascade; it already chooses the cleanest available format per work.
+4. **UI:** hints on both panels now state "OpenAlex is the primary R&D source — 2020–current, most-cited first".

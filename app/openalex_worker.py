@@ -335,6 +335,10 @@ def search_openalex_works(
         filters.append("language:en")
     if from_year:
         filters.append(f"from_publication_date:{from_year}-01-01")
+    else:
+        # Owner directive (§22): recent scholarship leads the lineup — the
+        # default window is 2020 to current. Pass from_year to widen it.
+        filters.append("from_publication_date:2020-01-01")
     if min_citations and min_citations > 0:
         filters.append(f"cited_by_count:>{int(min_citations)}")
 
@@ -370,6 +374,12 @@ def search_openalex_works(
         artifact["scientific_field"] = (field_meta or {}).get("field_name", "")
         artifact["field_slug"] = (field_meta or {}).get("field_slug", "")
         candidates.append(artifact)
+
+    # Owner directive (§22): prioritized lineup — the most-cited works lead.
+    # The sort is stable, so within equal citation counts OpenAlex's own
+    # relevance ranking (query fit) is preserved. Candidates are already
+    # restricted to 2020-current by the server-side filter above.
+    candidates.sort(key=lambda c: -int(c.get("cited_by_count") or 0))
 
     return {
         "ok": True,

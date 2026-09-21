@@ -543,7 +543,7 @@
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
               <h2>Scientific Dataset Discovery &amp; Review</h2>
-              <div class="hint">Searches GitHub, Hugging Face, OpenAlex, and PubMed <strong>at the same time</strong> using the field's own name (e.g. just "Physics" — not its sub-sciences). PubMed is active for <strong>Health, Medicine, Psychology and Neuroscience</strong> fields only. Candidates are stored here for Approve / Reject / Test, then <strong>Load into field</strong> downloads and ingests with a progress bar. You can also run the same worker inside any Sentinel field above.</div>
+              <div class="hint">Searches GitHub, Hugging Face, OpenAlex, and PubMed <strong>at the same time</strong> using the field's own name (e.g. just "Physics" — not its sub-sciences). <strong>OpenAlex is the primary R&amp;D source</strong>: results are prioritized <strong>2020–current, most-cited first</strong>. PubMed is active for <strong>Health, Medicine, Psychology and Neuroscience</strong> fields only. Candidates are stored here for Approve / Reject / Test, then <strong>Load into field</strong> downloads and ingests with a progress bar. You can also run the same worker inside any Sentinel field above.</div>
             </div>
             <div class="mono">Review before ingest</div>
           </div>
@@ -2137,7 +2137,7 @@
               <button class="ghost" type="button" data-role="sourcing-find" data-field="${fieldSlug}">Find datasets</button>
               <button class="ghost" type="button" data-role="sourcing-clear" data-field="${fieldSlug}">Clear</button>
             </div>
-            <div class="hint" data-role="sourcing-status">The sourcing worker searches GitHub, Hugging Face, OpenAlex, and PubMed at the same time using the field's own name, and lines the results up for Approve / Reject / Test. PubMed participates only for Health, Medicine, Psychology and Neuroscience. Nothing is ingested until you Load. Clear wipes this field's un-loaded candidates when you switch sciences.</div>
+            <div class="hint" data-role="sourcing-status">The sourcing worker searches GitHub, Hugging Face, OpenAlex, and PubMed at the same time using the field's own name, and lines the results up for Approve / Reject / Test. OpenAlex leads the lineup (2020–current, most-cited first). PubMed participates only for Health, Medicine, Psychology and Neuroscience. Nothing is ingested until you Load. Clear wipes this field's un-loaded candidates when you switch sciences.</div>
             <div data-role="sourcing-results"></div>
             <div class="sentinel-loaded">
               <div class="loaded-head">Loaded datasets — permanently listed in this container</div>

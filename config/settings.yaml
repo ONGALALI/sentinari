@@ -112,3 +112,14 @@ task_worker:
   local_agent_url: http://127.0.0.1:8099/api/chat
   poll_seconds: 10
   timeout_seconds: 300
+
+# Layered PDF extraction (§22): primary poppler (pdftotext), with the deeper
+# layers (Dangerzone -> docling -> Stirling -> OCR) auto-engaging as they are
+# installed. Text is additionally polished (de-hyphenation, soft-wrap joins,
+# page-artifact removal) before digestion.
+pdf_preprocess:
+  engine: pipeline
+  timeout_seconds: 60
+  poppler_layout: true
+  ghostscript_flatten_first: false
+  dangerzone_sanitize_first: false

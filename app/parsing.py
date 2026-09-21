@@ -188,6 +188,34 @@ def parse_document_from_html(html: str, default_title: str = "web source", strip
     return parsed
 
 
+def _polish_pdf_text(text: str) -> str:
+    """Quality layer for extracted PDF text (owner's clean-text directive).
+
+    Repairs the classic extraction artifacts so chunks and embeddings read
+    like prose rather than a PDF wire dump:
+    1. re-joins words a line break split with a hyphen (``thermo-\ndynamic``
+       -> ``thermodynamic``)
+    2. merges single-newline soft wraps into spaces (paragraph boundaries —
+       blank lines — are preserved)
+    3. collapses runs of spaces/tabs
+    4. drops leftover page-artifact lines (bare numbers, ``Page 3 of 12``)
+    """
+    if not text:
+        return text
+    # 1. de-hyphenate words broken across line breaks
+    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
+    # 2. drop page-artifact lines while they are still standalone lines
+    #    (before soft-wrap joining could fold them into real paragraphs)
+    text = "\n".join(
+        ln for ln in text.split("\n") if not PAGE_NUMBER_LINE.match(ln.strip())
+    )
+    # 3. single newlines are soft wraps; paragraphs keep their blank line
+    text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+    # 4. collapse whitespace runs
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    return text.strip()
+
+
 def _parse_pdf(path: Path) -> dict[str, Any]:
     meta = {}
     try:
@@ -214,7 +242,7 @@ def _parse_pdf(path: Path) -> dict[str, Any]:
         extra_metadata = _to_safe_meta_dict(meta)
         extra_metadata["pdf_preprocess_engine"] = preprocess_engine
         return {
-            "text": preprocessed_text,
+            "text": _polish_pdf_text(preprocessed_text),
             "source_type": "pdf",
             "title": title,
             "authors": authors,
@@ -264,7 +292,7 @@ def _parse_pdf(path: Path) -> dict[str, Any]:
             body_lines.append(raw.strip())
 
     return {
-        "text": "\n".join(body_lines),
+        "text": _polish_pdf_text("\n".join(body_lines)),
         "source_type": "pdf",
         "title": title,
         "authors": authors,
