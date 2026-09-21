@@ -382,3 +382,83 @@ scientific field, (2) cross-field patterns in combination containers, (3)
 **Verified live** (scratch port 8077): container HTML report 200; container PDF 200 (application/pdf, %PDF header, pypdf text-extraction confirms WORKS CITED / Wepener, P. / DATA SOURCES / PATTERNS / APA 7th all present); pattern PDF 200; R&D-paper + manual-discovery requests logged and listed (ids 1–2); page renders all new controls. Works-cited sample: `Wepener, P. (2026). Doc 1 Inpirari Drafting The Constitution Version 1. SMi Sentinel Domains.`
 
 **Owner decisions logged**: R&D-paper template question answered (Sentinel learns the template from loaded candidate datasets — no owner-authored template needed; papers will be citation-grade like the reports). Interactive chat for manual discovery = future request, foundations laid via future_requests.
+
+## §17 — App structure map + git audit + fresh SMI_Core repo (2026-09-21, ~03:55 SAST)
+
+### The App's structure (reference for every future session)
+
+**SMI_Core = Sentinel (this app). UI at http://127.0.0.1:8099/ui/playground. Run: `run_smi.py serve`.**
+
+```
+SMI_Core/
+├── run_smi.py               entrypoint (serve --port 8099; scratch tests: --port 8077)
+├── requirements.txt         no new deps needed for reports (pypdf bundled)
+├── CONTINUITY_LOG.md        this log — read first
+├── CREDITS.md               Buffy/Codebuff contribution credit
+├── VALIDATION_PROTOCOL.md   external validation workflow
+├── app/                     FastAPI application (2.3 MB)
+│   ├── main.py              app factory, UI routes (/ui/playground, /ui/patterns, ...)
+│   ├── config.py            settings loader (config/settings.yaml)
+│   ├── db.py                dual SQLite: main DB (smi_vocationalllm.db) + library DB (library_gemma.db:
+│   │                        documents, chunks, embeddings, ingest_events, unsupervised_runs)
+│   ├── playground.py        Dashboard Home backend
+│   ├── skill_review.py      Dataset Sourcing & Discovery: /find (GitHub+HuggingFace+OpenAlex in
+│   │                        parallel, field-name-as-query), candidates CRUD, approve/reject/test,
+│   │                        /candidates/{id}/ingest (background job), /progress/{job_id}, clear,
+│   │                        identity_key dedupe (DOI/W-id, owner/repo, HF id) + partial UNIQUE index
+│   ├── ingestion.py         digest+embed pipeline; ingestion mutex (serializes writers); 30s busy timeout
+│   ├── load_progress.py     thread-bound progress engine (download 2-50 / digest 50-78 / embed 78-98 / done)
+│   ├── sentinel_domains.py  per-field worker boxes: GitHub/HF fetch + store candidates
+│   ├── openalex_worker.py   OpenAlex search + PDF/landing-page download lane
+│   ├── pattern_store.py     patterns.db: patterns, pattern_evidence (document_id/chunk provenance),
+│   │                        pattern_entities, pattern_relations, pattern_templates, future_requests
+│   ├── pattern_worker.py    LLM extraction (entities/relations/patterns), cross-domain synthesis
+│   ├── pattern_api.py       /api/patterns/*: workspace, discovery jobs, review, benefits,
+│   │                        reports (container/pattern x html/pdf), future-requests (rd-paper, manual-discovery)
+│   ├── pattern_report.py    APA 7th citation builder + HTML/PDF renderers (UI-only storage note stays out)
+│   ├── llm_gateway.py       provider-agnostic gateway (Ollama today; Gemini-ready) — the "umbilical cord" to cut
+│   ├── llm_firewall.py / gateway_guardian.py / sentinel_firewall.py / shell_policy.py / security.py
+│   │                        the firewall stack (verified: llm_firewall_ok true)
+│   ├── retrieval.py / chunking.py / parsing.py / library_router.py   RAG plumbing
+│   ├── scientific_fields/   per-field configs (Biology, Chemistry_Material, Computer_Science_AI,
+│   │                        Earth_Climate Sciences, Medicine_Health, Physics_Astronomy, deepmind_research)
+│   ├── rag/ (indexer.py), apis/ (open-alex-api.md), deepmind/ (empty)
+│   └── [legacy/aux modules: qualia, personal_growth, ayscio_pipeline, SMI_tunnel, ...]
+├── templates/               12 UI consoles; key ones: playground_console.html (main dashboard),
+│                            patterns_workspace.html (New Patterns), admin_console.html
+├── config/settings.yaml + sentinel_policy.yaml
+├── sentinel/                guardian/benchmarks/domains test harness (test_sentinel.py)
+├── scripts/                 (empty)
+├── data/                    6.7 GB runtime data — NOT in git: knowledge_taxonomy/, backups/, archives,
+│                            gemma DBs, gemma_training/ (nomic-embed-text vectors)
+├── VocationalLLM/           physically here but a SEPARATE app (ETDP) — excluded from this repo
+├── [root test/tool scripts: adversarial_battery.py, make_test_pdf.py, run_locked*.py, ...]
+```
+
+**Three apps on this machine** (keep lean; no cross-references): ① Sentinel = SMI_Core (this repo),
+② ETDP = VocationalLLM + its own repo + ETDP GitHub remote, ③ llama.cpp vendored clone (tooling, not ours).
+
+### Git audit — findings (user asked: multiple gits, suspected corruption, fresh start?)
+
+| Repo | Location | fsck | Verdict |
+|---|---|---|---|
+| ETDP repo | `/d/inpirari/.git` (wraps the WHOLE workspace!) | not fully run (too large) but HEAD/refs/status all healthy | miswired, NOT corrupted |
+| ETDP repo (2) | `SMI_Core/VocationalLLM/ETDP/.git` | clean; HEAD = 74f5e32 | healthy |
+| llama.cpp | `Ollama/llama.cpp/.git` | clean; HEAD = 56381e40 | healthy |
+| **Sentinel (new)** | `SMI_Core/.git` → branch `main`, commit bb3eeb6 | **clean (exit 0)** | **fresh start created** |
+
+- **No corruption found anywhere.** The confusion: the ETDP GitHub repo (`origin → https://github.com/ETDAI/ETDP.git`,
+  branch `etd.github.io`) is checked out at `/d/inpirari` ROOT, so every Sentinel file shows as untracked/modified ETDP content.
+- The outer repo holds **nothing unique** (0 commits ahead of origin) and ~100 files differ only as an ETDP checkout.
+- 3 IDE worktree branches hang off the outer repo: fading_ray_fires_06h02, fiery_drift_rolls_15h59 (Gemini), and
+  **liamdecker68-sudo-light-ide-chat-imports = 20 commits NOT on origin — PRESERVED, do not delete** (owner to review).
+- **Action taken (additive only):** created fresh repo inside SMI_Core — branch `main`, single commit bb3eeb6,
+  102 files (code+docs), `.gitignore` excludes data/ (6.7 GB), Logs/, uploads, venv, secrets (1-run-key.txt), .freebuff/, VocationalLLM/.
+- **Nothing was deleted.** ETDP checkout at root untouched; untangling `/d/inpirari/.git` is the owner's call (needs the
+  IDE worktree branches resolved first): plan = clone ETDP fresh elsewhere → archive worktrees → remove root `.git` → ETDP apps live in their own dirs.
+
+### Future request (logged by owner): restructure SMI_Core to GitHub-standard layout
+Decided: **future request, not now** (code churn on the eve of the machine migration). When done: `src/sentinel_core/`
+package layout, tests/ dir, pyproject.toml, docs/, CI (ruff+mypy+pytest), pre-commit, pre-release data-path audit
+(every `data/...` reference must point at a configurable root before any repo move). Tracked in this log; do NOT
+lose sight of it on the new machine.
