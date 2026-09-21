@@ -586,3 +586,24 @@ resume/re-pause cycle persists; sourcing while paused returned 9 Philosophy cand
 On the new rig: flip the toggle in the Patterns workspace (or POST recognition-switch {"enabled":true}).
 
 Commit: pause switch. Restart + hard refresh to see the toggle.
+
+---
+
+## §21 — Priority fixes: slow scholarly loads, reject flow, English-only, accordion (2026-09-21)
+
+Owner reported five issues (priority order). All fixed and verified live on :8077:
+
+1. **OpenAlex/PubMed slow + "server error" on Load** — root causes found and fixed:
+   - `_retry_get()` in `openalex_worker.py`: every GET (search, work record, PDF/landing-page download) now retries 3-4x with exponential backoff (1.5/3/6s) on 403/408/429/5xx and connection drops. PubMed's `_eget()` reuses it. Any single network hiccup no longer kills a load.
+   - PubMed esummary split into batches of 40 pmids (wide pools previously over-ran one request's budget → whole-lane failure).
+   - `/find` deadline raised to 75s; GitHub/HF timeouts trimmed 30s→25s; **pool.shutdown(wait=False, cancel_futures=True)** so a crawling lane can never block the search response (a `with ThreadPoolExecutor` join secretly did exactly that).
+   - Verified: searches 2-3s across all four lanes; OpenAlex load → full HTML in 4s; PubMed load → complete 138KB PMC paper, 145 chunks embedded, per-chunk progress in 7s.
+2. **No issues with GitHub/HF** — untouched.
+3. **Rejected datasets vanish immediately** — `review_candidate(reject)` now DELETES the row (no status='reject' residue; legacy reject rows also filtered from every view) and records the identity in `patterns.db → rejected_identities` (new table, functions `remember_rejected_identity / rejected_identities / forget_rejected_identity`). UI fades the card out (~0.25s) and splices it from the in-memory lineup; status line explains the removal.
+4. **English-only intake (owner directive, coded as OA_ENGLISH_ONLY / PM_ENGLISH_ONLY flags)** — OpenAlex: server-side `language:en` filter + per-work safety net (`_is_english_work`, language field added to the select). PubMed: `english[lang]` in the term + [lang]-title-tag heuristic (title-endswith tags like `[french]`). GitHub/HF already English-first (left untouched).
+5. **Rejected datasets never reappear** — two layers: the persisted `rejected_identities` cache (survives restarts, independent of Clear) enforced during in-batch dedupe (identities exist there) + the DB legacy-reject check at storage time. Verified end-to-end: rejected → re-search → absent (dups counter increments).
+6. **Field containers collapse on click (mouse-hold workaround)** — the grid click handler collapsed an expanded container on ANY non-button click, including the search input. Now an expanded container collapses ONLY on its header row (`.sentinel-field-row`); clicks in inputs/results/sourcing area never close it. Collapsed rows still open on any click.
+
+**Bonus bug found by live testing:** fresh `/find` inserts never received their DB id (`item["id"] = cur.lastrowid` was missing) — Approve/Reject/Load buttons on brand-new results would have 404'd. Fixed.
+
+Known quirk (pre-existing, not from §21): a server killed mid-boot on this laptop can leave a wedged socket that accepts but never answers — external tool timeouts (e.g. curl exit 28) may mask a healthy app. Always verify `curl /ui/playground` after a forced restart.

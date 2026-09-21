@@ -2405,9 +2405,15 @@
       const button = event.target.closest('button[data-role]');
       const fieldWrap = event.target.closest('.sentinel-field');
       if (!button) {
-        // Clicking anywhere on a collapsed row expands it; clicking the open row collapses it.
-        if (fieldWrap && !fieldWrap.classList.contains('expanded')) sentinelToggleField(fieldWrap, true);
-        else if (fieldWrap) sentinelToggleField(fieldWrap);
+        // Clicking a collapsed row expands it. An EXPANDED container only
+        // collapses on its header row — clicks inside the work area (search
+        // inputs, results, buttons without a data-role) must never close it,
+        // so the search string can be typed without holding the mouse down.
+        if (fieldWrap && !fieldWrap.classList.contains('expanded')) {
+          sentinelToggleField(fieldWrap, true);
+        } else if (fieldWrap && event.target.closest('.sentinel-field-row')) {
+          sentinelToggleField(fieldWrap);
+        }
         return;
       }
       const fieldSlug = button.dataset.field;
@@ -2630,24 +2636,47 @@
         const response = await fetch(url, { method: 'POST' });
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || 'Candidate action failed.');
-        if (card) {
+        if (decision === 'reject') {
+          // Owner directive: rejected datasets are removed from the list
+          // immediately. The backend also caches the identity so it never
+          // reappears in future searches.
+          if (card) {
+            card.style.transition = 'opacity 0.25s ease';
+            card.style.opacity = '0.35';
+            setTimeout(() => card.remove(), 220);
+          }
+          if (fieldSlug) {
+            const list = sentinelFieldSourcingResults[fieldSlug];
+            if (Array.isArray(list)) {
+              const idx = list.findIndex((c) => Number(c.id) === Number(candidate.id));
+              if (idx >= 0) list.splice(idx, 1);
+            }
+          }
+          const panel = sentinelFieldSourcingResults.__panel__;
+          if (Array.isArray(panel)) {
+            const pidx = panel.findIndex((c) => Number(c.id) === Number(candidate.id));
+            if (pidx >= 0) {
+              panel.splice(pidx, 1);
+              renderScientificCandidates(hideAbstractOnly(panel));
+            }
+          }
+        } else if (card) {
           card.classList.remove('approved', 'rejected');
           const pickBtn = card.querySelector(`button[data-role="${role}"]`);
           if (pickBtn) {
             pickBtn.classList.remove('ghost');
-            pickBtn.classList.add(decision === 'approve' ? 'approve-picked' : decision === 'reject' ? 'reject-picked' : 'test-picked');
+            pickBtn.classList.add(decision === 'approve' ? 'approve-picked' : 'test-picked');
             pickBtn.disabled = true;
             const other = card.querySelector(decision === 'approve' ? 'button[data-role="sourcing-reject"]' : 'button[data-role="sourcing-save"]');
             if (other) other.disabled = true;
           }
-          if (decision === 'reject') card.classList.add('rejected');
           if (decision === 'approve') card.classList.add('approved');
         }
         if (statusEl) {
           statusEl.textContent = decision === 'approve'
             ? `"${candidate.title || 'Candidate'}" approved for review — it is stored and appears in the Discovery & Review panel.`
             : decision === 'reject'
-              ? `"${candidate.title || 'Candidate'}" rejected — nothing was ingested.`
+              ? `"${candidate.title || 'Candidate'}" rejected and removed — it will not reappear in future searches.`
               : `"${candidate.title || 'Candidate'}" queued for test (dry run only).`;
         }
       } catch (error) {

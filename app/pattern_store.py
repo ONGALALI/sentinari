@@ -666,3 +666,68 @@ PAUSED_MESSAGE = (
     "Pattern recognition is paused by the owner (resume it in the Patterns workspace). "
     "Candidate sourcing, loads and ingestion continue unaffected."
 )
+
+
+# ---------------------------------------------------------------------------
+# Rejected-dataset identity cache (owner directive: rejected datasets never
+# reappear in later searches). Persisted in patterns.db so the guarantee
+# survives restarts, and independent of the candidates DB's Clear function.
+# ---------------------------------------------------------------------------
+
+def _ensure_rejected_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS rejected_identities (
+            identity_key TEXT PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '',
+            source_type TEXT NOT NULL DEFAULT '',
+            rejected_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+
+
+def remember_rejected_identity(identity_key: str, title: str = "", source_type: str = "") -> None:
+    """Record a rejected dataset identity so future searches skip it."""
+    key = str(identity_key or "").strip()
+    if not key:
+        return
+    ensure_pattern_store()
+    with _connect() as conn:
+        _ensure_rejected_table(conn)
+        conn.execute(
+            """
+            INSERT INTO rejected_identities (identity_key, title, source_type)
+            VALUES (?, ?, ?)
+            ON CONFLICT(identity_key) DO UPDATE SET
+                title = CASE WHEN ? != '' THEN ? ELSE title END,
+                rejected_at = datetime('now')
+            """,
+            (key, str(title or ""), str(source_type or ""), str(title or ""), str(title or "")),
+        )
+        conn.commit()
+
+
+def rejected_identities() -> list[str]:
+    """All rejected identity keys (persisted across restarts)."""
+    try:
+        with _connect() as conn:
+            _ensure_rejected_table(conn)
+            rows = conn.execute("SELECT identity_key FROM rejected_identities").fetchall()
+        return [str(r["identity_key"]) for r in rows if str(r["identity_key"])]
+    except Exception:
+        return []
+
+
+def forget_rejected_identity(identity_key: str) -> bool:
+    """Remove one identity from the rejected cache (e.g. the owner approves it
+    after all). Returns True when a row was removed."""
+    key = str(identity_key or "").strip()
+    if not key:
+        return False
+    ensure_pattern_store()
+    with _connect() as conn:
+        _ensure_rejected_table(conn)
+        cur = conn.execute("DELETE FROM rejected_identities WHERE identity_key = ?", (key,))
+        conn.commit()
+    return cur.rowcount > 0

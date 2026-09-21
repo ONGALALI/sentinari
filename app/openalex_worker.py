@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,72 @@ from .sentinel_domains import (
 )
 
 OPENALEX_API_BASE = "https://api.openalex.org"
+
+# English-only intake: the owner's directive — for now Sentinel accepts English
+# datasets only. Applied to the search filter (server-side) and as a safety
+# net on each result (OpenAlex reports the detected language per work).
+OA_ENGLISH_ONLY = True
+
+# Resilient HTTP: scholarly endpoints (OpenAlex, publisher PDF hosts, NCBI)
+# are slow and flaky, so every GET retries with backoff before giving up.
+_RETRYABLE_STATUSES = {403, 408, 429, 500, 502, 503, 504}
+
+
+def _retry_get(
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: int = 60,
+    attempts: int = 3,
+    stream: bool = False,
+) -> requests.Response:
+    """GET with retries and exponential backoff.
+
+    Handles the "extremely slow / mostly server error" reality of scholarly
+    hosts: transient 429/5xx responses and mid-flight connection drops are
+    retried instead of failing the whole load.
+    """
+    last_exc: Exception | None = None
+    last_resp: requests.Response | None = None
+    for attempt in range(max(1, attempts)):
+        try:
+            resp = requests.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=timeout,
+                stream=stream,
+                allow_redirects=True,
+            )
+            if resp.status_code not in _RETRYABLE_STATUSES:
+                return resp
+            last_resp = resp
+            status = resp.status_code
+        except requests.RequestException as ex:  # timeouts, resets, DNS hiccups
+            last_exc = ex
+            status = str(ex)[:80]
+        if attempt < max(1, attempts) - 1:
+            wait = min(8.0, 1.5 * (2**attempt))  # 1.5s, 3s, 6s ...
+            load_progress.emit("download", f"Request failed ({status}); retrying in {wait:.0f}s...")
+            time.sleep(wait)
+    if last_resp is not None:
+        return last_resp
+    raise last_exc if last_exc is not None else RuntimeError(f"Request failed: {url}")
+
+
+def _is_english_work(work: dict[str, Any]) -> bool:
+    """True when the work's detected language is English (or unknown/blank,
+    which OpenAlex uses when language detection found nothing to judge)."""
+    lang = str(work.get("language") or "").strip().lower()
+    return lang in ("", "en", "en-us", "en-gb")
+
+
+# ---------------------------------------------------------------------------
+# API key loading
+# ---------------------------------------------------------------------------
+
+_KEY_TOKEN_RE = re.compile(r"[A-Za-z0-9._-]{8,}")
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +198,7 @@ def _get_with_key_retry(url: str, params: dict[str, Any], timeout: int = 60) -> 
             attempt["api_key"] = key
         else:
             attempt.pop("api_key", None)
-        resp = requests.get(url, params=attempt, headers=_openalex_headers(), timeout=timeout)
+        resp = _retry_get(url, params=attempt, headers=_openalex_headers(), timeout=timeout)
         if resp.status_code not in (401, 403):
             return resp
         last_resp = resp
@@ -263,6 +330,9 @@ def search_openalex_works(
     filters: list[str] = []
     if open_access_only:
         filters.append("is_oa:true")
+    if OA_ENGLISH_ONLY:
+        # Server-side English filter — non-English works never reach the lineup.
+        filters.append("language:en")
     if from_year:
         filters.append(f"from_publication_date:{from_year}-01-01")
     if min_citations and min_citations > 0:
@@ -271,10 +341,9 @@ def search_openalex_works(
     params = _params(
         {
             "search": search_text,
-            "per-page": limit,
-            "select": "id,doi,title,display_name,publication_year,cited_by_count,"
-            "open_access,best_oa_location,primary_location,authorships,abstract_inverted_index",
-        }
+            "per-page": limit,        "select": "id,doi,title,display_name,publication_year,cited_by_count,"
+        "open_access,best_oa_location,primary_location,authorships,abstract_inverted_index,language",
+    }
     )
     if filters:
         params["filter"] = ",".join(filters)
@@ -292,6 +361,8 @@ def search_openalex_works(
     for work in payload.get("results") or []:
         if not isinstance(work, dict):
             continue
+        if OA_ENGLISH_ONLY and not _is_english_work(work):
+            continue  # safety net if the server-side filter ever misses
         artifact = _work_artifacts(work)
         # The full record is kept so "load" can re-fetch metadata reliably.
         artifact["search_query"] = query
@@ -334,7 +405,7 @@ def _safe_filename(text: str, max_len: int = 80) -> str:
 def _download(url: str) -> tuple[str, bytes, str]:
     """Download an artifact; return (content_type, bytes, final_url)."""
     headers = _openalex_headers()
-    resp = requests.get(url, headers=headers, timeout=_DOWNLOAD_TIMEOUT, stream=True, allow_redirects=True)
+    resp = _retry_get(url, headers=headers, timeout=_DOWNLOAD_TIMEOUT, stream=True, attempts=4)
     resp.raise_for_status()
     content_type = str(resp.headers.get("Content-Type") or "")
     chunks: list[bytes] = []

@@ -105,7 +105,17 @@ def _eget(url: str, params: dict[str, Any], timeout: int = 40) -> requests.Respo
     key = _api_key()
     if key:
         params = {**params, "api_key": key}
-    return requests.get(url, params=params, timeout=timeout, headers={"User-Agent": "SMi-Sentinel/1.0 (dataset sourcing)"})
+    # NCBI endpoints are slow and occasionally drop connections; retry with
+    # backoff instead of failing the search/load on the first hiccup.
+    from .openalex_worker import _retry_get
+
+    return _retry_get(
+        url,
+        params=params,
+        headers={"User-Agent": "SMi-Sentinel/1.0 (dataset sourcing)"},
+        timeout=timeout,
+        attempts=3,
+    )
 
 
 def _clean_text(text: str) -> str:
@@ -155,6 +165,9 @@ def _esummary_to_candidate(uid: str, doc: dict[str, Any], field_text: str) -> tu
     }
 
 
+PM_ENGLISH_ONLY = True  # owner directive: English datasets only, for now
+
+
 def search_pubmed_papers(
     query: str,
     field: str = "",
@@ -177,6 +190,8 @@ def search_pubmed_papers(
         term = f"{term} AND {int(from_year)}:3000[dp]"
     if full_text_only:
         term = f"{term} AND free full text[sb]"
+    if PM_ENGLISH_ONLY:
+        term = f"{term} AND english[lang]"
 
     try:
         # Fetch a wider pool so open-access (PMC full-text) papers can be
@@ -192,20 +207,37 @@ def search_pubmed_papers(
         if not pmids:
             return {"ok": True, "candidates": [], "count": 0, "total_available": int(esearch.get("count") or 0), "full_text_count": 0}
 
-        summary_resp = _eget(
-            f"{EUTILS_BASE}/esummary.fcgi",
-            {"db": "pubmed", "id": ",".join(pmids), "retmode": "json"},
-        )
-        summary_resp.raise_for_status()
-        result = (summary_resp.json() or {}).get("result") or {}
+        # Esummary in batches of 40 (URL length + NCBI batch limits) so wide
+        # pools (up to 75 pmids) never exceed a single request's budget.
         candidates: list[dict[str, Any]] = []
-        for uid in pmids:
-            doc = result.get(uid)
-            if not isinstance(doc, dict):
-                continue
-            candidate = _esummary_to_candidate(uid, doc, field_text)
-            if candidate is not None:
-                candidates.append(candidate)
+        for batch_start in range(0, len(pmids), 40):
+            batch = pmids[batch_start : batch_start + 40]
+            summary_resp = _eget(
+                f"{EUTILS_BASE}/esummary.fcgi",
+                {"db": "pubmed", "id": ",".join(batch), "retmode": "json"},
+            )
+            summary_resp.raise_for_status()
+            result = (summary_resp.json() or {}).get("result") or {}
+            for uid in batch:
+                doc = result.get(uid)
+                if not isinstance(doc, dict):
+                    continue
+                candidate = _esummary_to_candidate(uid, doc, field_text)
+                if candidate is not None:
+                    candidates.append(candidate)
+
+        if PM_ENGLISH_ONLY:
+            # Owner directive: English-language papers only. PubMed indexes
+            # mostly English titles, but translated records carry a [lang]
+            # tag; the lightweight heuristic below drops the obvious ones
+            # without extra API round-trips.
+            _NON_EN_TAGS = (
+                "[french]", "[german]", "[spanish]", "[italian]", "[portuguese]",
+                "[russian]", "[japanese]", "[chinese]", "[dutch]", "[polish]",
+                "[swedish]", "[danish]", "[norwegian]", "[czech]", "[hungarian]",
+                "[turkish]", "[greek]", "[hebrew]", "[arabic]", "[korean]",
+            )
+            candidates = [c for c in candidates if not str(c.get("title") or "").lower().endswith(_NON_EN_TAGS)]
 
         # Prefer open-access papers: stable sort keeps NCBI relevance/date order
         # within each group, but papers with PMC full text lead the lineup.

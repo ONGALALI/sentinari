@@ -707,7 +707,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                 "https://api.github.com/search/repositories",
                 params={"q": f"{query} in:name,description", "per_page": payload.limit, "sort": "best-match"},
                 headers=headers,
-                timeout=30,
+                timeout=25,
             )
             if resp.status_code != 200:
                 return []
@@ -739,7 +739,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                 "https://huggingface.co/api/datasets",
                 params={"search": query, "limit": payload.limit, "full": "false"},
                 headers=headers,
-                timeout=30,
+                timeout=25,
             )
             if resp.status_code != 200:
                 return []
@@ -780,9 +780,13 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             return []
 
     def _pubmed_search() -> list[dict[str, Any]]:
+        # Medical-fields gate runs first — no point opening a lane that must
+        # return nothing.
         try:
-            from .pubmed_worker import search_pubmed_papers
+            from .pubmed_worker import pubmed_field_allowed, search_pubmed_papers
 
+            if not pubmed_field_allowed(field_text):
+                return []
             result = search_pubmed_papers(
                 query,
                 field=field_text,
@@ -796,13 +800,46 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    # All four sources at the same time.
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    # All four sources at the same time. A shared deadline keeps one slow lane
+    # (OpenAlex and NCBI can crawl) from holding the whole search hostage —
+    # whichever lanes have answered when the deadline passes are what's shown.
+    # The pool is shut down WITHOUT waiting: a lane still running past the
+    # deadline keeps its thread but must not block the response.
+    import time as _search_time
+
+    _search_deadline = _search_time.monotonic() + 75.0
+
+    def _lane_result(future: Any) -> list[dict[str, Any]]:
+        remaining = _search_deadline - _search_time.monotonic()
+        try:
+            return list(future.result(timeout=max(1.0, remaining)) or [])
+        except Exception:
+            return []
+
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
         github_future = pool.submit(_github_search)
         hf_future = pool.submit(_huggingface_search)
         openalex_future = pool.submit(_openalex_search)
         pubmed_future = pool.submit(_pubmed_search)
-        candidates = [*github_future.result(), *hf_future.result(), *openalex_future.result(), *pubmed_future.result()]
+        candidates = [
+            *_lane_result(github_future),
+            *_lane_result(hf_future),
+            *_lane_result(openalex_future),
+            *_lane_result(pubmed_future),
+        ]
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    # Owner directive: rejected datasets must never reappear in later searches.
+    # The persisted identity cache is loaded here and applied after the
+    # normalization loop below (identities don't exist until then).
+    try:
+        from .pattern_store import rejected_identities as _rejected_identities
+
+        _rejected = set(_rejected_identities())
+    except Exception:
+        _rejected = set()
 
     # Normalize the unique key every source needs before storage.
     for item in candidates:
@@ -831,7 +868,9 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         )
 
     # In-batch dedupe: the same work can appear twice in one search response
-    # (e.g. DOI and landing-page variants); keep the first occurrence.
+    # (e.g. DOI and landing-page variants); keep the first occurrence. This
+    # is also where the rejected-identity cache is enforced — identities
+    # exist by now, so a rejected work is dropped before it can be stored.
     unique_candidates: list[dict[str, Any]] = []
     seen_identities: set[str] = set()
     duplicate_count = 0
@@ -840,14 +879,28 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         if identity and identity in seen_identities:
             duplicate_count += 1
             continue
+        if identity and identity in _rejected:
+            duplicate_count += 1
+            continue
         if identity:
             seen_identities.add(identity)
         unique_candidates.append(item)
 
     stored_ids: dict[str, int] = {}
     with get_connection() as conn:
+        # The DB is the second layer of the rejected-never-returns guarantee:
+        # any legacy rows still carrying status='reject' are skipped too.
+        _known_rejected = _rejected | {
+            str(r["identity_key"])
+            for r in conn.execute(
+                "SELECT identity_key FROM skill_review_candidates WHERE status = 'reject' AND identity_key IS NOT NULL AND identity_key != ''"
+            ).fetchall()
+        }
         for item in unique_candidates:
             identity = str(item.get("_identity") or "")
+            if identity and identity in _known_rejected:
+                duplicate_count += 1
+                continue
             existing = conn.execute(
                 "SELECT id, status FROM skill_review_candidates WHERE identity_key = ?",
                 (identity,),
@@ -872,7 +925,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                     duplicate_count += 1
                 continue
             try:
-                conn.execute(
+                cur = conn.execute(
                     """
                     INSERT INTO skill_review_candidates
                         (source_type, source_url, title, description, scientific_field,
@@ -891,6 +944,9 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         identity,
                     ),
                 )
+                # Attach the new row id so the response's cards carry working
+                # Approve / Reject / Load buttons without a page refresh.
+                item["id"] = int(cur.lastrowid or 0)
                 item["already_loaded"] = False
                 item["previously_rejected"] = False
             except sqlite3.IntegrityError:
@@ -1247,6 +1303,30 @@ def review_candidate(
         ).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Skill candidate not found.")
+        if decision == "reject":
+            # Rejected datasets are removed from the review lineup immediately
+            # (owner directive). The identity_key is preserved in the worker's
+            # rejected-identity cache, so it will never reappear in future
+            # searches either — only a fresh Load via GitHub/HF direct pull
+            # can reintroduce the same dataset.
+            identity = str(row["identity_key"] or "")
+            conn.execute("DELETE FROM skill_review_candidates WHERE id = ?", (candidate_id,))
+            conn.commit()
+            if identity:
+                try:
+                    from .pattern_store import remember_rejected_identity
+
+                    remember_rejected_identity(identity)
+                except Exception:
+                    pass
+            return {
+                "ok": True,
+                "candidate_id": candidate_id,
+                "status": "reject",
+                "removed": True,
+                "activated": False,
+                "shared_skills_root": str(_root()),
+            }
         conn.execute(
             "UPDATE skill_review_candidates SET status = ?, reviewed_at = datetime('now') WHERE id = ?",
             (decision, candidate_id),
