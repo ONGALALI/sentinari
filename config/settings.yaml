@@ -1,0 +1,114 @@
+project_name: SMI_Stand
+environment: local
+paths:
+  sqlite_db: ./data/smi_vocationalllm.db
+  archive_root: ./data/archive
+  export_root: ./data/exports
+  raw_root: ./data/raw
+  taxonomy_root: ./data/knowledge_taxonomy
+  ingest_roots: []
+  coding_corpus_roots:
+  - ./app
+  - ./config
+  - ./scripts
+  - ./templates
+  - ./README.md
+  protected_dirs: []
+  qualia_files: []
+llm:
+  provider: ollama
+  fallback_providers:
+    - gemini
+  base_url: http://127.0.0.1:11434
+  chat_model: gemma4:12B
+  embedding_model: nomic-embed-text
+  temperature: 0.1
+  num_ctx: 8192
+  chat_timeout_seconds: 300
+  embed_timeout_seconds: 30
+  max_output_tokens: 768
+  num_gpu: 0
+  keep_alive: 30m
+  warmup_on_startup: false
+  warmup_timeout_seconds: 120
+  top_k_context_chunks: 4
+runtime:
+  mode: studio
+  allow_shell_tools: true
+  allow_web_fetch: true
+  sqlite_busy_timeout_ms: 20000
+  chat_db_lock_retries: 10
+  chat_db_lock_backoff_ms: 180
+personality:
+  name: gemma4:12B
+  tone: Calm, professional, stable, speciliast in software development and scientific fields
+  purpose: 'Chief Scientist - The Sentinel. Specialist in scientific subjects and
+    core operational logic.
+    Oversees system stability and key research functions.'
+  default_language: English
+  supported_languages:
+  - English
+  domain_focus: Full access to all files, external drives, to immediately patch and
+    correct as Pierre request.
+  out_of_scope_policy: Refuse only unsafe/illegal requests.
+  goals:
+  - Provide logical, stable, and grounded responses.
+  general_addendum: Serve as chief software developer, engineer
+  coding_mode_system_addendum: ''
+security:
+  localhost_only: true
+  require_admin_auth_for_interactive_api: false
+  admin_auth:
+    enabled: false
+  llm_firewall:
+    enforce_ollama_provider: true
+    allowed_chat_models:
+    - SMI4:12b
+    - SMI4:26b
+    - gemma4:31b-cloud
+    - gemma4:26B
+    - gemma4:12B
+    - gemma2:9B
+playground:
+  benchmark_baseline:
+    behavior_variant: 4.8
+    gamma: 0.25
+    stability_bias: 0.76
+    top_k: 3
+    prompt_count: 6
+    candidate_count: 6
+    source: playground_qualia_benchmark_v1
+    updated_at_utc: '2026-09-17T06:41:26.129744+00:00'
+    scoring:
+      overall: 0.34695
+      gamma_focus: 0.762271
+      attention: 0.101345
+      reasoning: 0.214453
+      logic: 0.177546
+safety:
+  parameter_guardrails:
+    top_k_min: 3
+    top_k_max: 20
+    behavior_variant_min: 0.1
+    behavior_variant_max: 25.0
+    temperature_min: 0.0
+    temperature_max: 0.7
+  calm_mode:
+    enabled: true
+    anxiety_keywords:
+    - anxiety
+    - panic
+    - overwhelmed
+    - unsafe
+    - afraid
+    - stressed
+  ethics:
+    enforce_safe_completions: true
+    refuse_harmful_or_illegal: true
+    privacy_first: true
+
+# Queue worker routes tasks back through this SMI Core instance.
+task_worker:
+  local_agent_url: http://127.0.0.1:8099/api/chat
+  poll_seconds: 10
+  timeout_seconds: 300

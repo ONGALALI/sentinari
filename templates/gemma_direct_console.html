@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gemma Direct Chat</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --line: #d8dee8;
+      --text: #151b28;
+      --muted: #657184;
+      --blue: #195bbf;
+      --green: #15734f;
+      --red: #a33232;
+      --ink: #283246;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, Arial, sans-serif;
+    }
+    header {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      gap: 12px;
+    }
+    h1 { margin: 0; font-size: 21px; letter-spacing: 0; }
+    a { color: var(--blue); text-decoration: none; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+      max-width: 1500px;
+      margin: 0 auto;
+      min-height: calc(100vh - 64px);
+    }
+    aside, .chat-shell {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    aside { padding: 14px; }
+    h2 { font-size: 14px; margin: 0 0 12px; }
+    label { display: block; margin: 10px 0 5px; color: var(--muted); font-size: 12px; }
+    input, textarea, button {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    input, textarea {
+      width: 100%;
+      padding: 9px 10px;
+      background: #fff;
+      color: var(--text);
+    }
+    button {
+      min-height: 40px;
+      padding: 9px 13px;
+      border: 0;
+      background: var(--blue);
+      color: #fff;
+      cursor: pointer;
+    }
+    button.secondary { background: var(--ink); }
+    button:disabled { opacity: .62; cursor: wait; }
+    .pill {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      margin-bottom: 8px;
+      background: #fafbfc;
+      font-size: 13px;
+    }
+    .ok { color: var(--green); font-weight: 700; }
+    .bad { color: var(--red); font-weight: 700; }
+    .warn { color: #8a5d00; font-weight: 700; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .chat-shell {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+    .messages {
+      padding: 16px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .bubble {
+      width: min(860px, 92%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      white-space: pre-wrap;
+      line-height: 1.48;
+      overflow-wrap: anywhere;
+    }
+    .user { align-self: flex-end; background: #eef4ff; }
+    .assistant { align-self: flex-start; background: #fbfcff; }
+    .composer {
+      border-top: 1px solid var(--line);
+      padding: 12px;
+      background: #fbfcfd;
+    }
+    .composer textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.42;
+    }
+    .row { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .command {
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      background: #f2f4f8;
+      border: 1px solid var(--line);
+      padding: 8px;
+      border-radius: 6px;
+      overflow-wrap: anywhere;
+      margin: 7px 0;
+    }
+    @media (max-width: 860px) {
+      header { height: auto; padding: 12px; flex-wrap: wrap; }
+      main { grid-template-columns: 1fr; min-height: auto; }
+      .chat-shell { min-height: 70vh; }
+      .bubble { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Gemma Direct Chat</h1>
+    <div class="row">
+      <button class="secondary" id="refresh">Refresh</button>
+      <a href="/ui/gemma-qualia">Gemma Qualia Lab</a>
+      <a href="/ui/playground">SMi Playground</a>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <h2>Status</h2>
+      <div id="status"></div>
+      <p class="meta" id="logPath"></p>
+
+      <label for="model">Model</label>
+      <input id="model" value="gemma4:26b">
+
+      <label for="temperature">Temperature</label>
+      <input id="temperature" type="number" min="0" max="2" step="0.05" value="0.45">
+
+      <label for="tokens">Max answer size</label>
+      <input id="tokens" type="number" min="64" max="4096" step="64" value="900">
+
+      <div style="margin-top:14px">
+        <h2>Local launch</h2>
+        <div class="command">D:\Inpirari\Launch-Gemma-Direct-Page.bat</div>
+        <div class="command">D:\Inpirari\START-HERE.bat</div>
+      </div>
+
+      <p class="meta">This page uses a minimal local bridge to Gemma. It does not use SMi knowledge routing, profile snapshots, dataset assessment wrapping, or fallback answers.</p>
+    </aside>
+
+    <section class="chat-shell">
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <textarea id="prompt">Gemma, please speak with Pierre normally. First answer: which is the largest continent on Earth?</textarea>
+        <div class="row" style="margin-top:9px">
+          <button id="send">Send</button>
+          <button class="secondary" id="clear">Clear page</button>
+          <button class="secondary" id="seed">Load trust prompt</button>
+        </div>
+        <p class="meta" id="meta"></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const history = [];
+
+    function pill(label, value, state) {
+      return `<div class="pill"><span>${label}</span><span class="${state}">${value}</span></div>`;
+    }
+
+    function addBubble(role, text) {
+      const el = document.createElement("div");
+      el.className = `bubble ${role}`;
+      el.textContent = text;
+      $("messages").appendChild(el);
+      $("messages").scrollTop = $("messages").scrollHeight;
+    }
+
+    async function refreshStatus() {
+      $("status").innerHTML = pill("Gemma", "checking", "warn");
+      try {
+        const res = await fetch("/api/playground/gemma-direct/status");
+        const data = await res.json();
+        $("status").innerHTML = [
+          pill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "bad"),
+          pill("Model", data.model || "not set", data.model ? "ok" : "bad"),
+          pill("Old SMi boundary", data.normal_playground_boundary_disabled ? "still blocks old chat" : "open", data.normal_playground_boundary_disabled ? "warn" : "ok")
+        ].join("");
+        $("model").value = data.model || $("model").value;
+        $("logPath").textContent = data.log_path || "";
+      } catch (err) {
+        $("status").innerHTML = pill("Direct bridge", "not answering", "bad");
+      }
+    }
+
+    async function send() {
+      const message = $("prompt").value.trim();
+      if (!message) return;
+      addBubble("user", message);
+      history.push({ role: "user", content: message });
+      $("prompt").value = "";
+      $("send").disabled = true;
+      $("meta").textContent = "Gemma is answering directly...";
+      try {
+        const payload = {
+          message,
+          history: history.slice(-12),
+          model: $("model").value,
+          temperature: Number($("temperature").value || 0.45),
+          max_output_tokens: Number($("tokens").value || 900)
+        };
+        const res = await fetch("/api/playground/gemma-direct/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        const answer = data.answer || data.error || "No answer returned.";
+        addBubble("assistant", answer);
+        history.push({ role: "assistant", content: answer });
+        $("meta").textContent = `${data.runtime?.model || ""} | ${data.elapsed_ms || 0} ms | ${data.log_path || ""}`;
+      } catch (err) {
+        addBubble("assistant", "The direct Gemma bridge did not answer.");
+      } finally {
+        $("send").disabled = false;
+      }
+    }
+
+    $("send").addEventListener("click", send);
+    $("refresh").addEventListener("click", refreshStatus);
+    $("clear").addEventListener("click", () => {
+      history.splice(0, history.length);
+      $("messages").innerHTML = "";
+      $("meta").textContent = "";
+    });
+    $("seed").addEventListener("click", () => {
+      $("prompt").value = "Gemma, Pierre wants a normal trust relationship, not one-line prompt completions. Speak directly, ask one curious question if useful, and explain what you need from him to become more useful.";
+    });
+    $("prompt").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) send();
+    });
+    refreshStatus();
+    addBubble("assistant", "Ready for direct local Gemma chat.");
+  </script>
+</body>
+</html>

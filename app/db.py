@@ -1,0 +1,526 @@
+from __future__ import annotations
+
+import re
+import sqlite3
+from pathlib import Path
+from typing import Iterable
+
+from .config import get_settings
+from .library_router import gemma_library_path, library_name_for_field
+
+_libraries_bootstrapped = False
+
+
+def _ensure_library_files() -> None:
+    """Create the physical library file (full schema) once per process.
+
+    Attaching an EMPTY library file would make the TEMP views fail, so the
+    file is bootstrapped through library_connection() — which runs the
+    library schema (tables AND indexes) directly inside it.
+    """
+    global _libraries_bootstrapped
+    if _libraries_bootstrapped:
+        return
+    library_connection("gemma").close()
+    _libraries_bootstrapped = True
+
+
+def _db_path() -> Path:
+    settings = get_settings()
+    return Path(settings["paths"]["sqlite_db"]).resolve()
+
+
+def _attach_libraries(conn: sqlite3.Connection) -> None:
+    """ATTACH the physical library and expose unified TEMP views.
+
+    The main database keeps chat/tasks/qualia state. The knowledge library
+    (documents / chunks / chunk_fts / ingest_events) lives in ONE physical
+    database — library_gemma.db (Sentinel / Guardian fields).
+    Every existing query in the app keeps working unchanged against the TEMP
+    views; writes go through the routing helpers below.
+    """
+    gemma_path = gemma_library_path()
+    gemma_path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_library_files()
+    conn.execute("ATTACH DATABASE ? AS gemma_lib;", (str(gemma_path),))
+    # SQLite forbids PERSISTENT views that reference other databases and views
+    # cannot be written through. TEMP views scoped to THIS connection work for
+    # unified reads; every writer routes through library_connection() instead.
+    conn.execute("DROP VIEW IF EXISTS main.documents;")
+    conn.execute("DROP VIEW IF EXISTS main.chunks;")
+    conn.execute("DROP VIEW IF EXISTS main.ingest_events;")
+    conn.executescript(
+        """
+        CREATE TEMP VIEW documents AS
+            SELECT * FROM gemma_lib.documents;
+
+        CREATE TEMP VIEW chunks AS
+            SELECT * FROM gemma_lib.chunks;
+
+        CREATE TEMP VIEW ingest_events AS
+            SELECT * FROM gemma_lib.ingest_events;
+        """
+    )
+
+
+def library_connection(library: str = "gemma") -> sqlite3.Connection:
+    """Direct read/write connection to the physical library database.
+
+    All writes route to the single Gemma library. Creates the library schema
+    on first use.
+    """
+    target = gemma_library_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    settings = get_settings()
+    runtime = settings.get("runtime", {})
+    busy_timeout_ms = max(1000, int(runtime.get("sqlite_busy_timeout_ms") or 1000))
+    conn = sqlite3.connect(str(target), timeout=max(1.0, busy_timeout_ms / 1000.0))
+    conn.row_factory = sqlite3.Row
+    busy = max(1000, int(runtime.get("sqlite_busy_timeout_ms") or 1000))
+    conn.execute(f"PRAGMA busy_timeout = {busy};")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.executescript(_LIBRARY_SCHEMA)
+    return conn
+
+
+_LIBRARY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id TEXT,
+    title TEXT,
+    source_type TEXT,
+    source_path TEXT,
+    source_url TEXT,
+    domain TEXT,
+    module TEXT,
+    topic TEXT,
+    language TEXT,
+    license TEXT,
+    published_date TEXT,
+    authors TEXT,
+    publisher TEXT,
+    scientific_field TEXT,
+    vocational_discipline TEXT,
+    source_collection TEXT,
+    document_metadata_json TEXT NOT NULL DEFAULT '{}',
+    priority INTEGER DEFAULT 0,
+    checksum TEXT NOT NULL,
+    archive_path TEXT,
+    raw_char_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_documents_checksum ON documents(checksum);
+CREATE INDEX IF NOT EXISTS idx_documents_module_topic ON documents(module, topic);
+CREATE INDEX IF NOT EXISTS idx_documents_field ON documents(scientific_field);
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    token_estimate INTEGER NOT NULL DEFAULT 0,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    embedding_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id, chunk_index);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS chunk_fts
+USING fts5(content, document_id UNINDEXED, tokenize='unicode61');
+
+CREATE TABLE IF NOT EXISTS ingest_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_path TEXT,
+    source_type TEXT,
+    status TEXT,
+    error TEXT,
+    source_id TEXT,
+    document_id INTEGER,
+    chunk_count INTEGER,
+    char_count INTEGER,
+    pdf_engine TEXT,
+    module TEXT,
+    topic TEXT,
+    scientific_field TEXT,
+    vocational_discipline TEXT,
+    source_collection TEXT,
+    duration_ms INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_events_field ON ingest_events(scientific_field);
+"""
+
+
+def get_connection() -> sqlite3.Connection:
+    settings = get_settings()
+    db_path = _db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    runtime = settings.get("runtime", {})
+    busy_timeout_ms = max(1000, int(runtime.get("sqlite_busy_timeout_ms") or 1000))
+    conn = sqlite3.connect(str(db_path), timeout=max(1.0, busy_timeout_ms / 1000.0))
+    conn.row_factory = sqlite3.Row
+    _attach_libraries(conn)
+    def safe_pragma(sql: str) -> None:
+        try:
+            conn.execute(sql)
+        except sqlite3.OperationalError as ex:
+            if "locked" not in str(ex).lower():
+                conn.close()
+                raise
+
+    safe_pragma(f"PRAGMA busy_timeout = {busy_timeout_ms};")
+    safe_pragma("PRAGMA foreign_keys = ON;")
+    journal_mode = str(runtime.get("chat_db_journal_mode", "WAL") or "WAL").strip().upper()
+    if journal_mode not in {"DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"}:
+        journal_mode = "WAL"
+    safe_pragma(f"PRAGMA journal_mode = {journal_mode};")
+    safe_pragma("PRAGMA synchronous = NORMAL;")
+    return conn
+
+
+def try_write_lock(timeout_ms: int = 1500) -> sqlite3.Connection | None:
+    """Acquire the database write lock briefly, or return None if busy.
+
+    Used by dashboard/status endpoints so a long-running bulk writer (e.g. a
+    corpus sync) degrades reads to stale-but-instant instead of blocking them
+    for the whole busy timeout or failing with `database is locked`.
+    """
+    try:
+        conn = get_connection()
+        conn.execute(f"PRAGMA busy_timeout = {max(100, int(timeout_ms))};")
+        conn.execute("BEGIN IMMEDIATE;")
+        conn.execute("ROLLBACK;")  # release; caller re-begins on their own connection
+        return conn
+    except sqlite3.OperationalError:
+        try:
+            conn.close()  # type: ignore[possibly-undefined]
+        except Exception:
+            pass
+        return None
+
+
+def get_read_connection(*, busy_timeout_ms: int = 750) -> sqlite3.Connection:
+    settings = get_settings()
+    db_path = _db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_library_files()
+    timeout_ms = max(100, min(5000, int(busy_timeout_ms or 750)))
+    uri = f"file:{db_path.as_posix()}?mode=ro&cache=shared"
+    conn = sqlite3.connect(uri, timeout=max(0.1, timeout_ms / 1000.0), uri=True)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute(f"PRAGMA busy_timeout = {timeout_ms};")
+        _attach_libraries_readonly(conn)
+        conn.execute("PRAGMA query_only = ON;")
+    except sqlite3.OperationalError:
+        conn.close()
+        raise
+    return conn
+
+
+def _attach_libraries_readonly(conn: sqlite3.Connection) -> None:
+    """ATTACH the libraries for read-only connections + TEMP union views.
+
+    TEMP views are created BEFORE the caller switches the connection into
+    query_only mode (creating a TEMP view is a schema write, and query_only
+    would block it).
+    """
+    conn.execute("ATTACH DATABASE ? AS gemma_lib;", (str(gemma_library_path()),))
+    conn.executescript(
+        """
+        CREATE TEMP VIEW documents AS
+            SELECT * FROM gemma_lib.documents;
+        CREATE TEMP VIEW chunks AS
+            SELECT * FROM gemma_lib.chunks;
+        CREATE TEMP VIEW ingest_events AS
+            SELECT * FROM gemma_lib.ingest_events;
+        """
+    )
+
+
+# Derived tables that were originally created with FK clauses pointing at
+# documents/chunks. Those knowledge tables now live in the attached library
+# databases and their union names are TEMP views — neither can be an FK
+# parent. Rebuild these tables without the unenforceable constraints (ids are
+# kept; they remain the audit trail).
+_FK_TABLE_FIXES = (
+    "unsupervised_clusters",
+    "unsupervised_cluster_members",
+)
+
+
+def _migrate_library_fk_tables(conn: sqlite3.Connection) -> None:
+    for table in _FK_TABLE_FIXES:
+        row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchone()
+        sql = str(row["sql"] or "") if row else ""
+        if not sql or ("REFERENCES documents" not in sql and "REFERENCES chunks" not in sql):
+            continue
+        lines = [
+            line
+            for line in sql.splitlines()
+            if "REFERENCES documents" not in line and "REFERENCES chunks" not in line
+        ]
+        fixed = re.sub(r",\s*\)", ")", "\n".join(lines))
+        if fixed == sql:
+            continue
+        tmp = f"{table}__fkfix"
+        create_sql = re.sub(
+            rf"CREATE TABLE (IF NOT EXISTS )?{re.escape(table)}",
+            f"CREATE TABLE {tmp}",
+            fixed,
+            count=1,
+        )
+        conn.execute("PRAGMA foreign_keys=OFF;")
+        previous_isolation = conn.isolation_level
+        conn.isolation_level = None  # explicit transaction control
+        conn.execute("BEGIN IMMEDIATE;")
+        try:
+            conn.execute(f"DROP TABLE IF EXISTS {tmp};")
+            conn.execute(create_sql)
+            conn.execute(f"INSERT INTO {tmp} SELECT * FROM {table};")
+            index_rows = conn.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL",
+                (table,),
+            ).fetchall()
+            conn.execute(f"DROP TABLE {table};")
+            conn.execute(f"ALTER TABLE {tmp} RENAME TO {table};")
+            for idx in index_rows:
+                conn.execute(str(idx["sql"]))
+            conn.execute("COMMIT;")
+            conn.isolation_level = previous_isolation
+        except Exception:
+            conn.execute("ROLLBACK;")
+            conn.isolation_level = previous_isolation
+            raise
+        finally:
+            conn.execute("PRAGMA foreign_keys=ON;")
+        print(f"[db] rebuilt {table} without cross-library foreign keys", flush=True)
+
+
+def initialize_database() -> None:
+    # NOTE: documents / chunks / chunk_fts / ingest_events are NOT created here.
+    # They live in the attached physical library (library_gemma.db — the former
+    # coding library was folded in), created by _attach_libraries() on every connection.
+    schema = """
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        session_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        citations_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id_desc ON chat_messages(session_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS chat_session_memory (
+        session_id TEXT PRIMARY KEY,
+        rolling_summary TEXT NOT NULL DEFAULT '',
+        last_compacted_message_id INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS smi_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_to_perform TEXT NOT NULL,
+        target_datetime TEXT NOT NULL DEFAULT '',
+        quality_standard_expected TEXT NOT NULL DEFAULT '',
+        knowledge_library_applicable TEXT NOT NULL DEFAULT '',
+        attachments_json TEXT NOT NULL DEFAULT '[]',
+        smi_feedback TEXT NOT NULL DEFAULT '',
+        evaluation TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_smi_feedback_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_smi_tasks_status_updated
+        ON smi_tasks(status, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS smi_profile_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL DEFAULT 'manual',
+        purpose TEXT NOT NULL DEFAULT '',
+        domain_focus TEXT NOT NULL DEFAULT '',
+        out_of_scope_policy TEXT NOT NULL DEFAULT '',
+        goals_json TEXT NOT NULL DEFAULT '[]',
+        personality_json TEXT NOT NULL DEFAULT '{}',
+        safety_json TEXT NOT NULL DEFAULT '{}',
+        addendums_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_smi_profile_snapshots_created
+        ON smi_profile_snapshots(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS smi_operator_state (
+        state_key TEXT PRIMARY KEY,
+        last_saved_source TEXT NOT NULL DEFAULT 'manual',
+        name TEXT NOT NULL DEFAULT '',
+        tone TEXT NOT NULL DEFAULT '',
+        purpose TEXT NOT NULL DEFAULT '',
+        default_language TEXT NOT NULL DEFAULT '',
+        supported_languages_json TEXT NOT NULL DEFAULT '[]',
+        domain_focus TEXT NOT NULL DEFAULT '',
+        out_of_scope_policy TEXT NOT NULL DEFAULT '',
+        goals_json TEXT NOT NULL DEFAULT '[]',
+        general_addendum TEXT NOT NULL DEFAULT '',
+        coding_mode_system_addendum TEXT NOT NULL DEFAULT '',
+        personality_json TEXT NOT NULL DEFAULT '{}',
+        safety_json TEXT NOT NULL DEFAULT '{}',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_smi_operator_state_updated
+        ON smi_operator_state(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS qualia_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_type TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT '',
+        session_id TEXT NOT NULL DEFAULT '',
+        behavior_variant REAL,
+        effective_variant_ratio REAL,
+        gamma_requested REAL,
+        gamma_effective REAL,
+        stability_bias REAL,
+        stability_index REAL,
+        influence REAL,
+        attention_score REAL,
+        reasoning_score REAL,
+        logic_score REAL,
+        confidence REAL,
+        before_state_json TEXT NOT NULL DEFAULT '{}',
+        after_state_json TEXT NOT NULL DEFAULT '{}',
+        recommendation_json TEXT NOT NULL DEFAULT '{}',
+        benchmark_summary_json TEXT NOT NULL DEFAULT '{}',
+        bell_curve_json TEXT NOT NULL DEFAULT '{}',
+        trajectory_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_qualia_history_created
+        ON qualia_history(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_qualia_history_type_created
+        ON qualia_history(run_type, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS taxonomy_nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        path TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_taxonomy_nodes_category_slug ON taxonomy_nodes(category, slug);
+
+    CREATE TABLE IF NOT EXISTS file_ingest_state (
+        path TEXT PRIMARY KEY,
+        file_size INTEGER NOT NULL DEFAULT 0,
+        mtime_utc TEXT NOT NULL DEFAULT '',
+        checksum TEXT NOT NULL DEFAULT '',
+        last_status TEXT NOT NULL DEFAULT 'unknown',
+        last_error TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- NOTE: ingest_events is intentionally NOT created in the main database.
+    -- It is a TEMP view over the physical library (created in
+    -- _attach_libraries); ingest events are written inside the library.
+
+    CREATE TABLE IF NOT EXISTS unsupervised_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        algorithm TEXT NOT NULL DEFAULT 'kmeans-cosine',
+        vector_source TEXT NOT NULL DEFAULT 'pending',
+        requested_clusters INTEGER,
+        resolved_clusters INTEGER NOT NULL DEFAULT 0,
+        min_points INTEGER NOT NULL DEFAULT 0,
+        chunk_count INTEGER NOT NULL DEFAULT 0,
+        scientific_field TEXT,
+        vocational_discipline TEXT,
+        source_collection TEXT,
+        started_at TEXT NOT NULL DEFAULT (datetime('now')),
+        completed_at TEXT,
+        notes TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_unsupervised_runs_started ON unsupervised_runs(started_at DESC);
+
+    CREATE TABLE IF NOT EXISTS unsupervised_clusters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id INTEGER NOT NULL,
+        cluster_index INTEGER NOT NULL,
+        label TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        top_terms_json TEXT NOT NULL DEFAULT '[]',
+        exemplar_chunk_id INTEGER,
+        centroid_json TEXT,
+        FOREIGN KEY (run_id) REFERENCES unsupervised_runs(id) ON DELETE CASCADE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_unsupervised_clusters_run_cluster
+        ON unsupervised_clusters(run_id, cluster_index);
+    CREATE INDEX IF NOT EXISTS idx_unsupervised_clusters_run_size
+        ON unsupervised_clusters(run_id, size DESC);
+
+    CREATE TABLE IF NOT EXISTS unsupervised_cluster_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cluster_id INTEGER NOT NULL,
+        run_id INTEGER NOT NULL,
+        chunk_id INTEGER NOT NULL,
+        assignment_score REAL NOT NULL DEFAULT 0,
+        FOREIGN KEY (cluster_id) REFERENCES unsupervised_clusters(id) ON DELETE CASCADE,
+        FOREIGN KEY (run_id) REFERENCES unsupervised_runs(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_unsupervised_members_cluster
+        ON unsupervised_cluster_members(cluster_id, assignment_score DESC);
+    CREATE INDEX IF NOT EXISTS idx_unsupervised_members_run
+        ON unsupervised_cluster_members(run_id);
+    CREATE INDEX IF NOT EXISTS idx_unsupervised_members_chunk
+        ON unsupervised_cluster_members(chunk_id);
+
+
+
+    """
+    with get_connection() as conn:
+        _migrate_library_fk_tables(conn)
+        conn.executescript(schema)
+        _ensure_columns(
+            conn,
+            "smi_tasks",
+            (
+                ("attachments_json", "TEXT NOT NULL DEFAULT '[]'"),
+            ),
+        )
+        conn.commit()
+
+
+def reset_document_chunks(conn: sqlite3.Connection, document_id: int) -> None:
+    existing_ids = conn.execute(
+        "SELECT id FROM chunks WHERE document_id = ? ORDER BY id;",
+        (document_id,),
+    ).fetchall()
+    for row in existing_ids:
+        conn.execute("DELETE FROM chunk_fts WHERE rowid = ?;", (int(row["id"]),))
+    conn.execute("DELETE FROM chunks WHERE document_id = ?;", (document_id,))
+
+
+def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table_name});").fetchall()
+    return {str(row["name"]) for row in rows}
+
+
+def _ensure_columns(conn: sqlite3.Connection, table_name: str, column_defs: Iterable[tuple[str, str]]) -> None:
+    existing = _table_columns(conn, table_name)
+    for column_name, sql_type in column_defs:
+        if column_name in existing:
+            continue
+        conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sql_type};")
+

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMi Chat Console</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --card: #ffffff;
+      --border: #d4dee8;
+      --ink: #152433;
+      --muted: #4b6178;
+      --accent: #1d6fd8;
+      --ok: #1d7a3a;
+      --warn: #ac3a2a;
+    }
+    body { margin: 0; font-family: "Segoe UI", Tahoma, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+    h1 { margin: 0 0 8px 0; }
+    .hint { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .field { display: grid; gap: 4px; min-width: 150px; }
+    .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+    input, textarea, select {
+      width: 100%; box-sizing: border-box; border: 1px solid #c2cfdd; border-radius: 6px;
+      padding: 8px 10px; background: #fff; color: var(--ink);
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    button {
+      border: 1px solid #7e95b0; border-radius: 6px; padding: 8px 12px;
+      background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
+    }
+    button.secondary { background: #5e7188; }
+    .status { margin-top: 6px; min-height: 18px; font-size: 13px; }
+    .ok { color: var(--ok); }
+    .err { color: var(--warn); }
+    .upload-hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .upload-list {
+      margin-top: 8px; padding: 8px 10px; border: 1px dashed #bfd0e2; border-radius: 6px;
+      background: #f7fbff; color: var(--muted); font-size: 13px;
+    }
+    .chat-box {
+      border: 1px solid var(--border); border-radius: 8px; background: #fbfdff;
+      min-height: 360px; max-height: 540px; overflow: auto; padding: 10px;
+    }
+    .msg { margin-bottom: 8px; padding: 8px; border-radius: 7px; white-space: pre-wrap; word-break: break-word; }
+    .msg.user { background: #f5f9ff; border: 1px solid #d9e6f8; }
+    .msg.ai { background: #edf8f0; border: 1px solid #cfe7d5; }
+    .meta { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .links { margin-top: 10px; font-size: 13px; color: var(--muted); }
+    .links a { color: #205a98; text-decoration: none; margin-right: 10px; }
+    @media (max-width: 980px) {
+      .row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>SMi Chat Console</h1>
+      <div class="hint">Default mode is normal chat. Reasoning mode supports assessment analytics (variance + optimization) and architecture diagnostics.</div>
+
+      <div class="row">
+        <div class="field" style="flex:0 1 190px;">
+          <label for="chatMode">Mode</label>
+          <select id="chatMode">
+            <option value="chat">Chat (Default)</option>
+            <option value="reasoning">Reasoning</option>
+          </select>
+        </div>
+        <div class="field" style="flex:0 1 140px;">
+          <label for="topK">Top K</label>
+          <input id="topK" type="number" min="0" max="20" step="1" value="6">
+        </div>
+        <div class="field" style="flex:0 1 170px;">
+          <label for="variant">Reasoning Variant</label>
+          <input id="variant" type="number" min="0.1" max="25" step="0.1" value="0.1">
+        </div>
+        <div class="field" style="flex:0 1 210px;">
+          <label for="reasoningProfile">Reasoning Profile</label>
+          <select id="reasoningProfile" disabled>
+            <option value="normal" selected>Normal Discussion</option>
+            <option value="auto">Auto (Normal Discussion)</option>
+            <option value="assessment">Assessment</option>
+            <option value="architecture">Architecture</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1 1 220px;">
+          <label for="personaName">Persona Name</label>
+          <input id="personaName" type="text" value="SMi">
+        </div>
+      </div>
+
+      <div class="chat-box" id="chatBox"></div>
+      <div class="row" style="margin-top:10px;">
+        <textarea id="chatInput" placeholder="Type your message to SMi..."></textarea>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="field" style="flex:1 1 320px;">
+          <label for="chatFiles">Upload Documents</label>
+          <input
+            id="chatFiles"
+            type="file"
+            multiple
+            accept=".pdf,.docx,.txt,.md,.html,.htm,.csv,.json,.xml,.yaml,.yml,.log,.py,.cs,.js,.jsx,.ts,.tsx,.ps1,.sql"
+          >
+          <div class="upload-hint">Uploaded files are indexed into SMi immediately, then you can ask questions about them in this chat.</div>
+        </div>
+      </div>
+      <div id="uploadList" class="upload-list">No documents selected.</div>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnSend" type="button">Send</button>
+        <button id="btnUpload" class="secondary" type="button">Upload Documents</button>
+        <button id="btnClear" class="secondary" type="button">Clear</button>
+      </div>
+      <div id="chatStatus" class="status"></div>
+
+      <div class="links">
+        <a href="/ui/playground">Open Playground</a>
+        <a href="/ui/admin">Open Admin Console</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SESSION_KEY = 'smi_chat_console_session_id';
+    const DRAFT_KEY = 'smi_chat_console_draft';
+    const state = {
+      sessionId: String(window.localStorage.getItem(SESSION_KEY) || ''),
+      inFlight: false,
+      progressTimer: null,
+      progressLabel: '',
+      historyLoaded: false
+    };
+    const byId = (id) => document.getElementById(id);
+    const formatBytes = (value) => {
+      const bytes = Number(value || 0);
+      if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+    const currentPersonaLabel = () => {
+      const raw = String(byId('personaName')?.value || '').trim();
+      return raw || 'SMi';
+    };
+    const setStatus = (text, ok) => {
+      const el = byId('chatStatus');
+      el.textContent = text || '';
+      el.className = 'status ' + (ok ? 'ok' : 'err');
+    };
+    const escapeHtml = (value) => String(value || '').replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]));
+    const appendMessage = (from, text, meta) => {
+      const box = byId('chatBox');
+      const div = document.createElement('div');
+      div.className = 'msg ' + (from === 'user' ? 'user' : 'ai');
+      div.innerHTML = `<span class="meta">${escapeHtml(meta || '')}</span>${escapeHtml(text || '')}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    };
+    const updateMessage = (el, text, meta) => {
+      if (!el) return;
+      el.innerHTML = `<span class="meta">${escapeHtml(meta || '')}</span>${escapeHtml(text || '')}`;
+      const box = byId('chatBox');
+      box.scrollTop = box.scrollHeight;
+    };
+    const clearChatBox = () => {
+      byId('chatBox').innerHTML = '';
+    };
+    const renderSelectedFiles = () => {
+      const files = Array.from(byId('chatFiles')?.files || []);
+      const el = byId('uploadList');
+      if (!files.length) {
+        el.textContent = 'No documents selected.';
+        return;
+      }
+      el.textContent = files.map((file) => `${file.name} (${formatBytes(file.size)})`).join(' | ');
+    };
+    const renderHistoryItem = (item) => {
+      const role = String(item?.role || '').toLowerCase() === 'user' ? 'user' : 'ai';
+      const who = role === 'user' ? 'You' : currentPersonaLabel();
+      const timestamp = String(item?.created_at || '').trim();
+      const meta = timestamp ? `${who} | ${timestamp}` : who;
+      appendMessage(role, item?.content || '', meta);
+    };
+    const restoreHistory = async () => {
+      if (!state.sessionId || state.historyLoaded) return;
+      const res = await fetch(`/api/chat/history?session_id=${encodeURIComponent(state.sessionId)}&limit=60`);
+      if (redirectIfUnauthorized(res)) return;
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.detail || data.error || 'Failed to restore prior session history.');
+      }
+      clearChatBox();
+      (Array.isArray(data.items) ? data.items : []).forEach(renderHistoryItem);
+      state.historyLoaded = true;
+      if ((data.items || []).length) {
+        setStatus(`Restored ${(data.items || []).length} messages from the previous session.`, true);
+      }
+    };
+    const setBusy = (busy, label) => {
+      state.inFlight = !!busy;
+      state.progressLabel = String(label || '');
+      const btnSend = byId('btnSend');
+      const btnUpload = byId('btnUpload');
+      const chatInput = byId('chatInput');
+      const chatFiles = byId('chatFiles');
+      const isUpload = String(label || '').toLowerCase().includes('upload');
+      btnSend.disabled = state.inFlight;
+      btnUpload.disabled = state.inFlight;
+      chatInput.disabled = state.inFlight;
+      chatFiles.disabled = state.inFlight;
+      btnSend.textContent = state.inFlight && !isUpload ? 'Sending...' : 'Send';
+      btnUpload.textContent = state.inFlight && isUpload ? 'Uploading...' : 'Upload Documents';
+      if (!state.inFlight && state.progressTimer) {
+        clearInterval(state.progressTimer);
+        state.progressTimer = null;
+      }
+    };
+    const beginProgress = (label) => {
+      const started = Date.now();
+      setBusy(true, label);
+      const tick = () => {
+        const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
+        setStatus(`${state.progressLabel} (${elapsed}s)`, true);
+      };
+      tick();
+      state.progressTimer = window.setInterval(tick, 1000);
+    };
+    const endProgress = () => {
+      setBusy(false, '');
+    };
+    const redirectIfUnauthorized = (response) => {
+      if (response && response.status === 401) {
+        window.location.assign('/ui/login?next=/ui/chat');
+        return true;
+      }
+      return false;
+    };
+    const uploadDocuments = async () => {
+      if (state.inFlight) return;
+      const files = Array.from(byId('chatFiles').files || []);
+      if (!files.length) {
+        setStatus('Select one or more documents before uploading.', false);
+        return;
+      }
+
+      const form = new FormData();
+      files.forEach((file) => form.append('files', file, file.name));
+      const query = state.sessionId ? `?session_id=${encodeURIComponent(state.sessionId)}` : '';
+      beginProgress('Uploading documents');
+
+      try {
+        const res = await fetch(`/api/chat/upload${query}`, {
+          method: 'POST',
+          body: form
+        });
+        if (redirectIfUnauthorized(res)) return;
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          const err = data.detail || data.error || 'Document upload failed.';
+          setStatus(err, false);
+          appendMessage('ai', err, 'SMi Upload');
+          return;
+        }
+
+        const items = Array.isArray(data.items) ? data.items : [];
+        const ingested = Number(data.ingested || 0);
+        const failed = Number(data.failed || 0);
+        const uploadedNames = items
+          .filter((item) => item && item.ingest_ok)
+          .map((item) => item.original_name || item.stored_name || 'document')
+          .slice(0, 6);
+        const summary = uploadedNames.length
+          ? `Indexed ${ingested} document(s): ${uploadedNames.join(', ')}.`
+          : `Indexed ${ingested} document(s).`;
+
+        appendMessage('ai', summary, 'SMi Upload');
+        setStatus(
+          failed > 0
+            ? `Upload complete. Ingested ${ingested} document(s), ${failed} failed.`
+            : `Upload complete. Ingested ${ingested} document(s).`,
+          true
+        );
+        byId('chatFiles').value = '';
+        renderSelectedFiles();
+      } finally {
+        endProgress();
+      }
+    };
+
+    const sendMessage = async () => {
+      if (state.inFlight) return;
+      const text = String(byId('chatInput').value || '').trim();
+      if (!text) return;
+
+      appendMessage('user', text, 'You');
+      byId('chatInput').value = '';
+      window.localStorage.removeItem(DRAFT_KEY);
+      const mode = String(byId('chatMode').value || 'chat').toLowerCase();
+      const pending = appendMessage('ai', 'Processing your prompt...', `${currentPersonaLabel()} (working)`);
+
+      try {
+        if (mode === 'reasoning') {
+          const payload = {
+            message: text,
+            session_id: state.sessionId || null,
+            top_k: Number(byId('topK').value ?? 6),
+            behavior_variant: Number(byId('variant').value ?? 0.1),
+            reasoning_profile: 'normal',
+            persona_name: String(byId('personaName').value || '').trim() || null
+          };
+          beginProgress('Reasoning request in progress');
+          const res = await fetch('/api/playground/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (redirectIfUnauthorized(res)) return;
+          const data = await res.json();
+          if (!res.ok || data.ok === false) {
+            const err = data.detail || data.error || 'Reasoning request failed.';
+            updateMessage(pending, err, currentPersonaLabel());
+            setStatus(err, false);
+            return;
+          }
+          state.sessionId = String(data.session_id || state.sessionId || '');
+          if (state.sessionId) window.localStorage.setItem(SESSION_KEY, state.sessionId);
+          state.historyLoaded = true;
+          updateMessage(pending, data.answer || '(no answer)', currentPersonaLabel());
+          const profile = String(data.reasoning_profile || byId('reasoningProfile').value || 'normal');
+          setStatus(`Reasoning response ready [${profile}]. Citations: ${(data.citations || []).length}.`, true);
+          return;
+        }
+
+        const payload = {
+          message: text,
+          mode: 'knowledge',
+          session_id: state.sessionId || null,
+          top_k: Number(byId('topK').value ?? 6)
+        };
+        beginProgress('Chat request in progress');
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (redirectIfUnauthorized(res)) return;
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          const err = data.detail || data.error || 'Chat request failed.';
+          updateMessage(pending, err, currentPersonaLabel());
+          setStatus(err, false);
+          return;
+        }
+        state.sessionId = String(data.session_id || state.sessionId || '');
+        if (state.sessionId) window.localStorage.setItem(SESSION_KEY, state.sessionId);
+        state.historyLoaded = true;
+        updateMessage(pending, data.answer || '(no answer)', currentPersonaLabel());
+        setStatus(`Chat response ready. Citations: ${(data.citations || []).length}.`, true);
+      } finally {
+        endProgress();
+      }
+    };
+
+    byId('btnSend').addEventListener('click', () => {
+      sendMessage().catch((err) => setStatus(err.message || String(err), false));
+    });
+    byId('btnUpload').addEventListener('click', () => {
+      uploadDocuments().catch((err) => setStatus(err.message || String(err), false));
+    });
+    byId('btnClear').addEventListener('click', () => {
+      clearChatBox();
+      state.sessionId = '';
+      window.localStorage.removeItem(SESSION_KEY);
+      window.localStorage.removeItem(DRAFT_KEY);
+      state.historyLoaded = false;
+      byId('chatFiles').value = '';
+      renderSelectedFiles();
+      setStatus('Chat cleared.', true);
+    });
+    byId('chatFiles').addEventListener('change', renderSelectedFiles);
+    byId('chatInput').value = String(window.localStorage.getItem(DRAFT_KEY) || '');
+    byId('chatInput').addEventListener('input', () => {
+      const draft = String(byId('chatInput').value || '');
+      if (draft) {
+        window.localStorage.setItem(DRAFT_KEY, draft);
+      } else {
+        window.localStorage.removeItem(DRAFT_KEY);
+      }
+    });
+    byId('chatInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage().catch((err) => setStatus(err.message || String(err), false));
+      }
+    });
+    byId('chatMode').addEventListener('change', () => {
+      const mode = String(byId('chatMode').value || 'chat');
+      setStatus(
+        mode === 'reasoning'
+          ? 'Reasoning mode selected (profile locked to Normal). Variant range: 0.1 to 25.0.'
+          : 'Chat mode selected.',
+        true
+      );
+    });
+    window.addEventListener('beforeunload', (e) => {
+      if (!state.inFlight) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    setStatus('SMi Chat Console ready. Chat mode selected by default. Reasoning profile lock: Normal; variant range 0.1 to 25.0.', true);
+    renderSelectedFiles();
+    restoreHistory().catch((err) => setStatus(err.message || String(err), false));
+  </script>
+</body>
+</html>

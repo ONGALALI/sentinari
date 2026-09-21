@@ -1,0 +1,5 @@
+adapters:
+  - name: weather_api
+    spec_url: "https://REPLACE-ME/openapi.json"
+    adapter_path: "adapters/weather_api_adapter.py"
+    workspace_root: "D:/inpirari/SMI_Core"

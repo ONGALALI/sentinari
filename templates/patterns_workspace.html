@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scientific Patterns Discovery — SMi Sentinel</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #f4f7fc; color: #1d2b3a; }
+  .layout { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .sidebar { background: linear-gradient(180deg, #10233c 0%, #17304f 100%); color: #dfe8f3; padding: 18px 14px; }
+  .brand { font-size: 26px; font-weight: 800; letter-spacing: 1px; color: #fff; margin-bottom: 4px; }
+  .sidecopy { font-size: 11.5px; color: #9fb4cd; margin-bottom: 18px; line-height: 1.45; }
+  .nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav a { display: block; padding: 8px 10px; border-radius: 8px; color: #cfdcea; text-decoration: none; font-size: 13.5px; font-weight: 600; }
+  .nav a small { display: block; font-weight: 400; font-size: 11px; color: #8fa6c0; margin-top: 1px; }
+  .nav a:hover { background: rgba(255,255,255,0.08); }
+  .nav a.active { background: #2f6fb2; color: #fff; }
+  .nav a.active small { color: #d8e6f5; }
+  .page-shell { padding: 22px 26px 40px; }
+  h1 { margin: 0 0 4px; font-size: 25px; }
+  h2 { margin: 0 0 6px; font-size: 17px; }
+  .hint { font-size: 12.5px; color: #5b6b7d; line-height: 1.5; }
+  .card { background: #fff; border: 1px solid #e3eaf5; border-radius: 12px; padding: 14px 16px; margin-top: 14px; box-shadow: 0 1px 2px rgba(16,35,60,0.04); }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill { background: #eef3fa; border: 1px solid #dbe6f3; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; color: #33506e; }
+  button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border: 1px solid #ccd9ea; background: #f6f9fd; color: #1d2b3a; cursor: pointer; }
+  button:hover { filter: brightness(0.96); }
+  button:focus-visible { outline: 2px solid #b8860b; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(47,111,178,0.25); }
+  button.primary { background: #2f6fb2; border-color: #2f6fb2; color: #fff; }
+  button.approve { background: #2f9e44; border-color: #2f9e44; color: #fff; }
+  button.reject { background: #b23a48; border-color: #b23a48; color: #fff; }
+  button.activate { background: #1c7ed6; border-color: #1c7ed6; color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type="text"] { font: inherit; font-size: 13.5px; padding: 7px 10px; border: 1px solid #ccd9ea; border-radius: 8px; min-width: 240px; }
+  .stats-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .stat { background: #f6f9fd; border: 1px solid #e3eaf5; border-radius: 10px; padding: 8px 14px; min-width: 130px; }
+  .stat b { display: block; font-size: 19px; color: #17304f; }
+  .stat span { font-size: 11.5px; color: #5b6b7d; }
+  .lp-track { height: 10px; border-radius: 999px; background: #e6ebf3; overflow: hidden; margin-top: 6px; }
+  .lp-fill { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #2f9e44, #69c77a); transition: width 0.5s ease; }
+  .lp-fill.active { background: linear-gradient(90deg, #1c7ed6, #4dabf7); }
+  .lp-label { font-size: 12px; color: #47586b; margin-top: 4px; min-height: 15px; }
+  .progress-head { font-size: 13px; font-weight: 700; color: #17304f; margin-top: 10px; }
+  .containers { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-top: 14px; }
+  .container-card { background: #fff; border: 1px solid #e3eaf5; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,35,60,0.04); }
+  .container-card.combination { border-color: #c9daf3; background: linear-gradient(180deg, #fbfdff, #f4f8fd); }
+  .container-title { font-size: 16.5px; font-weight: 800; color: #17304f; }
+  .cross-pill { display: inline-block; margin-left: 8px; padding: 1px 9px; border-radius: 10px; background: #e7f0fb; color: #1c5d99; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; vertical-align: middle; }
+  .pattern-item { border: 1px solid #e9eef6; border-radius: 10px; padding: 10px 12px; margin-top: 10px; background: #fbfdff; }
+  .pattern-item .pt { font-weight: 700; font-size: 13.5px; color: #17304f; }
+  .meta-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+  .meta-pill { font-size: 11px; padding: 1px 9px; border-radius: 999px; background: #eef3fa; border: 1px solid #dbe6f3; color: #33506e; font-weight: 600; }
+  .meta-pill.status-candidate { background: #fff7e0; border-color: #f0dfae; color: #8a6d1a; }
+  .meta-pill.status-approved { background: #e6f6ea; border-color: #b7e2c2; color: #22743a; }
+  .meta-pill.status-testing { background: #e7f0fb; border-color: #c4d9f2; color: #1c5d99; }
+  .meta-pill.status-active { background: #2f6fb2; border-color: #2f6fb2; color: #fff; }
+  .meta-pill.status-rejected { background: #f7e9eb; border-color: #ecc4ca; color: #8f3a45; }
+  .statement { font-size: 12.5px; color: #47586b; line-height: 1.5; margin-top: 6px; }
+  .benefits { margin-top: 8px; background: #f2fbf4; border: 1px solid #cdeccd; border-radius: 8px; padding: 8px 10px; font-size: 12.5px; color: #245a33; line-height: 1.55; white-space: pre-line; }
+  .benefits-title { font-weight: 700; font-size: 12px; color: #22743a; margin-bottom: 3px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+  .actions button { font-size: 12px; padding: 3px 10px; }
+  .confidence-track { display: inline-block; width: 64px; height: 6px; background: #e6ebf3; border-radius: 999px; vertical-align: middle; margin-right: 5px; overflow: hidden; }
+  .confidence-fill { height: 100%; background: #2f6fb2; border-radius: 999px; }
+  .muted { color: #8296aa; font-size: 12px; }
+  .report-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; padding-top: 8px; border-top: 1px dashed #dfe8f2; }
+  .report-actions button { font-size: 12px; padding: 3px 10px; }
+  .report-actions button.pdf { font-weight: 700; }
+  .storage-note { margin-top: 9px; padding: 7px 10px; border: 1px dashed #d9c9ec; background: #faf7fd; border-radius: 8px; font-size: 11.5px; color: #6b5a86; line-height: 1.5; }
+  .storage-note code { font-family: Consolas, 'Courier New', monospace; font-size: 10.5px; background: #f0e9f8; border-radius: 4px; padding: 0 4px; }
+  .mode-pill { display: inline-block; margin-top: 8px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; background: #e7f0fb; color: #1c5d99; border: 1px solid #c4d9f2; }
+  .mode-pill.manual { background: #fff7e0; color: #8a6d1a; border-color: #f0dfae; }
+  .future-requests { margin-top: 10px; }
+  .future-request-item { border: 1px solid #e9eef6; border-radius: 8px; padding: 7px 10px; margin-top: 6px; font-size: 12px; color: #47586b; background: #fbfdff; }
+  .future-request-item b { color: #17304f; }
+  .future-request-item .fr-kind { font-weight: 700; color: #6b5a86; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
+  .alert { margin-top: 12px; border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+  .alert.ok { background: #e6f6ea; border: 1px solid #b7e2c2; color: #22743a; }
+  .alert.err { background: #fdf0f1; border: 1px solid #efc3c9; color: #8f3a45; }
+  .topbar-note { font-size: 12.5px; color: #5b6b7d; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">SMi</div>
+    <div class="sidecopy">Sentinel watches the knowledge library and raises new scientific patterns as they form.</div>
+    <nav class="nav">
+      <a href="/ui/playground">Dashboard Home<small>Main landing page.</small></a>
+      <a href="/ui/patterns" class="active">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
+      <a href="/ui/playground#sentinel-grid">Sentinel Domains<small>Scientific fields feeding the main LLM.</small></a>
+      <a href="/ui/admin">Admin Console<small>Profile, memory, and task board.</small></a>
+    </nav>
+  </aside>
+
+  <main class="page-shell">
+    <h1>Scientific Patterns Discovery</h1>
+    <div class="topbar-note">Containers below are named for their scientific fields. Cross-field patterns appear in combination containers (Field A + Field B). Every container shows live recognition progress, the potential benefits of each pattern, and an APA 7th edition report (HTML preview / PDF download) covering all fields in the container, its data sources, and its Works Cited.</div>
+
+    <div id="pageAlert" class="alert" hidden></div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <h2>Library-wide recognition</h2>
+          <div class="hint">How much of the knowledge library Sentinel has analyzed for new patterns so far.</div>
+        </div>
+        <button id="btnRefresh" class="ghost" type="button">Refresh</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat"><b id="stDocs">0</b><span>Library documents</span></div>
+        <div class="stat"><b id="stAnalyzed">0</b><span>Documents analyzed</span></div>
+        <div class="stat"><b id="stCandidates">0</b><span>Candidate patterns</span></div>
+        <div class="stat"><b id="stEntities">0</b><span>Entities mapped</span></div>
+        <div class="stat"><b id="stRelations">0</b><span>Relations mapped</span></div>
+      </div>
+      <div class="progress-head">New pattern recognition in progress — <span id="overallPct">0.0%</span></div>
+      <div class="lp-track"><div class="lp-fill" id="overallFill"></div></div>
+      <div class="lp-label" id="overallLabel">Waiting for status…</div>
+    </div>
+
+    <div class="card">
+      <h2>Start recognizing patterns in a scientific field</h2>
+      <div class="hint">Enter a field name (e.g. <b>physics</b>, <b>chemistry</b>, <b>psychology</b>) — or leave blank to scan every field. Sentinel reads the field's documents, extracts entities, relations and patterns, then analyzes each new pattern's potential benefits.</div>
+      <div class="row" style="margin-top:9px;">
+        <input type="text" id="fieldInput" placeholder="Scientific field (blank = all fields)">
+        <button id="btnStart" class="primary" type="button">Start recognition</button>
+        <span class="muted" id="startHint"></span>
+      </div>
+      <div class="progress-head" id="liveHead" hidden>New pattern recognition in progress — <span id="livePct">0%</span></div>
+      <div class="lp-track" id="liveTrack" hidden><div class="lp-fill active" id="liveFill"></div></div>
+      <div class="lp-label" id="liveLabel" hidden></div>
+      <div class="mode-pill">Automated pattern discovery</div>
+    </div>
+
+    <div class="card">
+      <h2>User-requested pattern discovery</h2>
+      <div class="mode-pill manual">Manual &middot; coming soon</div>
+      <div class="hint">Describe the pattern you want Sentinel to hunt for (e.g. <i>"Patterns linking drought resilience to crop genetics"</i>). Interactive, conversational discovery is a planned future capability — for now your request is <b>logged and archived</b> in the pattern store as future work, ready to feed the feature when it lands.</div>
+      <div class="row" style="margin-top:9px;">
+        <input type="text" id="manualTopic" placeholder="Pattern topic to investigate">
+        <input type="text" id="manualFields" placeholder="Fields involved (optional, comma-separated)">
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <button id="btnManual" class="primary" type="button">Log discovery request</button>
+        <span class="muted" id="manualHint"></span>
+      </div>
+      <div id="futureRequests" class="future-requests"></div>
+    </div>
+
+    <div class="containers" id="containersGrid">
+      <div class="container-card"><span class="muted">Loading containers…</span></div>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const pctText = (v) => `${(Number(v) || 0).toFixed(1)}%`;
+  const fmtInt = (v) => new Intl.NumberFormat().format(Number(v) || 0);
+
+  const alertBox = $('pageAlert');
+  const showAlert = (msg, ok) => {
+    alertBox.hidden = false;
+    alertBox.className = `alert ${ok ? 'ok' : 'err'}`;
+    alertBox.textContent = msg;
+    setTimeout(() => { alertBox.hidden = true; }, 6000);
+  };
+
+  const STATUS_LABELS = { candidate: 'Candidate', approved: 'Approved', testing: 'Testing', active: 'Active', rejected: 'Rejected' };
+
+  async function api(url, options) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || `Request failed (${response.status})`);
+    return data;
+  }
+
+  function setBar(fill, label, pct, text) {
+    if (fill) fill.style.width = `${Math.max(0, Math.min(100, Number(pct) || 0))}%`;
+    if (label) label.textContent = text || '';
+  }
+
+  async function loadStatus() {
+    try {
+      const data = await api('/api/patterns/discovery-status');
+      $('stDocs').textContent = fmtInt(data.library_documents);
+      $('stAnalyzed').textContent = fmtInt(data.documents_analyzed);
+      $('stCandidates').textContent = fmtInt(data.candidate_patterns);
+      setBar($('overallFill'), $('overallLabel'), data.percent,
+        `${fmtInt(data.documents_analyzed)} of ${fmtInt(data.library_documents)} documents analyzed · ${fmtInt(data.queued)} queued`);
+      $('overallPct').textContent = pctText(data.percent);
+    } catch (error) {
+      setBar($('overallFill'), $('overallLabel'), 0, `Status unavailable: ${error.message}`);
+    }
+  }
+
+  function patternCard(p) {
+    const status = String(p.status || 'candidate');
+    let fields = [];
+    try { fields = JSON.parse(p.fields_involved || '[]'); } catch (_) { fields = []; }
+    const conf = Math.round((Number(p.confidence) || 0) * 100);
+    const benefitsBlock = p.has_benefits
+      ? `<div class="benefits"><div class="benefits-title">Potential benefits</div>${esc(p.benefits)}</div>`
+      : `<div class="actions"><button type="button" data-role="benefits" data-id="${p.id}">Analyze benefits</button></div><div class="benefits" data-role="benefits-slot-${p.id}" hidden></div>`;
+    return `
+      <div class="pattern-item">
+        <div class="pt">${esc(p.title)}</div>
+        <div class="meta-pills">
+          <span class="meta-pill status-${esc(status)}">${esc(STATUS_LABELS[status] || status)}</span>
+          <span class="meta-pill">${esc(p.pattern_type || 'general')}</span>
+          <span class="meta-pill"><span class="confidence-track"><span class="confidence-fill" style="width:${conf}%"></span></span>${conf}% confidence</span>
+          ${fields.map((f) => `<span class="meta-pill">${esc(f)}</span>`).join('')}
+        </div>
+        <div class="statement">${esc(p.statement)}</div>
+        ${benefitsBlock}
+        <div class="report-actions">
+          <button type="button" data-role="pattern-report" data-id="${p.id}">View Report (HTML)</button>
+          <button type="button" class="pdf" data-role="pattern-report" data-id="${p.id}" data-format="pdf">Report PDF</button>
+          <button type="button" data-role="rd-paper" data-id="${p.id}">Request R&D Paper</button>
+        </div>
+        <div class="actions">
+          <button type="button" class="approve" data-role="review" data-decision="approve" data-id="${p.id}" ${status === 'approved' ? 'disabled' : ''}>Approve</button>
+          <button type="button" class="reject" data-role="review" data-decision="reject" data-id="${p.id}" ${status === 'rejected' ? 'disabled' : ''}>Reject</button>
+          <button type="button" class="activate" data-role="review" data-decision="activate" data-id="${p.id}" ${status === 'active' ? 'disabled' : ''}>Activate</button>
+        </div>
+      </div>`;
+  }
+
+  function containerCard(c) {
+    const name = c.fields.length ? c.fields.map((f) => f.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())).join(' + ') : 'Unassigned';
+    const liveJob = liveJobs[c.container_key];
+    const livePct = liveJob ? Number(liveJob.percent) || 0 : 0;
+    const inProgress = Boolean(liveJob) || Number(c.coverage_percent) < 100;
+    const barPct = liveJob ? livePct : (Number(c.coverage_percent) || 0);
+    const barLabel = liveJob
+      ? `${liveJob.message || 'Working…'}`
+      : (Number(c.library_docs) > 0
+        ? `${fmtInt(c.analyzed_docs)} of ${fmtInt(c.library_docs)} documents analyzed for patterns`
+        : 'No library documents in this field yet — load datasets or upload documents to feed discovery.');
+    return `
+      <div class="container-card${c.is_combination ? ' combination' : ''}">
+        <div class="container-title">${esc(name)}${c.is_combination ? '<span class="cross-pill">Cross-field</span>' : ''}</div>
+        <div class="hint" style="margin-top:3px;">${c.is_combination ? 'Pattern bridging several scientific fields.' : 'Patterns discovered within this scientific field.'} · <b>${c.pattern_count}</b> pattern${c.pattern_count === 1 ? '' : 's'}</div>
+        <div class="progress-head">New pattern recognition in progress — <span>${barPct.toFixed(1)}%</span></div>
+        <div class="lp-track"><div class="lp-fill${liveJob ? ' active' : ''}" style="width:${Math.max(0, Math.min(100, barPct))}%"></div></div>
+        <div class="lp-label">${esc(barLabel)}</div>
+        <div class="report-actions">
+          <button type="button" data-role="container-report" data-key="${esc(c.container_key)}">View Report (HTML)</button>
+          <button type="button" class="pdf" data-role="container-report" data-key="${esc(c.container_key)}" data-format="pdf">Report PDF</button>
+        </div>
+        <div class="storage-note">Archive: new patterns are recorded in <code>patterns.db</code> (tables <code>patterns</code>, <code>pattern_evidence</code>, <code>pattern_entities</code>, <code>pattern_relations</code>), keyed by <code>fields_involved</code>.</div>
+        ${c.patterns.map(patternCard).join('') || '<div class="muted" style="margin-top:8px;">No patterns yet for this container.</div>'}
+      </div>`;
+  }
+
+  let liveJobs = {};
+  async function loadWorkspace() {
+    try {
+      const data = await api('/api/patterns/workspace');
+      liveJobs = {};
+      Object.entries(data.active_discovery || {}).forEach(([field, job]) => {
+        if (job && job.state === 'running') liveJobs[field] = job;
+      });
+      const grid = $('containersGrid');
+      if (!data.containers.length) {
+        grid.innerHTML = '<div class="container-card"><span class="muted">No patterns recorded yet. Start recognition above after loading datasets into your fields — Sentinel will raise new patterns here as they form.</span></div>';
+      } else {
+        grid.innerHTML = data.containers.map(containerCard).join('');
+      }
+      const st = data.stats || {};
+      $('stEntities').textContent = fmtInt(st.pattern_entities || 0);
+      $('stRelations').textContent = fmtInt(st.pattern_relations || 0);
+      return Object.keys(liveJobs).length > 0;
+    } catch (error) {
+      $('containersGrid').innerHTML = `<div class="container-card"><span class="muted">Could not load containers: ${esc(error.message)}</span></div>`;
+      return false;
+    }
+  }
+
+  let pollTimer = null;
+  function ensurePolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      const busy = await loadWorkspace();
+      await loadStatus();
+      if (!busy) { clearInterval(pollTimer); pollTimer = null; }
+    }, 4000);
+  }
+
+  async function startDiscovery() {
+    const field = $('fieldInput').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const btn = $('btnStart');
+    btn.disabled = true;
+    $('startHint').textContent = 'Starting…';
+    try {
+      const data = await api(`/api/patterns/discover/field/${encodeURIComponent(field)}`, { method: 'POST' });
+      $('startHint').textContent = '';
+      $('liveHead').hidden = false; $('liveTrack').hidden = false; $('liveLabel').hidden = false;
+      const jobId = data.job_id;
+      const poll = async () => {
+        try {
+          const job = await api(`/api/skill-review/progress/${encodeURIComponent(jobId)}`);
+          setBar($('liveFill'), $('liveLabel'), job.percent, `${job.message || ''}`);
+          $('livePct').textContent = `${(Number(job.percent) || 0).toFixed(1)}%`;
+          if (job.state === 'done') {
+            clearInterval(timer);
+            btn.disabled = false;
+            const r = job.result || {};
+            showAlert(`Recognition complete for ${field}: ${r.patterns_proposed || 0} new pattern(s), ${r.benefits_generated || 0} benefit analyses.`, true);
+            await loadWorkspace(); await loadStatus();
+          } else if (job.state === 'error') {
+            clearInterval(timer);
+            btn.disabled = false;
+            showAlert(`Recognition failed: ${job.error || 'unknown error'}`, false);
+          } else {
+            await loadWorkspace();
+          }
+        } catch (error) {
+          clearInterval(timer);
+          btn.disabled = false;
+          showAlert(`Progress tracking failed: ${error.message}`, false);
+        }
+      };
+      const timer = setInterval(poll, 1500);
+      poll();
+      ensurePolling();
+    } catch (error) {
+      $('startHint').textContent = '';
+      btn.disabled = false;
+      showAlert(error.message, false);
+    }
+  }
+
+  document.addEventListener('click', async (event) => {
+    const btn = event.target.closest('button[data-role]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.role === 'benefits') {
+      btn.disabled = true; btn.textContent = 'Analyzing…';
+      try {
+        const data = await api(`/api/patterns/${id}/benefits`);
+        const slot = document.querySelector(`[data-role="benefits-slot-${id}"]`);
+        if (slot) {
+          slot.hidden = false;
+          slot.innerHTML = `<div class="benefits-title">Potential benefits</div>${esc(data.benefits)}`;
+        }
+        btn.remove();
+      } catch (error) {
+        btn.disabled = false; btn.textContent = 'Analyze benefits';
+        showAlert(error.message, false);
+      }
+    } else if (btn.dataset.role === 'pattern-report' || btn.dataset.role === 'container-report') {
+      const key = btn.dataset.key ? encodeURIComponent(btn.dataset.key) : '';
+      const fmt = btn.dataset.format === 'pdf' ? 'pdf' : 'html';
+      const url = btn.dataset.role === 'pattern-report'
+        ? `/api/patterns/reports/pattern/${id}/report?format=${fmt}`
+        : `/api/patterns/reports/container/${key}/report?format=${fmt}`;
+      if (fmt === 'pdf') { window.location.href = url; }
+      else { window.open(url, '_blank', 'noopener'); }
+    } else if (btn.dataset.role === 'rd-paper') {
+      btn.disabled = true; btn.textContent = 'Logging…';
+      try {
+        const r = await api('/api/patterns/future-requests/rd-paper', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pattern_id: Number(id), note: '' }),
+        });
+        showAlert(r.message || 'R&D paper request logged as future work.', true);
+        btn.textContent = 'R&D paper ✓ logged';
+        await loadFutureRequests();
+      } catch (error) {
+        btn.disabled = false; btn.textContent = 'Request R&D Paper';
+        showAlert(error.message, false);
+      }
+    } else if (btn.dataset.role === 'review') {
+      btn.disabled = true;
+      try {
+        await api(`/api/patterns/${id}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision: btn.dataset.decision, note: '' }),
+        });
+        showAlert(`Pattern ${btn.dataset.decision}d.`, true);
+        await loadWorkspace();
+      } catch (error) {
+        btn.disabled = false;
+        showAlert(error.message, false);
+      }
+    }
+  });
+
+  $('btnStart').addEventListener('click', startDiscovery);
+  $('btnRefresh').addEventListener('click', async () => { await loadStatus(); await loadWorkspace(); });
+
+  $('btnManual').addEventListener('click', async () => {
+    const topic = $('manualTopic').value.trim();
+    const fields = $('manualFields').value.split(',').map((s) => s.trim()).filter(Boolean);
+    const btn = $('btnManual');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/patterns/future-requests/manual-discovery', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, fields, note: '' }),
+      });
+      showAlert(r.message || 'Manual discovery request logged.', true);
+      $('manualTopic').value = '';
+      $('manualFields').value = '';
+      await loadFutureRequests();
+    } catch (error) {
+      showAlert(error.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function loadFutureRequests() {
+    try {
+      const data = await api('/api/patterns/future-requests');
+      const box = $('futureRequests');
+      if (!data.requests.length) { box.innerHTML = '<div class="muted" style="margin-top:8px;">No future requests logged yet.</div>'; return; }
+      box.innerHTML = data.requests.slice(0, 6).map((r) => {
+        const kind = r.kind === 'rd_paper' ? 'R&D paper' : r.kind === 'manual_discovery' ? 'User-requested discovery' : esc(r.kind);
+        const fields = (() => { try { return JSON.parse(r.fields || '[]').join(', '); } catch (_) { return ''; } })();
+        return `<div class="future-request-item"><span class="fr-kind">${kind}</span> · <b>${esc(r.topic || '(untitled)')}</b>${fields ? ` · <span>${esc(fields)}</span>` : ''} · <span class="muted">${esc((r.created_at || '').slice(0, 16))} · ${esc(r.status)}</span></div>`;
+      }).join('');
+    } catch (_) { /* non-critical */ }
+  }
+
+  (async () => {
+    await loadStatus();
+    const busy = await loadWorkspace();
+    if (busy) ensurePolling();
+    await loadFutureRequests();
+  })();
+})();
+</script>
+</body>
+</html>

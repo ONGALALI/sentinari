@@ -1,0 +1,1744 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMI Qualia Lab</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --line: #d4dee8;
+      --text: #152433;
+      --muted: #4b6178;
+      --blue: #1d6fd8;
+      --green: #1d7a3a;
+      --red: #ac3a2a;
+      --ink: #334357;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Segoe UI, Tahoma, Arial, sans-serif; background: var(--bg); color: var(--text); }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; font-size: 16px; }
+    h3 { margin: 0 0 8px; font-size: 14px; }
+    a { color: var(--blue); text-decoration: none; }
+    main { max-width: 1600px; margin: 0 auto; padding: 14px; display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); gap: 14px; align-items: start; }
+    section, aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+    .stack { display: grid; gap: 14px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    label { display: block; font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+    input, textarea, button {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid #c2cfdd;
+    }
+    input, textarea { width: 100%; padding: 8px 10px; background: #fff; color: var(--text); }
+    textarea { min-height: 108px; resize: vertical; line-height: 1.42; }
+    button { border: 1px solid #7e95b0; background: var(--blue); color: #fff; font-weight: 700; padding: 9px 12px; cursor: pointer; min-height: 40px; }
+    button.secondary { background: #5e7188; }
+    button.ghost { background: #f6f9fd; color: #1d3650; }
+    button:disabled { opacity: .62; cursor: wait; }
+    .hint, .meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .status { margin-top: 6px; min-height: 18px; font-size: 13px; }
+    .ok { color: var(--green); font-weight: 700; }
+    .err { color: var(--red); font-weight: 700; }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: #f7fbff;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .metric-grid, .vector-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .metric-card, .vector-card {
+      border: 1px solid #d7e3f0;
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 10px;
+    }
+    .metric-card .label, .vector-card .label {
+      font-size: 11px;
+      color: #526a82;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .metric-card .value, .vector-card .value {
+      margin-top: 5px;
+      font-size: 22px;
+      font-weight: 800;
+      color: #16324a;
+    }
+    .metric-card .meta, .vector-card .meta { margin-top: 4px; font-size: 12px; }
+    .top-qualia {
+      border-bottom: 3px solid #b9c9dc;
+    }
+    .top-qualia h2 { font-size: 14px; }
+    .top-qualia .metric-grid, .top-qualia .vector-grid {
+      grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+      gap: 8px;
+    }
+    .top-qualia .metric-card, .top-qualia .vector-card {
+      padding: 8px;
+    }
+    .top-qualia .metric-card .label, .top-qualia .vector-card .label {
+      font-size: 9px;
+    }
+    .top-qualia .metric-card .value, .top-qualia .vector-card .value {
+      font-size: 20px;
+    }
+    .top-qualia .metric-card .meta, .top-qualia .vector-card .meta {
+      font-size: 10px;
+    }
+    .answer {
+      white-space: pre-wrap;
+      line-height: 1.52;
+      background: #fbfdff;
+      border: 1px solid #d7e3f0;
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 170px;
+    }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .plot {
+      width: 100%;
+      height: 230px;
+      border: 1px solid #d5deea;
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+    .plot path { fill: none; stroke-width: 2; }
+    .plot .axis { stroke: #90a5be; stroke-width: 1; }
+    .plot .grid { stroke: #dbe4ef; stroke-width: 1; stroke-dasharray: 2 2; }
+    .plot-legend { display:flex; gap:10px; font-size:12px; color:#3d536a; margin-top:6px; flex-wrap:wrap; }
+    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background:#f5f8fc;
+      border:1px solid #d8e1eb;
+      border-radius:8px;
+      padding:10px;
+      margin:8px 0 0;
+      max-height: 330px;
+      overflow: auto;
+      font-size: 12px;
+    }
+    .logs { display: grid; gap: 8px; max-height: 250px; overflow: auto; }
+    .log-item { border-top: 1px solid var(--line); padding-top: 8px; font-size: 13px; line-height: 1.35; }
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #c2cfdd;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+    select[multiple] { min-height: 86px; }
+    .soft-panel {
+      border: 1px solid #d7e3f0;
+      border-radius: 8px;
+      background: #f7fbff;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid #d6e2f1;
+      border-radius: 8px;
+      background: #fff;
+      margin-top: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      min-width: 900px;
+    }
+    .comparison-table table { min-width: 760px; }
+    th, td {
+      padding: 8px 9px;
+      border-bottom: 1px solid #dde6f2;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f2f7fd; color: #37516a; position: sticky; top: 0; z-index: 1; }
+    tbody tr:nth-child(even) { background: #f9fbfe; }
+    .note { max-width: 380px; white-space: pre-wrap; word-break: break-word; }
+    .comparison-card {
+      border: 1px solid #d7e3f0;
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .comparison-card strong { display: block; margin-bottom: 6px; }
+    .model-vector-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .model-vector-row {
+      display: grid;
+      grid-template-columns: minmax(110px, 1fr) repeat(3, minmax(74px, 92px));
+      gap: 8px;
+      align-items: end;
+      padding: 8px;
+      border: 1px solid #d7e3f0;
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+    .model-vector-row strong {
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+    .model-vector-row input {
+      padding: 6px 7px;
+      font-size: 13px;
+    }
+    .comparison-plot {
+      width: 100%;
+      height: 250px;
+      border: 1px solid #d5deea;
+      border-radius: 8px;
+      background: #f8fbff;
+      margin-top: 6px;
+    }
+    .comparison-plots {
+      display: grid;
+      grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.1fr);
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .comparison-plots h3 {
+      margin-top: 0;
+      font-size: 13px;
+    }
+    .radar-plot {
+      width: 100%;
+      height: 420px;
+      border: 1px solid #d5deea;
+      border-radius: 8px;
+      background: #f8fbff;
+      margin-top: 6px;
+    }
+    .radar-plot polygon {
+      fill-opacity: 0.08;
+      stroke-width: 2;
+    }
+    .radar-plot .radar-fill {
+      stroke-width: 0;
+    }
+    .radar-plot .radar-outline {
+      fill: none;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .radar-plot .radar-dot {
+      stroke: #fff;
+      stroke-width: 1.5;
+    }
+    .radar-plot .radar-grid {
+      fill: none;
+      stroke: #d7e3f0;
+      stroke-width: 1;
+    }
+    .radar-plot .radar-axis {
+      stroke: #a7b7c9;
+      stroke-width: 1;
+    }
+    .radar-plot text {
+      font-size: 11px;
+      fill: #20324a;
+      font-family: Segoe UI, Arial, sans-serif;
+    }
+    .comparison-plot path { fill: none; stroke-width: 2.5; }
+    .comparison-plot .axis { stroke: #90a5be; stroke-width: 1; }
+    .comparison-plot .grid { stroke: #dbe4ef; stroke-width: 1; stroke-dasharray: 2 2; }
+    .comparison-plot text { font-size: 11px; fill: #20324a; font-family: Segoe UI, Arial, sans-serif; }
+    .comparison-bars {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+      max-height: none;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .score-bar-row {
+      display: grid;
+      grid-template-columns: 145px minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+    }
+    .score-bar-label {
+      font-weight: 800;
+      color: #20324a;
+    }
+    .score-bar-cell {
+      display: grid;
+      gap: 4px;
+    }
+    .score-bar-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #344b63;
+      font-weight: 700;
+    }
+    .model-qualia-stack {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+      border-top: 2px solid #c9d8e8;
+      border-bottom: 2px solid #c9d8e8;
+      padding: 10px 0;
+    }
+    .model-qualia-row {
+      display: grid;
+      grid-template-columns: 150px repeat(5, minmax(86px, 1fr));
+      gap: 8px;
+      align-items: stretch;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #dbe5f0;
+      font-size: 12px;
+    }
+    .model-qualia-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .model-qualia-name {
+      font-weight: 900;
+      color: #18324c;
+      align-self: center;
+      overflow-wrap: anywhere;
+    }
+    .model-qualia-cell {
+      background: #f7fbff;
+      border: 1px solid #d7e3f0;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .model-qualia-cell span {
+      display: block;
+      color: #526a82;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .model-qualia-cell strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 15px;
+      color: #16324a;
+    }
+    .comparison-summary {
+      border: 1px solid #cfe0f2;
+      border-radius: 8px;
+      background: #f7fbff;
+      padding: 10px;
+      margin-top: 10px;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .recommendation-line {
+      display: block;
+      margin-top: 6px;
+    }
+    .winner { color: var(--green); font-weight: 800; }
+    .loser { color: var(--red); font-weight: 800; }
+    .neutral { color: var(--muted); font-weight: 700; }
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 125px minmax(0, 1fr) 64px;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+    .bar-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #deebf8;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      width: 0%;
+    }
+    .comparison-legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #3d536a;
+      margin-top: 8px;
+    }
+    .comparison-output-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 8px;
+      max-height: 320px;
+      overflow: auto;
+      margin-top: 10px;
+      padding-right: 4px;
+    }
+    .comparison-output-grid .comparison-card {
+      margin-top: 0;
+    }
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .glossary-item {
+      border: 1px solid #d7e3f0;
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .glossary-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #16324a;
+    }
+    @media (max-width: 1050px) {
+      main { grid-template-columns: 1fr; }
+      .split, .grid3, .comparison-plots { grid-template-columns: 1fr; }
+      .model-vector-row { grid-template-columns: 1fr; }
+      .model-qualia-row, .score-bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>SMI Qualia Lab</h1>
+      <div class="hint">SMI direct bridge wrapped in the same pseudodynamic vector lab used by SMi.</div>
+    </div>
+    <div class="row">
+      <button class="secondary" id="refreshStatus">Refresh Status</button>
+      <a href="/ui/start">Start</a>
+      <a href="/ui/a1-logs">A1 Logs</a>
+      <a href="/ui/SMI-direct">Direct Chat</a>
+      <a href="/ui/playground">Old SMi Lab</a>
+    </div>
+  </header>
+
+  <main>
+    <aside class="stack">
+      <section>
+        <h2>Runtime</h2>
+        <div id="statusGrid" class="stack">
+          <div class="pill"><span>Ollama</span><span>checking</span></div>
+        </div>
+        <p class="meta" id="logPath"></p>
+      </section>
+
+      <section>
+        <h2>SMI Prompt</h2>
+        <label for="message">Prompt</label>
+        <textarea id="message">Which is the largest continent on Earth? Answer clearly and explain in two sentences.</textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="send">Send to SMI + Qualia</button>
+          <button class="secondary" id="simulate">Simulate Only</button>
+          <button class="ghost" id="factTest">Fact test</button>
+          <button class="ghost" id="scienceTest">Science test</button>
+        </div>
+        <div class="grid" style="margin-top:10px">
+          <div>
+            <label for="model">Model</label>
+            <select id="model">
+              <option value="SMI4:26b">SMI4:26b</option>
+            </select>
+          </div>
+          <div>
+            <label for="variant">Behavior variant</label>
+            <input id="variant" type="number" step="0.1" value="4.8">
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Ollama Model Comparison</h2>
+        <p class="hint">Select local Ollama models. Press Run Model 1 first, wait for the result, then press Run Model 2.</p>
+        <label for="compareModels">Models to assess</label>
+        <select id="compareModels" multiple>
+          <option value="SMI4:26b" selected>SMI4:26b</option>
+        </select>
+        <div class="row" style="margin-top:10px">
+          <button class="ghost" id="syncModelVectors">Copy global vector to selected</button>
+          <button class="ghost" id="copyRecommendationVectors">Copy recommendation to selected</button>
+        </div>
+        <div id="modelVectorGrid" class="model-vector-grid"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="runModelOneBtn">Run Model 1</button>
+          <button id="runModelTwoBtn">Run Model 2</button>
+          <button class="secondary" id="compareModelsBtn">Run All Selected</button>
+          <button class="ghost" id="clearComparisonBtn">Clear Results</button>
+        </div>
+        <div id="compareStatus" class="status"></div>
+      </section>
+
+      <section>
+        <h2>Vector Controls</h2>
+        <div class="grid">
+          <div>
+            <label for="alpha">alpha</label>
+            <input id="alpha" type="number" min="0" max="1" step="0.01" value="0.5">
+          </div>
+          <div>
+            <label for="beta">beta</label>
+            <input id="beta" type="number" min="0" max="1" step="0.01" value="0.3">
+          </div>
+          <div>
+            <label for="gamma">gamma</label>
+            <input id="gamma" type="number" min="0" max="1" step="0.01" value="0.16">
+          </div>
+          <div>
+            <label for="gammaCap">gamma cap</label>
+            <input id="gammaCap" type="number" min="0" max="0.25" step="0.01" value="0.25">
+          </div>
+          <div>
+            <label for="steps">steps</label>
+            <input id="steps" type="number" min="1" max="240" step="1" value="40">
+          </div>
+          <div>
+            <label for="stability">stability bias</label>
+            <input id="stability" type="number" min="0" max="1" step="0.01" value="0.76">
+          </div>
+        </div>
+
+        <h3 style="margin-top:14px">Q0 vector</h3>
+        <div class="grid3">
+          <div><label for="q0x">Q0 x</label><input id="q0x" type="number" min="-1" max="1" step="0.01" value="0"></div>
+          <div><label for="q0y">Q0 y</label><input id="q0y" type="number" min="-1" max="1" step="0.01" value="0"></div>
+          <div><label for="q0z">Q0 z</label><input id="q0z" type="number" min="-1" max="1" step="0.01" value="1"></div>
+        </div>
+
+        <h3 style="margin-top:14px">A0 vector</h3>
+        <div class="grid3">
+          <div><label for="a0x">A0 x</label><input id="a0x" type="number" min="-1" max="1" step="0.01" value="1"></div>
+          <div><label for="a0y">A0 y</label><input id="a0y" type="number" min="-1" max="1" step="0.01" value="0"></div>
+          <div><label for="a0z">A0 z</label><input id="a0z" type="number" min="-1" max="1" step="0.01" value="0"></div>
+        </div>
+
+        <h3 style="margin-top:14px">S vector</h3>
+        <div class="grid3">
+          <div><label for="sx">S x</label><input id="sx" type="number" min="-1" max="1" step="0.01" value="0"></div>
+          <div><label for="sy">S y</label><input id="sy" type="number" min="-1" max="1" step="0.01" value="0"></div>
+          <div><label for="sz">S z</label><input id="sz" type="number" min="-1" max="1" step="0.01" value="0"></div>
+        </div>
+
+        <h3 style="margin-top:14px">Bell curve</h3>
+        <div class="grid">
+          <div><label for="bellMu">bell mu</label><input id="bellMu" type="number" min="0" max="1" step="0.01" value="0.5"></div>
+          <div><label for="bellSigma">bell sigma</label><input id="bellSigma" type="number" min="0.02" max="0.5" step="0.01" value="0.18"></div>
+        </div>
+        <div id="qualiaStatus" class="status"></div>
+      </section>
+
+    </aside>
+
+    <div class="stack">
+      <section class="top-qualia">
+        <h2>Live Qualia Metrics</h2>
+        <div class="metric-grid" id="metricGrid"></div>
+        <div class="vector-grid" id="vectorGrid"></div>
+      </section>
+
+      <section>
+        <h2>SMI Answer</h2>
+        <div class="answer" id="answer">Ready.</div>
+        <p class="meta" id="answerMeta"></p>
+      </section>
+
+      <section>
+        <h2>Trajectory and Bell Curve</h2>
+        <div class="split">
+          <div>
+            <svg id="trajectoryPlot" class="plot" viewBox="0 0 640 230" preserveAspectRatio="none"></svg>
+            <div class="plot-legend">
+              <span><span class="dot" style="background:#1d6fd8"></span>Q z</span>
+              <span><span class="dot" style="background:#d86b1d"></span>A z</span>
+              <span><span class="dot" style="background:#6b4fd8"></span>S z</span>
+            </div>
+          </div>
+          <div>
+            <svg id="bellPlot" class="plot" viewBox="0 0 640 230" preserveAspectRatio="none"></svg>
+            <div class="plot-legend">
+              <span><span class="dot" style="background:#197d52"></span>Bell weight</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Response-Based Qualia Recommendation</h2>
+        <div class="row">
+          <label class="row" style="gap:6px"><input id="autoApplyRecommendation" type="checkbox" style="width:auto"> Auto-apply after each response</label>
+          <button class="secondary" id="benchmarkBtn">Run Benchmark + Set Baseline</button>
+          <button id="applyRecommendationBtn">Apply Recommendation</button>
+        </div>
+        <div class="metric-grid">
+          <div class="metric-card"><div class="label">Variant</div><div class="value" id="recVariant">0.10</div></div>
+          <div class="metric-card"><div class="label">Gamma</div><div class="value" id="recGamma">0.20</div></div>
+          <div class="metric-card"><div class="label">Stability Bias</div><div class="value" id="recStability">0.65</div></div>
+          <div class="metric-card"><div class="label">Confidence</div><div class="value" id="recConfidence">0%</div></div>
+          <div class="metric-card"><div class="label">Attention</div><div class="value" id="recAttention">0%</div></div>
+          <div class="metric-card"><div class="label">Reasoning</div><div class="value" id="recReasoning">0%</div></div>
+          <div class="metric-card"><div class="label">Logic</div><div class="value" id="recLogic">0%</div></div>
+          <div class="metric-card"><div class="label">Anxiety</div><div class="value" id="recAnxiety">0%</div></div>
+        </div>
+        <div class="soft-panel" id="recReason">Recommendation updates from model responses in chat.</div>
+        <div id="recommendationStatus" class="status"></div>
+        <div id="benchmarkStatus" class="status"></div>
+      </section>
+
+      <section>
+        <h2>Model Vector Assessment</h2>
+        <p class="hint">The graphs compare the same prompt across selected models. Run Model 1, then Model 2, and read the recommendation below the table.</p>
+        <div class="comparison-plots">
+          <div>
+            <h3>Attention Trajectory by Model</h3>
+            <svg id="modelComparisonPlot" class="comparison-plot" viewBox="0 0 760 260" preserveAspectRatio="none"></svg>
+          </div>
+          <div>
+            <h3>Spider Vector Overlay</h3>
+            <svg id="modelRadarPlot" class="radar-plot" viewBox="0 0 640 420" preserveAspectRatio="xMidYMid meet"></svg>
+            <div id="modelComparisonLegend" class="comparison-legend"></div>
+          </div>
+        </div>
+        <div id="modelQualiaBreakdown" class="model-qualia-stack">
+          <div class="hint">Run Model 1 and Model 2 to show SMI Qualia and PHI-4 Qualia summaries here.</div>
+        </div>
+        <h3>Vector Score Bars</h3>
+        <div id="modelComparisonBars" class="comparison-bars"></div>
+        <div class="table-wrap comparison-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Vector / Achieved Area</th>
+                <th id="compareModelA">Model A achieved</th>
+                <th id="compareModelB">Model B achieved</th>
+                <th>Better</th>
+                <th>% Difference</th>
+              </tr>
+            </thead>
+            <tbody id="modelComparisonTable">
+              <tr><td colspan="5">Run two models to calculate comparison.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="modelComparisonSummary" class="comparison-summary">No model comparison summary yet.</div>
+        <div id="modelComparisonOutput" class="comparison-output-grid">
+          <div class="hint">Run Model 1 first, then run Model 2 when the first answer is complete.</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Pseudodynamic Summary</h2>
+        <pre id="qualiaSummary">Run a simulation or send a SMI prompt.</pre>
+      </section>
+
+      <section>
+        <h2>Raw Qualia Output</h2>
+        <pre id="rawQualia">{}</pre>
+      </section>
+
+      <section>
+        <h2>Vector Glossary</h2>
+        <p class="hint">Plain-language terminology for reading the Qualia and model-comparison panels.</p>
+        <div class="glossary-grid">
+          <div class="glossary-item"><strong>Behavior Variant</strong>The operating position on the behavior range. Low values are conservative and narrow; higher values allow broader, more exploratory responses.</div>
+          <div class="glossary-item"><strong>Q0 Vector</strong>The initial qualia state vector. In this lab it represents the starting semantic/interpretive state before the trajectory evolves.</div>
+          <div class="glossary-item"><strong>A0 Vector</strong>The initial attention vector. It shows where attention is pulled at the start of the response process.</div>
+          <div class="glossary-item"><strong>S Vector</strong>The stabilizing or attractor vector. It represents the direction the system is encouraged to settle toward.</div>
+          <div class="glossary-item"><strong>Alpha</strong>The update weight for the qualia state. Higher alpha makes the internal state move more strongly per step.</div>
+          <div class="glossary-item"><strong>Beta</strong>The coupling weight between attention and the qualia state. Higher beta makes attention influence the trajectory more strongly.</div>
+          <div class="glossary-item"><strong>Gamma</strong>The coherence/pressure term applied to the field. It helps shape how strongly the response trajectory is pulled into a coherent pattern.</div>
+          <div class="glossary-item"><strong>Gamma Cap</strong>The maximum allowed gamma effect. It prevents the coherence pressure from overwhelming the simulation.</div>
+          <div class="glossary-item"><strong>Stability Bias</strong>A damping force. Higher values resist drift and keep the trajectory more stable; lower values allow more movement.</div>
+          <div class="glossary-item"><strong>Bell Curve</strong>The weighting curve over behavior variants. It shows where the current variant sits relative to the preferred operating center.</div>
+          <div class="glossary-item"><strong>Peak A z</strong>The highest attention movement on the A z axis. It is used as a compact marker for the strongest attention event in the trajectory.</div>
+          <div class="glossary-item"><strong>Stability Index</strong>A normalized outcome signal estimating how coherent and stable the trajectory remained.</div>
+          <div class="glossary-item"><strong>Influence</strong>The amount of Qualia pull applied to the final behavior ratio. Higher influence means the vector field had more effect.</div>
+          <div class="glossary-item"><strong>Reasoning Proxy</strong>A derived comparison score based on answer length and influence. It is not a true reasoning proof, but a useful local signal.</div>
+          <div class="glossary-item"><strong>Logic Proxy</strong>A derived comparison score based on response structure and gamma pressure. It should be read as a heuristic, not a formal logic grade.</div>
+          <div class="glossary-item"><strong>Anxiety</strong>Inverse stability pressure. Lower anxiety is better in this lab because it means the response remained less volatile.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let lastQualia = null;
+    let lastRecommendation = null;
+    let lastQuestion = "";
+    let lastAnswer = "";
+    let comparisonOutputs = [];
+
+    const asNum = (value, fallback = 0) => {
+      const parsed = Number(String(value ?? "").replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const fmt = (value, digits = 3) => Number(asNum(value, 0)).toFixed(digits);
+    const pct = (value) => `${Math.round(clamp(asNum(value, 0), 0, 1) * 100)}%`;
+    const escapeHtml = (text) => String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+
+    function statusPill(label, value, state = "") {
+      return `<div class="pill"><span>${label}</span><span class="${state}">${value}</span></div>`;
+    }
+
+    function setStatus(id, text, good = true) {
+      $(id).textContent = text || "";
+      $(id).className = `status ${good ? "ok" : "err"}`;
+    }
+
+    function populateModelSelectors(models, preferred) {
+      const previous = readModelVectorRows();
+      const previouslySelected = selectedComparisonModels();
+      let unique = Array.from(new Set((models || []).filter(Boolean)));
+      if (preferred) unique = [preferred, ...unique.filter((name) => name !== preferred)];
+      if (!unique.length) unique.push("SMI4:26b");
+      const options = unique.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+      $("model").innerHTML = options;
+      $("compareModels").innerHTML = unique.map((name, idx) => {
+        const selected = previouslySelected.length ? previouslySelected.includes(name) : idx < 2;
+        return `<option value="${escapeHtml(name)}" ${selected ? "selected" : ""}>${escapeHtml(name)}</option>`;
+      }).join("");
+      $("model").value = preferred && unique.includes(preferred) ? preferred : unique[0];
+      renderModelVectorRows(previous);
+    }
+
+    function selectedComparisonModels() {
+      return Array.from($("compareModels").selectedOptions).map((option) => option.value);
+    }
+
+    function readModelVectorRows() {
+      const values = {};
+      document.querySelectorAll(".model-vector-row").forEach((row) => {
+        const model = row.dataset.model;
+        if (!model) return;
+        values[model] = {
+          variant: asNum(row.querySelector(".mv-variant")?.value, asNum($("variant")?.value, 4.8)),
+          gamma: asNum(row.querySelector(".mv-gamma")?.value, asNum($("gamma")?.value, 0.16)),
+          stability: asNum(row.querySelector(".mv-stability")?.value, asNum($("stability")?.value, 0.76))
+        };
+      });
+      return values;
+    }
+
+    function renderModelVectorRows(previous = {}) {
+      const selected = selectedComparisonModels();
+      const models = selected.length ? selected : [$("model").value || "SMI4:26b"];
+      $("modelVectorGrid").innerHTML = models.map((model) => {
+        const value = previous[model] || {
+          variant: asNum($("variant").value, 4.8),
+          gamma: asNum($("gamma").value, 0.16),
+          stability: asNum($("stability").value, 0.76)
+        };
+        return `<div class="model-vector-row" data-model="${escapeHtml(model)}">
+          <strong>${escapeHtml(model)}</strong>
+          <div><label>Variant</label><input class="mv-variant" type="number" step="0.01" value="${fmt(value.variant, 2)}"></div>
+          <div><label>Gamma</label><input class="mv-gamma" type="number" step="0.01" value="${fmt(value.gamma, 2)}"></div>
+          <div><label>Stability</label><input class="mv-stability" type="number" step="0.01" value="${fmt(value.stability, 2)}"></div>
+        </div>`;
+      }).join("");
+    }
+
+    function getModelVector(model) {
+      const rows = Array.from(document.querySelectorAll(".model-vector-row"));
+      const row = rows.find((item) => item.dataset.model === model);
+      return {
+        variant: asNum(row?.querySelector(".mv-variant")?.value, asNum($("variant").value, 4.8)),
+        gamma: asNum(row?.querySelector(".mv-gamma")?.value, asNum($("gamma").value, 0.16)),
+        stability: asNum(row?.querySelector(".mv-stability")?.value, asNum($("stability").value, 0.76))
+      };
+    }
+
+    function copyGlobalVectorToRows() {
+      document.querySelectorAll(".model-vector-row").forEach((row) => {
+        row.querySelector(".mv-variant").value = fmt($("variant").value, 2);
+        row.querySelector(".mv-gamma").value = fmt($("gamma").value, 2);
+        row.querySelector(".mv-stability").value = fmt($("stability").value, 2);
+      });
+    }
+
+    function copyRecommendationToRows() {
+      if (!lastRecommendation) {
+        setStatus("compareStatus", "No recommendation available yet. Send a prompt or run benchmark first.", false);
+        return;
+      }
+      document.querySelectorAll(".model-vector-row").forEach((row) => {
+        row.querySelector(".mv-variant").value = fmt(lastRecommendation.variant, 2);
+        row.querySelector(".mv-gamma").value = fmt(lastRecommendation.gamma, 2);
+        row.querySelector(".mv-stability").value = fmt(lastRecommendation.stability_bias, 2);
+      });
+      setStatus("compareStatus", "Copied recommendation vector to selected model rows.", true);
+    }
+
+    function getComparisonModels() {
+      const selected = Array.from($("compareModels").selectedOptions).map((option) => option.value);
+      return selected.length ? selected : [$("model").value];
+    }
+
+    function getControlPayload() {
+      return {
+        enabled: true,
+        alpha: asNum($("alpha").value, 0.5),
+        beta: asNum($("beta").value, 0.3),
+        gamma: asNum($("gamma").value, 0.16),
+        gamma_cap: asNum($("gammaCap").value, 0.25),
+        steps: Math.max(1, Math.min(240, Math.trunc(asNum($("steps").value, 40)))),
+        q0_x: asNum($("q0x").value, 0),
+        q0_y: asNum($("q0y").value, 0),
+        q0_z: asNum($("q0z").value, 1),
+        a0_x: asNum($("a0x").value, 1),
+        a0_y: asNum($("a0y").value, 0),
+        a0_z: asNum($("a0z").value, 0),
+        s_x: asNum($("sx").value, 0),
+        s_y: asNum($("sy").value, 0),
+        s_z: asNum($("sz").value, 0),
+        stability_bias: asNum($("stability").value, 0.76),
+        bell_mu: asNum($("bellMu").value, 0.5),
+        bell_sigma: asNum($("bellSigma").value, 0.18)
+      };
+    }
+
+    function applyQualiaToControls(q) {
+      if (!q) return;
+      const p = q.parameters || {};
+      const v = q.vectors || {};
+      const b = q.bell_curve || {};
+      const set = (id, value) => { if (value !== undefined && value !== null) $(id).value = value; };
+      set("alpha", p.alpha ?? q.alpha);
+      set("beta", p.beta ?? q.beta);
+      set("gamma", p.gamma_requested ?? q.gamma_requested);
+      set("gammaCap", p.gamma_cap ?? q.gamma_cap);
+      set("steps", p.steps);
+      set("stability", p.stability_bias);
+      set("q0x", v.q0_x);
+      set("q0y", v.q0_y);
+      set("q0z", v.q0_z);
+      set("a0x", v.a0_x);
+      set("a0y", v.a0_y);
+      set("a0z", v.a0_z);
+      set("sx", v.s_x);
+      set("sy", v.s_y);
+      set("sz", v.s_z);
+      set("bellMu", b.mu);
+      set("bellSigma", b.sigma);
+    }
+
+    function clearPlot(id) {
+      $(id).innerHTML = "";
+    }
+
+    function drawPlot(id, series, opts = {}) {
+      const svg = $(id);
+      svg.innerHTML = "";
+      const width = 640, height = 230, pad = 24;
+      const minY = opts.minY ?? -1;
+      const maxY = opts.maxY ?? 1;
+      const maxX = opts.maxX ?? Math.max(1, ...series.flatMap(s => s.points.map(p => p.x)));
+      const sx = (x) => pad + (clamp(x / maxX, 0, 1) * (width - pad * 2));
+      const sy = (y) => height - pad - (clamp((y - minY) / (maxY - minY), 0, 1) * (height - pad * 2));
+      const line = (x1, y1, x2, y2, cls = "grid") => {
+        const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        el.setAttribute("x1", x1); el.setAttribute("y1", y1); el.setAttribute("x2", x2); el.setAttribute("y2", y2); el.setAttribute("class", cls);
+        svg.appendChild(el);
+      };
+      for (let i = 0; i <= 4; i++) {
+        const y = pad + (i * (height - pad * 2) / 4);
+        line(pad, y, width - pad, y);
+      }
+      line(pad, height - pad, width - pad, height - pad, "axis");
+      line(pad, pad, pad, height - pad, "axis");
+      series.forEach((s) => {
+        if (!s.points.length) return;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const d = s.points.map((p, idx) => `${idx ? "L" : "M"} ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`).join(" ");
+        path.setAttribute("d", d);
+        path.setAttribute("stroke", s.color);
+        svg.appendChild(path);
+      });
+    }
+
+    function renderQualia(q, baseRatio = 0, effectiveRatio = 0) {
+      lastQualia = q || null;
+      if (!q) return;
+      applyQualiaToControls(q);
+      const summary = q.summary || {};
+      const params = q.parameters || {};
+      const vectors = q.vectors || {};
+      $("metricGrid").innerHTML = [
+        ["Influence", fmt(q.influence), "Qualia pull applied to behavior."],
+        ["Stability Gate", fmt(q.stability_gate ?? q.stability_index), "Gate resisting drift."],
+        ["Stability Index", fmt(q.stability_index ?? summary.stability_index, 4), "Trajectory coherence."],
+        ["Gamma Effective", fmt(q.gamma_effective, 4), "Applied gamma after cap."],
+        ["Base Ratio", fmt(q.base_variant_ratio ?? baseRatio), "Variant before Qualia."],
+        ["Effective Ratio", fmt(q.effective_variant_ratio ?? effectiveRatio), "Variant after Qualia."],
+        ["Volatility", fmt(summary.volatility, 4), "Observed trajectory movement."],
+        ["Attention Pull", fmt(summary.attention_pull, 4), "Prompt-linked attention pressure."]
+      ].map(([label, value, meta]) => `<div class="metric-card"><div class="label">${label}</div><div class="value">${value}</div><div class="meta">${meta}</div></div>`).join("");
+      $("vectorGrid").innerHTML = [
+        ["alpha", params.alpha], ["beta", params.beta], ["gamma", q.gamma_requested], ["bias", params.stability_bias],
+        ["Q0 x", vectors.q0_x], ["Q0 y", vectors.q0_y], ["Q0 z", vectors.q0_z],
+        ["A0 x", vectors.a0_x], ["A0 y", vectors.a0_y], ["A0 z", vectors.a0_z],
+        ["S x", vectors.s_x], ["S y", vectors.s_y], ["S z", vectors.s_z]
+      ].map(([label, value]) => `<div class="vector-card"><div class="label">${label}</div><div class="value">${fmt(value, 2)}</div></div>`).join("");
+
+      const trajectory = Array.isArray(q.trajectory) ? q.trajectory : [];
+      if (trajectory.length) {
+        drawPlot("trajectoryPlot", [
+          { color: "#1d6fd8", points: trajectory.map((r, i) => ({ x: asNum(r.t, i), y: asNum(r.q_z, 0) })) },
+          { color: "#d86b1d", points: trajectory.map((r, i) => ({ x: asNum(r.t, i), y: asNum(r.a_z, 0) })) },
+          { color: "#6b4fd8", points: trajectory.map((r, i) => ({ x: asNum(r.t, i), y: asNum(r.s_z, 0) })) }
+        ], { minY: -1, maxY: 1, maxX: Math.max(1, trajectory.length - 1) });
+      } else {
+        clearPlot("trajectoryPlot");
+      }
+      const bellPoints = Array.isArray(q.bell_curve?.points) ? q.bell_curve.points : [];
+      if (bellPoints.length) {
+        drawPlot("bellPlot", [
+          { color: "#197d52", points: bellPoints.map((r, i) => ({ x: asNum(r.x, i / Math.max(1, bellPoints.length - 1)), y: asNum(r.y, 0) })) }
+        ], { minY: 0, maxY: 1, maxX: 1 });
+      } else {
+        clearPlot("bellPlot");
+      }
+      $("qualiaSummary").textContent = [
+        `behavior variant: ${fmt(q.behavior_variant ?? $("variant").value, 2)}`,
+        `base/effective ratio: ${fmt(q.base_variant_ratio ?? baseRatio)} -> ${fmt(q.effective_variant_ratio ?? effectiveRatio)}`,
+        `gamma requested/effective/cap: ${fmt(q.gamma_requested, 4)} / ${fmt(q.gamma_effective, 4)} / ${fmt(q.gamma_cap, 4)}`,
+        `stability bias/index/gate: ${fmt(params.stability_bias, 3)} / ${fmt(q.stability_index ?? summary.stability_index, 4)} / ${fmt(q.stability_gate ?? q.stability_index, 4)}`,
+        `Q z start/end/min/max: ${fmt(summary.q_z_start, 4)} / ${fmt(summary.q_z_end, 4)} / ${fmt(summary.q_z_min, 4)} / ${fmt(summary.q_z_max, 4)}`,
+        `A z start/end/min/max: ${fmt(summary.a_z_start, 4)} / ${fmt(summary.a_z_end, 4)} / ${fmt(summary.a_z_min, 4)} / ${fmt(summary.a_z_max, 4)}`,
+        `volatility: ${fmt(summary.volatility, 4)} | attention pull: ${fmt(summary.attention_pull, 4)}`,
+        `trajectory points: ${trajectory.length} | bell points: ${bellPoints.length}`
+      ].join("\n");
+      $("rawQualia").textContent = JSON.stringify(q, null, 2);
+    }
+
+    function renderRecommendation(rec) {
+      lastRecommendation = rec || null;
+      if (!rec) {
+        $("recVariant").textContent = "0.10";
+        $("recGamma").textContent = "0.20";
+        $("recStability").textContent = "0.65";
+        $("recConfidence").textContent = "0%";
+        $("recAttention").textContent = "0%";
+        $("recReasoning").textContent = "0%";
+        $("recLogic").textContent = "0%";
+        $("recAnxiety").textContent = "0%";
+        $("recReason").textContent = "Recommendation updates from model responses in chat.";
+        return;
+      }
+      $("recVariant").textContent = fmt(rec.variant, 2);
+      $("recGamma").textContent = fmt(rec.gamma, 2);
+      $("recStability").textContent = fmt(rec.stability_bias, 2);
+      $("recConfidence").textContent = pct(rec.confidence);
+      $("recAttention").textContent = pct(rec.focus_scores?.attention);
+      $("recReasoning").textContent = pct(rec.focus_scores?.reasoning);
+      $("recLogic").textContent = pct(rec.focus_scores?.logic);
+      $("recAnxiety").textContent = pct(rec.focus_scores?.anxiety);
+      $("recReason").textContent = String(rec.reason || "Recommendation updated.");
+    }
+
+    function applyRecommendation() {
+      if (!lastRecommendation) {
+        setStatus("recommendationStatus", "No recommendation available yet. Send a prompt first.", false);
+        return;
+      }
+      $("variant").value = fmt(lastRecommendation.variant, 2);
+      $("gamma").value = fmt(lastRecommendation.gamma, 2);
+      $("stability").value = fmt(lastRecommendation.stability_bias, 2);
+      setStatus("recommendationStatus", `Applied vector: variant ${fmt(lastRecommendation.variant, 2)}, gamma ${fmt(lastRecommendation.gamma, 2)}, stability ${fmt(lastRecommendation.stability_bias, 2)}.`, true);
+    }
+
+    async function requestRecommendation(question, answer, qualia) {
+      const payload = {
+        question,
+        answer,
+        citations: [],
+        behavior_variant: asNum($("variant").value, 4.8),
+        current_gamma: asNum($("gamma").value, 0.16),
+        current_stability_bias: asNum($("stability").value, 0.76),
+        gamma_cap: asNum($("gammaCap").value, 0.25),
+        qualia: qualia || {}
+      };
+      const res = await fetch("/api/playground/qualia/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.detail || data.error || "Recommendation failed.");
+      renderRecommendation(data.recommendation || null);
+      setStatus("recommendationStatus", `Recommendation refreshed from response. History #${data.history_entry_id || ""}`, true);
+      if ($("autoApplyRecommendation").checked && data.recommendation?.should_apply) applyRecommendation();
+      await loadContinuityLog();
+    }
+
+    function profileFromHistory(item) {
+      const after = item.after_state || {};
+      const summary = item.benchmark_summary?.qualia_summary || after.qualia_summary || {};
+      const stability = clamp(asNum(item.stability_index ?? summary.stability_index, 0.7), 0, 1);
+      const influence = clamp(asNum(item.influence ?? summary.attention_pull, 0.3), 0, 1);
+      const gamma = clamp(asNum(item.gamma_effective ?? item.gamma_requested, 0.16), 0, 1);
+      const gammaCap = Math.max(0.01, asNum(after.gamma_cap, asNum($("gammaCap").value, 0.25)));
+      const volatility = clamp(asNum(summary.volatility, 1 - stability), 0, 1);
+      const continuity = clamp((0.58 * stability) + (0.22 * (1 - volatility)) + (0.20 * (1 - Math.abs(influence - 0.35))), 0, 1);
+      const cognitive = clamp(asNum(item.reasoning_score, asNum(item.logic_score, 0)) * 0.7 + Math.min(0.3, influence * 0.25), 0, 1);
+      const drift = clamp(1 - (volatility * 0.55) - (Math.abs(influence - 0.35) * 0.25), 0, 1);
+      const anxiety = clamp(1 - stability, 0, 1);
+      const attractor = clamp((stability * 0.48) + (drift * 0.28) + (continuity * 0.24), 0, 1);
+      const gammaField = clamp((gamma / gammaCap) * 0.55 + cognitive * 0.25 + stability * 0.20, 0, 1);
+      const targetRatio = clamp((continuity * 0.42) + (attractor * 0.24) + (gammaField * 0.18) - (anxiety * 0.16), 0, 1);
+      return {
+        continuity,
+        cognitive,
+        stability,
+        drift,
+        anxiety,
+        attractor,
+        gammaField,
+        vector: `variant ${fmt(0.1 + targetRatio * 24.9, 2)} | gamma ${fmt(Math.min(gammaCap, 0.08 + gammaField * gammaCap * 0.55), 2)} | bias ${fmt(clamp(0.42 + anxiety * 0.28 + (1 - drift) * 0.14, 0, 1), 2)}`
+      };
+    }
+
+    async function loadContinuityLog() {
+      if (!$("continuityBody") || !$("historyStatus")) return;
+      try {
+        const res = await fetch("/api/playground/qualia/history?limit=40");
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.detail || data.error || "History failed.");
+        const rows = Array.isArray(data.items) ? data.items : [];
+        if (!rows.length) {
+          $("continuityBody").innerHTML = '<tr><td colspan="10">No qualia history recorded yet.</td></tr>';
+        } else {
+          $("continuityBody").innerHTML = rows.slice(0, 22).map((item) => {
+            const p = profileFromHistory(item);
+            return `<tr>
+              <td>${escapeHtml(String(item.created_at || "").replace(".000000", ""))}</td>
+              <td>${escapeHtml(item.run_type || "")}</td>
+              <td>${pct(p.continuity)}</td>
+              <td>${pct(p.cognitive)}</td>
+              <td>${pct(p.stability)}</td>
+              <td>${pct(p.drift)}</td>
+              <td>${pct(p.anxiety)}</td>
+              <td>${pct(p.attractor)}</td>
+              <td>${pct(p.gammaField)}</td>
+              <td>${escapeHtml(p.vector)}</td>
+            </tr>`;
+          }).join("");
+        }
+        setStatus("historyStatus", `Loaded ${rows.length} Qualia history rows.`, true);
+      } catch (err) {
+        setStatus("historyStatus", err.message || String(err), false);
+      }
+    }
+
+    async function runBenchmark() {
+      setStatus("benchmarkStatus", "Running benchmark prompts and calibrating baseline...", true);
+      const payload = {
+        prompts: [
+          "Answer a simple geography fact and explain your reasoning briefly.",
+          "Explain how the scientific method links different fields.",
+          "Analyze a claim and identify one uncertainty or missing piece of evidence."
+        ],
+        top_k: 0,
+        apply_baseline: true
+      };
+      const res = await fetch("/api/playground/qualia/benchmark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.detail || data.error || "Benchmark failed.");
+      const winner = data.winner?.candidate || {};
+      if (winner.behavior_variant !== undefined) $("variant").value = fmt(winner.behavior_variant, 2);
+      if (winner.gamma !== undefined) $("gamma").value = fmt(winner.gamma, 2);
+      if (winner.stability_bias !== undefined) $("stability").value = fmt(winner.stability_bias, 2);
+      setStatus("benchmarkStatus", `Benchmark complete. Baseline: variant ${fmt(winner.behavior_variant, 2)}, gamma ${fmt(winner.gamma, 2)}, stability ${fmt(winner.stability_bias, 2)}.`, true);
+      await loadContinuityLog();
+    }
+
+    function modelColor(index) {
+      return ["#1d6fd8", "#d86b1d", "#197d52", "#6b4fd8", "#b23a7a", "#4f6b7a"][index % 6];
+    }
+
+    function responseWordCount(text) {
+      return (String(text || "").match(/[A-Za-z0-9']+/g) || []).length;
+    }
+
+    function peakAttentionPoint(trajectory) {
+      const rows = Array.isArray(trajectory) ? trajectory : [];
+      let best = null;
+      rows.forEach((row, idx) => {
+        const t = asNum(row.t, idx);
+        if (t <= 0) return;
+        const value = Math.abs(asNum(row.a_z, 0));
+        if (!best || value > best.value) best = { t, value, raw: asNum(row.a_z, 0) };
+      });
+      return best || { t: 0, value: 0, raw: 0 };
+    }
+
+    function modelDisplayName(model, index) {
+      const lower = String(model || "").toLowerCase();
+      if (lower.includes("SMI")) return "SMI Qualia profile";
+      if (lower.includes("phi")) return "PHI-4 Qualia profile";
+      return `Model ${index + 1} Qualia`;
+    }
+
+    function compactScoreMetrics(outputs) {
+      const maxElapsed = Math.max(1, ...outputs.map((item) => asNum(item.elapsed, 0)));
+      const maxWords = Math.max(1, ...outputs.map((item) => responseWordCount(item.answer)));
+      return outputs.map((item) => ({ item, metrics: modelScoreMetrics(item, maxElapsed, maxWords) }));
+    }
+
+    function renderModelQualiaBreakdown(outputs) {
+      const box = $("modelQualiaBreakdown");
+      if (!box) return;
+      if (!outputs.length) {
+        box.innerHTML = '<div class="hint">Run Model 1 and Model 2 to show SMI Qualia and PHI-4 Qualia summaries here.</div>';
+        return;
+      }
+      const scored = compactScoreMetrics(outputs);
+      box.innerHTML = scored.map(({ item, metrics }, idx) => {
+        const vector = item.vector || {};
+        const q = item.qualia || {};
+        const summary = q.summary || {};
+        const achieved = ["confidence", "reasoning", "logic", "anxiety", "influence"].reduce((sum, key) => {
+          const metric = metrics[key];
+          return sum + (metric.higherBetter ? metric.value : 1 - metric.value);
+        }, 0) / 5;
+        return `<div class="model-qualia-row">
+          <div class="model-qualia-name"><span class="dot" style="background:${modelColor(idx)}"></span>${escapeHtml(modelDisplayName(item.model, idx))}<br><span class="meta">${escapeHtml(item.model)} | ${item.ok ? "answered" : "needs attention"}</span></div>
+          <div class="model-qualia-cell"><span>Suggested vector</span><strong>v${fmt(vector.variant, 2)} / g${fmt(vector.gamma, 2)} / s${fmt(vector.stability, 2)}</strong></div>
+          <div class="model-qualia-cell"><span>Achieved suitability</span><strong>${Math.round(achieved * 100)}%</strong></div>
+          <div class="model-qualia-cell"><span>Stability</span><strong>${Math.round(clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1) * 100)}%</strong></div>
+          <div class="model-qualia-cell"><span>Reasoning / logic</span><strong>${Math.round(metrics.reasoning.value * 100)}% / ${Math.round(metrics.logic.value * 100)}%</strong></div>
+          <div class="model-qualia-cell"><span>Time / words</span><strong>${fmt(asNum(item.elapsed, 0) / 1000, 1)}s / ${responseWordCount(item.answer)}</strong></div>
+        </div>`;
+      }).join("");
+    }
+
+    function renderScoreBars(outputs) {
+      const box = $("modelComparisonBars");
+      if (!box) return;
+      if (!outputs.length) {
+        box.innerHTML = "";
+        return;
+      }
+      const scored = compactScoreMetrics(outputs).slice(0, 2);
+      const rows = [
+        ["confidence", "Confidence"],
+        ["reasoning", "Reasoning"],
+        ["logic", "Logic"],
+        ["anxiety", "Low anxiety"],
+        ["influence", "Influence"],
+        ["attention", "Attention"],
+        ["words", "Response depth"],
+        ["time", "Speed"]
+      ];
+      box.innerHTML = rows.map(([key, label]) => {
+        const cells = scored.map(({ item, metrics }, idx) => {
+          const metric = metrics[key];
+          const score = metric.higherBetter === false ? 1 - metric.value : metric.value;
+          const percent = Math.round(clamp(score, 0, 1) * 100);
+          const raw = key === "time" ? `${fmt(metric.raw, 1)}s` : (key === "words" ? `${Math.round(metric.raw)} words` : fmt(metric.raw, 3));
+          return `<div class="score-bar-cell">
+            <div class="score-bar-top"><span>${escapeHtml(item.model)}</span><span>${percent}%</span></div>
+            <div class="bar-track"><div class="bar-fill" style="width:${percent}%; background:${modelColor(idx)}"></div></div>
+            <div class="meta">${escapeHtml(raw)}</div>
+          </div>`;
+        }).join("");
+        return `<div class="score-bar-row"><div class="score-bar-label">${escapeHtml(label)}</div>${cells}</div>`;
+      }).join("");
+    }
+
+    function drawModelComparison(outputs) {
+      const svg = $("modelComparisonPlot");
+      svg.innerHTML = "";
+      $("modelRadarPlot").innerHTML = "";
+      $("modelComparisonLegend").innerHTML = "";
+      $("modelComparisonBars").innerHTML = "";
+      renderModelQualiaBreakdown(outputs);
+      renderComparisonTable(outputs);
+      if (!outputs.length) return;
+      const width = 760, height = 260, pad = 32;
+      const trajectories = outputs.map((item) => Array.isArray(item.qualia?.trajectory) ? item.qualia.trajectory : []);
+      const maxX = Math.max(1, ...trajectories.flatMap((rows) => rows.map((row, idx) => asNum(row.t, idx))));
+      const allY = trajectories.flatMap((rows) => rows.map((row) => asNum(row.a_z, 0)));
+      const minY = Math.min(-0.05, ...allY);
+      const maxY = Math.max(0.05, ...allY);
+      const sx = (x) => pad + (clamp(x / maxX, 0, 1) * (width - pad * 2));
+      const sy = (y) => height - pad - (clamp((y - minY) / Math.max(0.001, maxY - minY), 0, 1) * (height - pad * 2));
+      const line = (x1, y1, x2, y2, cls = "grid") => {
+        const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        el.setAttribute("x1", x1); el.setAttribute("y1", y1); el.setAttribute("x2", x2); el.setAttribute("y2", y2); el.setAttribute("class", cls);
+        svg.appendChild(el);
+      };
+      for (let i = 0; i <= 4; i++) {
+        const y = pad + (i * (height - pad * 2) / 4);
+        line(pad, y, width - pad, y);
+      }
+      line(pad, height - pad, width - pad, height - pad, "axis");
+      line(pad, pad, pad, height - pad, "axis");
+      outputs.forEach((item, idx) => {
+        const color = modelColor(idx);
+        const rows = Array.isArray(item.qualia?.trajectory) ? item.qualia.trajectory : [];
+        if (rows.length) {
+          const d = rows.map((row, pointIndex) => {
+            const x = sx(asNum(row.t, pointIndex));
+            const y = sy(asNum(row.a_z, 0));
+            return `${pointIndex ? "L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+          }).join(" ");
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", d);
+          path.setAttribute("stroke", color);
+          path.setAttribute("opacity", idx === 0 ? "0.95" : "0.78");
+          if (idx > 0) path.setAttribute("stroke-dasharray", `${4 + idx} ${3 + idx}`);
+          svg.appendChild(path);
+          const peak = peakAttentionPoint(rows);
+          const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          marker.setAttribute("cx", sx(peak.t));
+          marker.setAttribute("cy", sy(peak.raw));
+          marker.setAttribute("r", "5");
+          marker.setAttribute("fill", color);
+          svg.appendChild(marker);
+          const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          label.setAttribute("x", Math.min(width - 170, sx(peak.t) + 7));
+          label.setAttribute("y", Math.max(14, sy(peak.raw) - (idx * 13)));
+          const vector = item.vector || {};
+          label.textContent = `${item.model} peak A z ${fmt(peak.raw, 3)} | v${fmt(vector.variant, 2)} g${fmt(vector.gamma, 2)} s${fmt(vector.stability, 2)}`;
+          svg.appendChild(label);
+        }
+      });
+      $("modelComparisonLegend").innerHTML = outputs.map((item, idx) => {
+        const line = idx === 0 ? "solid outline" : "dashed outline";
+        return `<span><span class="dot" style="background:${modelColor(idx)}"></span>${escapeHtml(modelDisplayName(item.model, idx))} (${escapeHtml(line)})</span>`;
+      }).join("");
+      renderScoreBars(outputs);
+      drawModelRadar(outputs);
+      renderComparisonTable(outputs);
+    }
+
+    function radarMetrics(item) {
+      const q = item.qualia || {};
+      const summary = q.summary || {};
+      const peak = peakAttentionPoint(q.trajectory);
+      const words = responseWordCount(item.answer);
+      return [
+        { label: "Confidence", value: clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1) },
+        { label: "Reasoning", value: clamp(Math.min(1, words / 120) * 0.55 + clamp(asNum(q.influence, 0), 0, 1) * 0.45, 0, 1) },
+        { label: "Logic", value: clamp(Math.min(1, words / 90) * 0.45 + clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2, 0, 1) },
+        { label: "Stability", value: clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1) },
+        { label: "Attention", value: clamp(Math.abs(peak.raw), 0, 1) },
+        { label: "Low Anxiety", value: clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1) }
+      ];
+    }
+
+    function modelScoreMetrics(item, maxElapsed = 1, maxWords = 1) {
+      const q = item.qualia || {};
+      const summary = q.summary || {};
+      const peak = peakAttentionPoint(q.trajectory);
+      const words = responseWordCount(item.answer);
+      const elapsed = asNum(item.elapsed, 0);
+      const vector = item.vector || {};
+      return {
+        variant: { label: "Variant", raw: asNum(vector.variant, 0), value: clamp(asNum(vector.variant, 0) / 25, 0, 1), higherBetter: null },
+        gamma: { label: "Gamma", raw: asNum(vector.gamma, 0), value: clamp(asNum(vector.gamma, 0), 0, 1), higherBetter: null },
+        stabilityVector: { label: "Stability Bias Vector", raw: asNum(vector.stability, 0), value: clamp(asNum(vector.stability, 0), 0, 1), higherBetter: null },
+        confidence: { label: "Confidence / Stability Index", raw: asNum(q.stability_index ?? summary.stability_index, 0), value: clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1), higherBetter: true },
+        attention: { label: "Attention Peak A z", raw: peak.raw, value: clamp(Math.abs(peak.raw), 0, 1), higherBetter: true },
+        reasoning: { label: "Reasoning Proxy", raw: (Math.min(1, words / 120) * 0.55) + (clamp(asNum(q.influence, 0), 0, 1) * 0.45), value: clamp((Math.min(1, words / 120) * 0.55) + (clamp(asNum(q.influence, 0), 0, 1) * 0.45), 0, 1), higherBetter: true },
+        logic: { label: "Logic Proxy", raw: (Math.min(1, words / 90) * 0.45) + (clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2), value: clamp((Math.min(1, words / 90) * 0.45) + (clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2), 0, 1), higherBetter: true },
+        anxiety: { label: "Anxiety", raw: 1 - asNum(q.stability_index ?? summary.stability_index, 0), value: clamp(1 - asNum(q.stability_index ?? summary.stability_index, 0), 0, 1), higherBetter: false },
+        influence: { label: "Influence", raw: asNum(q.influence, 0), value: clamp(asNum(q.influence, 0), 0, 1), higherBetter: true },
+        words: { label: "Response Words", raw: words, value: words / Math.max(1, maxWords), higherBetter: true },
+        time: { label: "Time", raw: elapsed / 1000, value: elapsed / Math.max(1, maxElapsed), higherBetter: false }
+      };
+    }
+
+    function comparisonAdvantage(aValue, bValue, higherBetter) {
+      if (higherBetter === null) return null;
+      const aScore = higherBetter ? aValue : 1 - aValue;
+      const bScore = higherBetter ? bValue : 1 - bValue;
+      const diff = aScore - bScore;
+      const base = Math.max(0.01, Math.min(aScore, bScore));
+      return {
+        diff,
+        percent: Math.abs(diff / base) * 100,
+        winner: Math.abs(diff) < 0.005 ? "tie" : (diff > 0 ? "a" : "b")
+      };
+    }
+
+    function renderComparisonTable(outputs) {
+      const table = $("modelComparisonTable");
+      const summary = $("modelComparisonSummary");
+      if (!outputs.length) {
+        table.innerHTML = '<tr><td colspan="5">Run two models to calculate comparison.</td></tr>';
+        summary.textContent = "No model comparison summary yet.";
+        return;
+      }
+      if (outputs.length < 2) {
+        $("compareModelA").textContent = outputs[0]?.model ? `${outputs[0].model} achieved` : "Model A achieved";
+        $("compareModelB").textContent = "Model B achieved";
+        table.innerHTML = '<tr><td colspan="5">Select and run two models for percentage comparison.</td></tr>';
+        summary.textContent = "A percentage conclusion needs two model outputs.";
+        return;
+      }
+      const a = outputs[0];
+      const b = outputs[1];
+      $("compareModelA").textContent = `${a.model} achieved`;
+      $("compareModelB").textContent = `${b.model} achieved`;
+      const maxElapsed = Math.max(1, ...outputs.map((item) => asNum(item.elapsed, 0)));
+      const maxWords = Math.max(1, ...outputs.map((item) => responseWordCount(item.answer)));
+      const ma = modelScoreMetrics(a, maxElapsed, maxWords);
+      const mb = modelScoreMetrics(b, maxElapsed, maxWords);
+      const rows = [
+        { key: "variant", type: "vector", note: "behavior range setting" },
+        { key: "gamma", type: "vector", note: "coherence pressure setting" },
+        { key: "stabilityVector", type: "vector", note: "drift resistance setting" },
+        { key: "confidence", type: "achieved", note: "higher is better" },
+        { key: "reasoning", type: "achieved", note: "higher is better" },
+        { key: "logic", type: "achieved", note: "higher is better" },
+        { key: "anxiety", type: "achieved", note: "lower is better" },
+        { key: "attention", type: "achieved", note: "higher is better" },
+        { key: "influence", type: "achieved", note: "higher is better" },
+        { key: "words", type: "achieved", note: "higher is richer" },
+        { key: "time", type: "achieved", note: "lower is faster" }
+      ];
+      const scored = [];
+      const formatValue = (key, metric) => {
+        if (key === "time") return `${fmt(metric.raw, 1)}s achieved`;
+        if (key === "words") return `${Math.round(metric.raw)} words achieved`;
+        if (key === "variant") return `${fmt(metric.raw, 2)} set`;
+        if (key === "gamma" || key === "stabilityVector") return `${fmt(metric.raw, 3)} set`;
+        return `${Math.round(clamp(metric.value, 0, 1) * 100)}% achieved (${fmt(metric.raw, 3)})`;
+      };
+      table.innerHTML = rows.map((row) => {
+        const key = row.key;
+        const left = ma[key];
+        const right = mb[key];
+        const adv = comparisonAdvantage(left.value, right.value, left.higherBetter);
+        let better = "setting only";
+        let advantage = row.note;
+        let cls = "neutral";
+        if (adv) {
+          if (adv.winner === "a") {
+            better = a.model;
+            cls = "winner";
+          } else if (adv.winner === "b") {
+            better = b.model;
+            cls = "winner";
+          } else {
+            better = "tie";
+          }
+          advantage = adv.winner === "tie" ? "0%" : `${fmt(adv.percent, 1)}%`;
+          scored.push({ winner: adv.winner, diff: adv.diff, percent: adv.percent, key, aScore: left.higherBetter ? left.value : 1 - left.value, bScore: left.higherBetter ? right.value : 1 - right.value });
+        }
+        return `<tr>
+          <td><strong>${escapeHtml(left.label)}</strong><br><span class="meta">${escapeHtml(row.type)} | ${escapeHtml(row.note)}</span></td>
+          <td>${escapeHtml(formatValue(key, left))}</td>
+          <td>${escapeHtml(formatValue(key, right))}</td>
+          <td class="${cls}">${escapeHtml(better)}</td>
+          <td>${escapeHtml(advantage)}</td>
+        </tr>`;
+      }).join("");
+      const aWins = scored.filter((row) => row.winner === "a").length;
+      const bWins = scored.filter((row) => row.winner === "b").length;
+      const ties = scored.filter((row) => row.winner === "tie").length;
+      const avgA = scored.length ? scored.reduce((sum, row) => sum + row.aScore, 0) / scored.length : 0;
+      const avgB = scored.length ? scored.reduce((sum, row) => sum + row.bScore, 0) / scored.length : 0;
+      const overallWinner = Math.abs(avgA - avgB) < 0.005 ? "tie" : (avgA > avgB ? a.model : b.model);
+      const weaker = avgA > avgB ? b.model : a.model;
+      const advantage = Math.abs(avgA - avgB) / Math.max(0.01, Math.min(avgA || 0.01, avgB || 0.01)) * 100;
+      const weakAreasA = scored.filter((row) => row.winner === "b").map((row) => ma[row.key].label);
+      const weakAreasB = scored.filter((row) => row.winner === "a").map((row) => mb[row.key].label);
+      if (overallWinner === "tie") {
+        summary.innerHTML = `The achieved vector test is broadly tied. Average achieved score: ${escapeHtml(a.model)} ${Math.round(avgA * 100)}%, ${escapeHtml(b.model)} ${Math.round(avgB * 100)}%. Wins: ${escapeHtml(a.model)} ${aWins}, ${escapeHtml(b.model)} ${bWins}, ties ${ties}.<span class="recommendation-line">Recommendation: keep testing both models with a broader prompt set before choosing the main base.</span>`;
+      } else {
+        const winnerWeak = overallWinner === a.model ? weakAreasA : weakAreasB;
+        const weakerWeak = overallWinner === a.model ? weakAreasB : weakAreasA;
+        summary.innerHTML = `Average achieved score: ${escapeHtml(a.model)} ${Math.round(avgA * 100)}%, ${escapeHtml(b.model)} ${Math.round(avgB * 100)}%. In terms of achieved vector tests, <span class="winner">${escapeHtml(overallWinner)}</span> performed approximately <span class="winner">${fmt(advantage, 1)}%</span> overall above ${escapeHtml(weaker)}. Wins: ${escapeHtml(a.model)} ${aWins}, ${escapeHtml(b.model)} ${bWins}, ties ${ties}.<span class="recommendation-line">Recommendation: use <span class="winner">${escapeHtml(overallWinner)}</span> as the stronger base for this prompt type. It was weaker on ${escapeHtml(winnerWeak.length ? winnerWeak.join(", ") : "no scored area")}; ${escapeHtml(weaker)} was weaker on ${escapeHtml(weakerWeak.length ? weakerWeak.join(", ") : "no scored area")}.</span>`;
+      }
+    }
+
+    function drawModelRadar(outputs) {
+      const svg = $("modelRadarPlot");
+      svg.innerHTML = "";
+      if (!outputs.length) return;
+      const width = 640, height = 420;
+      const cx = width / 2;
+      const cy = height / 2 + 8;
+      const radius = 132;
+      const axes = radarMetrics(outputs[0]).map((item) => item.label);
+      const pointFor = (axisIndex, value) => {
+        const angle = (-Math.PI / 2) + (axisIndex * Math.PI * 2 / axes.length);
+        return {
+          x: cx + Math.cos(angle) * radius * clamp(value, 0, 1),
+          y: cy + Math.sin(angle) * radius * clamp(value, 0, 1)
+        };
+      };
+      for (let ring = 1; ring <= 4; ring++) {
+        const r = ring / 4;
+        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polygon.setAttribute("points", axes.map((_, idx) => {
+          const p = pointFor(idx, r);
+          return `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+        }).join(" "));
+        polygon.setAttribute("class", "radar-grid");
+        svg.appendChild(polygon);
+      }
+      axes.forEach((axis, idx) => {
+        const end = pointFor(idx, 1);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", cx); line.setAttribute("y1", cy); line.setAttribute("x2", end.x); line.setAttribute("y2", end.y); line.setAttribute("class", "radar-axis");
+        svg.appendChild(line);
+        const labelPoint = pointFor(idx, 1.14);
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", labelPoint.x);
+        text.setAttribute("y", labelPoint.y);
+        text.setAttribute("text-anchor", labelPoint.x < cx - 10 ? "end" : (labelPoint.x > cx + 10 ? "start" : "middle"));
+        text.textContent = axis;
+        svg.appendChild(text);
+      });
+      const modelPolygons = outputs.slice(0, 4).map((item, idx) => {
+        const color = modelColor(idx);
+        const metrics = radarMetrics(item);
+        const points = metrics.map((metric, axisIndex) => {
+          const p = pointFor(axisIndex, metric.value);
+          return { ...p, value: metric.value, label: metric.label };
+        });
+        return { item, idx, color, points };
+      });
+      modelPolygons.forEach((shape) => {
+        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polygon.setAttribute("points", shape.points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" "));
+        polygon.setAttribute("class", "radar-fill");
+        polygon.setAttribute("fill", shape.color);
+        polygon.setAttribute("opacity", "0.18");
+        svg.appendChild(polygon);
+      });
+      modelPolygons.forEach((shape) => {
+        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polygon.setAttribute("points", shape.points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" "));
+        polygon.setAttribute("class", "radar-outline");
+        polygon.setAttribute("stroke", shape.color);
+        polygon.setAttribute("stroke-width", shape.idx === 0 ? "4" : "3");
+        polygon.setAttribute("stroke-dasharray", shape.idx === 0 ? "" : `${7 + shape.idx} ${4 + shape.idx}`);
+        svg.appendChild(polygon);
+        shape.points.forEach((point) => {
+          const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          dot.setAttribute("class", "radar-dot");
+          dot.setAttribute("cx", point.x.toFixed(2));
+          dot.setAttribute("cy", point.y.toFixed(2));
+          dot.setAttribute("r", shape.idx === 0 ? "4.6" : "3.8");
+          dot.setAttribute("fill", shape.color);
+          svg.appendChild(dot);
+        });
+        const labelPoint = shape.points[0] || { x: cx, y: cy };
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", Math.min(width - 180, labelPoint.x + 9));
+        label.setAttribute("y", Math.max(18, labelPoint.y - (shape.idx * 15)));
+        label.setAttribute("fill", shape.color);
+        label.textContent = modelDisplayName(shape.item.model, shape.idx);
+        svg.appendChild(label);
+      });
+    }
+
+    function short(text, max) {
+      text = String(text || "");
+      return text.length > max ? text.slice(0, max - 1) + "..." : text;
+    }
+
+    async function refreshStatus() {
+      $("statusGrid").innerHTML = statusPill("Runtime", "checking", "");
+      try {
+        const res = await fetch("/api/playground/SMI-qualia/status");
+        const data = await res.json();
+        $("statusGrid").innerHTML = [
+          statusPill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "err"),
+          statusPill("Model", data.model || "not set", data.model ? "ok" : "err"),
+          statusPill("Old SMi boundary", data.boundary_disabled_in_normal_playground ? "blocks old chat" : "open", data.boundary_disabled_in_normal_playground ? "err" : "ok"),
+          statusPill("SMI Qualia logs", String(data.SMI_qualia_chat_count || 0), "ok")
+        ].join("");
+        const currentModel = $("model").value || data.model;
+        populateModelSelectors(data.available_models || [], currentModel || data.model);
+        $("logPath").textContent = data.log_path || "";
+        renderLogs(data.recent_logs || []);
+      } catch (err) {
+        $("statusGrid").innerHTML = statusPill("Dashboard API", "not answering", "err");
+      }
+    }
+
+    function renderLogs(logs) {
+      const box = $("recentLogs");
+      if (!box) return;
+      if (!logs.length) {
+        box.innerHTML = '<p class="meta">No SMI Qualia chat logs yet.</p>';
+        return;
+      }
+      box.innerHTML = logs.slice().reverse().map((item) => {
+        const q = short(item.message, 120);
+        const a = short(item.answer || item.error, 170);
+        return `<div class="log-item"><strong>#${item.history_entry_id || ""} ${item.model || ""}</strong><div>${q}</div><div class="meta">${a}</div></div>`;
+      }).join("");
+    }
+
+    async function simulateOnly() {
+      setStatus("qualiaStatus", "Running Qualia simulation...", true);
+      const payload = {
+        behavior_variant: asNum($("variant").value, 4.8),
+        qualia_control: getControlPayload()
+      };
+      const res = await fetch("/api/playground/qualia/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.detail || data.error || "Qualia simulation failed.");
+      renderQualia(data.qualia || {}, data.base_variant_ratio, data.effective_variant_ratio);
+      setStatus("qualiaStatus", `Simulation updated. History #${data.history_entry_id || ""}`, true);
+      await loadContinuityLog();
+    }
+
+    async function sendPrompt() {
+      $("send").disabled = true;
+      $("answer").textContent = "SMI is thinking through the Qualia bridge...";
+      $("answerMeta").textContent = "";
+      setStatus("qualiaStatus", "Sending prompt with active vector controls...", true);
+      try {
+        const payload = {
+          message: $("message").value,
+          model: $("model").value,
+          behavior_variant: asNum($("variant").value, 4.8),
+          qualia_control: getControlPayload()
+        };
+        const res = await fetch("/api/playground/SMI-qualia/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        $("answer").textContent = data.answer || data.error || "No answer returned.";
+        $("answerMeta").textContent = `history #${data.history_entry_id || ""} | ${data.runtime?.model || ""} | ${data.elapsed_ms || 0} ms | log: ${data.log_path || ""}`;
+        renderQualia(data.qualia_full || data.qualia || {});
+        lastQuestion = $("message").value;
+        lastAnswer = data.answer || "";
+        setStatus("qualiaStatus", `SMI response mapped to Qualia history #${data.history_entry_id || ""}.`, !data.error);
+        if (lastAnswer) {
+          await requestRecommendation(lastQuestion, lastAnswer, data.qualia_full || data.qualia || {});
+        }
+        await refreshStatus();
+        await loadContinuityLog();
+      } catch (err) {
+        $("answer").textContent = "The dashboard could not reach the SMI Qualia bridge.";
+        setStatus("qualiaStatus", err.message || String(err), false);
+      } finally {
+        $("send").disabled = false;
+      }
+    }
+
+    function setComparisonButtons(disabled) {
+      ["runModelOneBtn", "runModelTwoBtn", "compareModelsBtn", "clearComparisonBtn"].forEach((id) => {
+        const button = $(id);
+        if (button) button.disabled = disabled;
+      });
+    }
+
+    function comparisonCard(item) {
+      const q = item.qualia || {};
+      const summary = q.summary || {};
+      const peak = peakAttentionPoint(q.trajectory);
+      const vector = item.vector || {};
+      return `<div class="comparison-card">
+        <strong>${escapeHtml(item.label || item.model)} ${item.ok ? "" : "(error)"}</strong>
+        <div class="meta">history #${escapeHtml(item.history)} | vector v${fmt(vector.variant, 2)} / gamma ${fmt(vector.gamma, 2)} / stability ${fmt(vector.stability, 2)} | ${escapeHtml(item.elapsed)} ms | outcome stability ${fmt(q.stability_index ?? summary.stability_index, 4)} | influence ${fmt(q.influence, 3)} | peak A z ${fmt(peak.raw, 3)} at t=${fmt(peak.t, 0)}</div>
+        <div class="note">${escapeHtml(item.answer)}</div>
+      </div>`;
+    }
+
+    function renderComparisonOutputs() {
+      drawModelComparison(comparisonOutputs);
+      $("modelComparisonOutput").innerHTML = comparisonOutputs.length
+        ? comparisonOutputs.map(comparisonCard).join("")
+        : '<div class="hint">Run Model 1 first, then run Model 2 when the first answer is complete.</div>';
+    }
+
+    function sortComparisonOutputs() {
+      const order = getComparisonModels();
+      comparisonOutputs.sort((a, b) => {
+        const ai = order.indexOf(a.model);
+        const bi = order.indexOf(b.model);
+        return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+      });
+    }
+
+    function storeComparisonResult(result) {
+      comparisonOutputs = comparisonOutputs.filter((item) => item.model !== result.model);
+      comparisonOutputs.push(result);
+      sortComparisonOutputs();
+      renderComparisonOutputs();
+    }
+
+    function clearComparisonResults(options = {}) {
+      comparisonOutputs = [];
+      renderComparisonOutputs();
+      if (!options.silent) setStatus("compareStatus", "Comparison results cleared. Run Model 1 to start again.", true);
+    }
+
+    async function runModelAssessment(model, index) {
+      const started = performance.now();
+      const vector = getModelVector(model);
+      const label = `Model ${index + 1}: ${model}`;
+      try {
+        const modelQualiaControl = {
+          ...getControlPayload(),
+          gamma: vector.gamma,
+          stability_bias: vector.stability
+        };
+        const payload = {
+          message: $("message").value,
+          model,
+          behavior_variant: vector.variant,
+          qualia_control: modelQualiaControl
+        };
+        const res = await fetch("/api/playground/SMI-qualia/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        return {
+          model,
+          label,
+          vector,
+          ok: data.ok && !data.error,
+          answer: data.answer || data.error || "No answer returned.",
+          elapsed: data.elapsed_ms || Math.round(performance.now() - started),
+          qualia: data.qualia_full || data.qualia || {},
+          history: data.history_entry_id
+        };
+      } catch (err) {
+        return {
+          model,
+          label,
+          vector,
+          ok: false,
+          answer: err.message || String(err),
+          elapsed: Math.round(performance.now() - started),
+          qualia: {},
+          history: ""
+        };
+      }
+    }
+
+    async function runComparisonModelAt(index) {
+      const models = getComparisonModels();
+      const model = models[index];
+      if (!model) {
+        setStatus("compareStatus", `No Model ${index + 1} is selected. Select a second model first.`, false);
+        return;
+      }
+      setComparisonButtons(true);
+      setStatus("compareStatus", `Running Model ${index + 1}: ${model}. Wait for this to finish before starting the next one.`, true);
+      try {
+        const result = await runModelAssessment(model, index);
+        storeComparisonResult(result);
+        const next = models[index + 1];
+        const message = next
+          ? `Model ${index + 1} complete: ${model}. Now press Run Model ${index + 2} for ${next}.`
+          : `Model ${index + 1} complete: ${model}.`;
+        setStatus("compareStatus", message, result.ok);
+        await refreshStatus();
+        await loadContinuityLog();
+      } finally {
+        setComparisonButtons(false);
+      }
+    }
+
+    async function runSelectedModels() {
+      const models = getComparisonModels();
+      clearComparisonResults({ silent: true });
+      setComparisonButtons(true);
+      setStatus("compareStatus", `Running ${models.length} selected model(s) one after another...`, true);
+      try {
+        for (let index = 0; index < models.length; index += 1) {
+          const model = models[index];
+          setStatus("compareStatus", `Running Model ${index + 1} of ${models.length}: ${model}.`, true);
+          const result = await runModelAssessment(model, index);
+          storeComparisonResult(result);
+        }
+        setStatus("compareStatus", `Completed ${comparisonOutputs.length} model assessment run(s).`, true);
+        await refreshStatus();
+        await loadContinuityLog();
+      } finally {
+        setComparisonButtons(false);
+      }
+    }
+
+    $("refreshStatus").addEventListener("click", refreshStatus);
+    $("send").addEventListener("click", sendPrompt);
+    $("simulate").addEventListener("click", () => simulateOnly().catch((err) => setStatus("qualiaStatus", err.message || String(err), false)));
+    $("compareModels").addEventListener("change", () => {
+      renderModelVectorRows(readModelVectorRows());
+      clearComparisonResults({ silent: true });
+    });
+    $("syncModelVectors").addEventListener("click", copyGlobalVectorToRows);
+    $("copyRecommendationVectors").addEventListener("click", copyRecommendationToRows);
+    $("runModelOneBtn").addEventListener("click", () => runComparisonModelAt(0).catch((err) => setStatus("compareStatus", err.message || String(err), false)));
+    $("runModelTwoBtn").addEventListener("click", () => runComparisonModelAt(1).catch((err) => setStatus("compareStatus", err.message || String(err), false)));
+    $("compareModelsBtn").addEventListener("click", () => runSelectedModels().catch((err) => setStatus("compareStatus", err.message || String(err), false)));
+    $("clearComparisonBtn").addEventListener("click", () => clearComparisonResults());
+    $("benchmarkBtn").addEventListener("click", () => runBenchmark().catch((err) => setStatus("benchmarkStatus", err.message || String(err), false)));
+    $("applyRecommendationBtn").addEventListener("click", applyRecommendation);
+    if ($("refreshHistory")) $("refreshHistory").addEventListener("click", loadContinuityLog);
+    $("factTest").addEventListener("click", () => {
+      $("message").value = "Which continent is South Africa on? Answer directly and explain in two sentences.";
+    });
+    $("scienceTest").addEventListener("click", () => {
+      $("message").value = "Pierre is studying the golden thread across science. Explain how the scientific method and mathematical modeling connect different fields, then name one practical risk to shared objective reality.";
+    });
+
+    refreshStatus();
+    simulateOnly().catch(() => {});
+    loadContinuityLog();
+  </script>
+</body>
+</html>
+

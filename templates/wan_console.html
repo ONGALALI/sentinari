@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMi Workflow 2 - CPU Video Studio</title>
+  <style>
+    :root {
+      --bg: #edf3f8;
+      --sidebar: #13263b;
+      --sidebar-ink: #d9e8f6;
+      --sidebar-muted: #9ab4cd;
+      --card: #ffffff;
+      --border: #d5dfeb;
+      --ink: #162534;
+      --muted: #506579;
+      --accent: #1e69c8;
+      --ok: #16763c;
+      --err: #b03629;
+    }
+    body { margin: 0; font-family: "Segoe UI", Tahoma, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+    .shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { background: linear-gradient(180deg, #13263b 0%, #0e1c2c 100%); color: var(--sidebar-ink); padding: 18px 16px; }
+    .brand { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .sidecopy { color: var(--sidebar-muted); font-size: 13px; margin-bottom: 16px; }
+    .nav { display: grid; gap: 8px; }
+    .nav a {
+      display: block;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--sidebar-ink);
+      text-decoration: none;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 14px;
+    }
+    .nav a.active { background: rgba(30, 105, 200, 0.32); border-color: rgba(105, 166, 245, 0.5); }
+    .nav a small { display: block; color: var(--sidebar-muted); margin-top: 4px; font-size: 11px; }
+    .page { padding: 18px; }
+    .wrap { max-width: 1380px; margin: 0 auto; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    h1, h2 { margin: 0 0 10px; }
+    .hint { color: var(--muted); font-size: 13px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .field { display: grid; gap: 5px; min-width: 160px; }
+    .field label { font-size: 12px; color: var(--muted); font-weight: 700; }
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #c5d1df;
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    button {
+      border: 1px solid #7994b3;
+      border-radius: 8px;
+      padding: 9px 13px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary { background: #60758d; }
+    button.ghost { background: #f6faff; color: #20405d; }
+    .status { min-height: 18px; margin-top: 8px; font-size: 13px; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    .result {
+      white-space: pre-wrap;
+      background: #f6f9fd;
+      border: 1px solid #d9e3ee;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 8px;
+      display: none;
+      max-height: 360px;
+      overflow: auto;
+    }
+    .pipeline-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
+    .pipeline-step { border: 1px solid #d9e3ee; background: #f8fbff; border-radius: 8px; padding: 10px; color: var(--muted); font-size: 12px; }
+    .pipeline-step strong { display: block; color: var(--ink); font-size: 15px; margin-top: 4px; word-break: break-word; }
+    #videoResultPlayer { width: 100%; max-height: 460px; background: #000; border-radius: 10px; }
+    @media (max-width: 1040px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { padding-bottom: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">SMi</div>
+      <div class="sidecopy">Workflow navigation. Landing remains the main playground.</div>
+      <nav class="nav">
+        <a href="/ui/playground">Dashboard Home<small>Landing page with chat, qualia, and tutor.</small></a>
+        <a href="/ui/playground#chat-lab">Workflow 1 Chat<small>Primary landing workflow.</small></a>
+        <a href="/ui/playground/wan" class="active">Workflow 2 CPU Video<small>Script, scenes, image stitch, and MP4 export.</small></a>
+        <a href="/ui/playground/workbench-a">Workbench A<small>Blank task sandbox.</small></a>
+        <a href="/ui/playground/workbench-b">Workbench B<small>Second blank task sandbox.</small></a>
+        <a href="/ui/admin">Admin Console<small>Profile, memory, and task board.</small></a>
+      </nav>
+    </aside>
+
+    <main class="page">
+      <div class="wrap">
+        <div class="card">
+          <h1>Workflow 2: CPU Video Studio</h1>
+          <div class="hint">WAN has been removed from this page. This workflow uses CPU-friendly scene planning, local FFmpeg rendering, subtitles, and image stitching. AI image generation and TTS can be added as local engines later.</div>
+        </div>
+
+        <div class="card">
+          <h2>Hybrid Script-to-Video</h2>
+          <div class="field">
+            <label for="hybridPrompt">Script / Lesson Text</label>
+            <textarea id="hybridPrompt" placeholder="Paste a lesson script, narration, or scene outline. Each sentence becomes a scene."></textarea>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <div class="field" style="flex:0 1 150px;">
+              <label for="hybridScenes">Max Scenes</label>
+              <input id="hybridScenes" type="number" min="1" max="20" step="1" value="12">
+            </div>
+            <div class="field" style="flex:0 1 170px;">
+              <label for="hybridSeconds">Seconds / Scene</label>
+              <input id="hybridSeconds" type="number" min="1" max="20" step="0.5" value="6">
+            </div>
+            <div class="field" style="flex:0 1 120px;">
+              <label for="hybridFps">FPS</label>
+              <input id="hybridFps" type="number" min="8" max="32" step="1" value="24">
+            </div>
+            <div class="field" style="flex:0 1 160px;">
+              <label for="hybridLanguage">Language</label>
+              <input id="hybridLanguage" type="text" value="English">
+            </div>
+            <div class="field" style="flex:1 1 220px;">
+              <label for="hybridFileHint">Filename Hint</label>
+              <input id="hybridFileHint" type="text" value="smi-cpu-video">
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnHybridPlan" class="ghost">Build Scene Plan</button>
+            <button id="btnHybridRender">Render CPU MP4</button>
+          </div>
+          <div class="pipeline-steps">
+            <div class="pipeline-step">Engine<strong id="videoEngine">Checking</strong></div>
+            <div class="pipeline-step">FFmpeg<strong id="videoFfmpeg">Checking</strong></div>
+            <div class="pipeline-step">Encoder<strong id="videoEncoder">Checking</strong></div>
+            <div class="pipeline-step">Duration<strong id="hybridDuration">0s</strong></div>
+            <div class="pipeline-step">Job<strong id="videoJobState">Idle</strong></div>
+          </div>
+          <div id="hybridStatus" class="status"></div>
+          <pre id="hybridPlanPreview" class="result"></pre>
+        </div>
+
+        <div class="card">
+          <h2>Image Stitch MP4</h2>
+          <div class="hint">Use this when you have pre-generated lesson images, cover pages, diagrams, or slides. It is the fastest CPU-safe video route.</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="field" style="flex:1 1 520px;">
+              <label for="stitchInputDir">Image Folder</label>
+              <input id="stitchInputDir" type="text" placeholder="Leave blank to use SMi default image folder">
+            </div>
+            <div class="field" style="flex:0 1 150px;">
+              <label for="stitchSeconds">Seconds / Image</label>
+              <input id="stitchSeconds" type="number" min="0.2" max="20" step="0.1" value="3">
+            </div>
+            <div class="field" style="flex:0 1 120px;">
+              <label for="stitchFps">FPS</label>
+              <input id="stitchFps" type="number" min="8" max="60" step="1" value="24">
+            </div>
+            <div class="field" style="flex:0 1 130px;">
+              <label for="stitchWidth">Width</label>
+              <input id="stitchWidth" type="number" min="320" max="3840" step="1" value="1280">
+            </div>
+            <div class="field" style="flex:0 1 130px;">
+              <label for="stitchHeight">Height</label>
+              <input id="stitchHeight" type="number" min="240" max="2160" step="1" value="720">
+            </div>
+            <div class="field" style="flex:1 1 180px;">
+              <label for="stitchFileHint">Filename Hint</label>
+              <input id="stitchFileHint" type="text" value="smi-image-stitch">
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnVideoStitch" class="secondary">Render from Images</button>
+          </div>
+          <div id="videoStatus" class="status"></div>
+        </div>
+
+        <div class="card" id="videoResultWrap" style="display:none;">
+          <h2>Render Output</h2>
+          <video id="videoResultPlayer" controls></video>
+          <div class="row" style="margin-top:8px;">
+            <a id="videoDownloadLink" href="#" download>Download MP4</a>
+            <a id="videoSubtitleLink" href="#" download style="display:none;">Download Subtitles (SRT)</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const setStatus = (id, text, ok) => {
+      const el = byId(id);
+      el.textContent = text || '';
+      el.className = 'status ' + (ok ? 'ok' : 'err');
+    };
+    const redirectIfUnauthorized = (response) => {
+      if (response && response.status === 401) {
+        window.location.assign('/ui/login?next=/ui/playground/wan');
+        return true;
+      }
+      return false;
+    };
+    const asNum = (value, fallback = 0) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const showOutput = (data) => {
+      const player = byId('videoResultPlayer');
+      const wrap = byId('videoResultWrap');
+      const dl = byId('videoDownloadLink');
+      const srt = byId('videoSubtitleLink');
+      const videoUrl = String(data.file_url || '') + `?t=${Date.now()}`;
+      player.src = videoUrl;
+      wrap.style.display = 'block';
+      dl.href = String(data.file_url || '#');
+      dl.download = String(data.file_name || 'smi-video.mp4');
+      if (data.subtitle_url) {
+        srt.style.display = 'inline';
+        srt.href = String(data.subtitle_url);
+        srt.download = String(data.subtitle_name || 'smi-video.srt');
+      } else {
+        srt.style.display = 'none';
+        srt.href = '#';
+      }
+    };
+    let lastPlan = null;
+    let pollTimer = null;
+
+    const loadVideoStatus = async () => {
+      const res = await fetch('/api/playground/video/status', { cache: 'no-store' });
+      if (redirectIfUnauthorized(res)) return;
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.detail || data.error || 'Failed to load video status.');
+      byId('videoEngine').textContent = data.engine || 'local-ffmpeg';
+      byId('videoFfmpeg').textContent = data.ffmpeg_available ? 'Ready' : 'Missing';
+      byId('videoEncoder').textContent = data.gpu_acceleration_enabled ? `${data.gpu_encoder || 'GPU'}` : 'CPU libx264';
+      const preferredDir = String(data.default_stitch_input_dir || '').trim();
+      if (!String(byId('stitchInputDir').value || '').trim() && preferredDir) {
+        byId('stitchInputDir').value = preferredDir;
+      }
+      setStatus(
+        'videoStatus',
+        data.ffmpeg_available ? 'CPU video engine ready.' : 'ffmpeg is not available. Install ffmpeg to render MP4 files.',
+        Boolean(data.ffmpeg_available)
+      );
+    };
+
+    const buildHybridPlan = async () => {
+      const prompt = String(byId('hybridPrompt').value || '').trim();
+      if (!prompt) {
+        setStatus('hybridStatus', 'Paste a script or lesson text first.', false);
+        return null;
+      }
+      const payload = {
+        prompt,
+        language: String(byId('hybridLanguage').value || 'English').trim() || 'English',
+        fps: Math.max(8, Math.min(32, Math.trunc(asNum(byId('hybridFps').value, 24)))),
+        max_scenes: Math.max(1, Math.min(20, Math.trunc(asNum(byId('hybridScenes').value, 12)))),
+      };
+      setStatus('hybridStatus', 'Building scene plan...', true);
+      const res = await fetch('/api/playground/video/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      });
+      if (redirectIfUnauthorized(res)) return null;
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus('hybridStatus', data.detail || data.error || 'Scene planning failed.', false);
+        return null;
+      }
+      const seconds = Math.max(1, Math.min(20, asNum(byId('hybridSeconds').value, 6)));
+      const plan = data.plan || {};
+      plan.scenes = Array.isArray(plan.scenes) ? plan.scenes.map((scene) => ({ ...scene, duration: seconds })) : [];
+      lastPlan = plan;
+      const total = plan.scenes.reduce((sum, scene) => sum + asNum(scene.duration, seconds), 0);
+      byId('hybridDuration').textContent = `${total.toFixed(1)}s`;
+      const preview = byId('hybridPlanPreview');
+      preview.style.display = 'block';
+      preview.textContent = JSON.stringify(plan, null, 2);
+      setStatus('hybridStatus', `Scene plan ready: ${plan.scenes.length} scenes, ${total.toFixed(1)} seconds.`, true);
+      return plan;
+    };
+
+    const pollVideoJob = (jobId, statusId) => {
+      if (pollTimer) clearInterval(pollTimer);
+      byId('videoJobState').textContent = String(jobId || '').slice(0, 16);
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/playground/video/job/${encodeURIComponent(jobId)}`, { cache: 'no-store' });
+          if (redirectIfUnauthorized(res)) return;
+          const data = await res.json();
+          if (!res.ok || data.ok === false) {
+            clearInterval(pollTimer);
+            setStatus(statusId, data.detail || data.error || 'Video job status failed.', false);
+            return;
+          }
+          const pct = Math.max(0, Math.min(100, Math.trunc(asNum(data.progress, 0))));
+          byId('videoJobState').textContent = `${data.status || 'job'} ${pct}%`;
+          setStatus(statusId, `${data.message || data.status || 'Working'} (${pct}%)`, data.status !== 'error');
+          if (data.status === 'done') {
+            clearInterval(pollTimer);
+            showOutput(data.result || {});
+            setStatus(statusId, data.message || 'Video ready.', true);
+          } else if (data.status === 'error') {
+            clearInterval(pollTimer);
+            setStatus(statusId, data.error || data.message || 'Video job failed.', false);
+          }
+        } catch (e) {
+          clearInterval(pollTimer);
+          setStatus(statusId, e.message || String(e), false);
+        }
+      }, 1500);
+    };
+
+    const renderHybridVideo = async () => {
+      const plan = lastPlan || await buildHybridPlan();
+      if (!plan || !Array.isArray(plan.scenes) || !plan.scenes.length) return;
+      setStatus('hybridStatus', 'Submitting CPU render job...', true);
+      const payload = {
+        language: String(plan.language || byId('hybridLanguage').value || 'English'),
+        fps: Math.max(8, Math.min(32, Math.trunc(asNum(byId('hybridFps').value, 24)))),
+        scenes: plan.scenes,
+        filename_hint: String(byId('hybridFileHint').value || 'smi-cpu-video').trim() || 'smi-cpu-video',
+      };
+      const res = await fetch('/api/playground/video/render-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (redirectIfUnauthorized(res)) return;
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus('hybridStatus', data.detail || data.error || 'CPU video render failed.', false);
+        return;
+      }
+      pollVideoJob(data.job_id, 'hybridStatus');
+    };
+
+    const renderImageStitch = async () => {
+      const inputDir = String(byId('stitchInputDir').value || '').trim();
+      const payload = {
+        input_dir: inputDir,
+        seconds_per_image: Number(byId('stitchSeconds').value || 3),
+        fps: Number(byId('stitchFps').value || 24),
+        width: Number(byId('stitchWidth').value || 1280),
+        height: Number(byId('stitchHeight').value || 720),
+        filename_hint: String(byId('stitchFileHint').value || 'smi-image-stitch').trim() || 'smi-image-stitch',
+      };
+      setStatus('videoStatus', inputDir ? 'Submitting image stitch job...' : 'Submitting image stitch job using default folder...', true);
+      const res = await fetch('/api/playground/video/stitch-images-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (redirectIfUnauthorized(res)) return;
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus('videoStatus', data.detail || data.error || 'Image stitch render failed.', false);
+        return;
+      }
+      pollVideoJob(data.job_id, 'videoStatus');
+    };
+
+    byId('btnHybridPlan').addEventListener('click', () => { buildHybridPlan().catch((e) => setStatus('hybridStatus', e.message || String(e), false)); });
+    byId('btnHybridRender').addEventListener('click', () => { renderHybridVideo().catch((e) => setStatus('hybridStatus', e.message || String(e), false)); });
+    byId('btnVideoStitch').addEventListener('click', () => { renderImageStitch().catch((e) => setStatus('videoStatus', e.message || String(e), false)); });
+
+    (async () => {
+      try {
+        await loadVideoStatus();
+        setStatus('hybridStatus', 'Hybrid CPU video studio ready.', true);
+      } catch (e) {
+        const msg = e.message || String(e);
+        setStatus('videoStatus', msg, false);
+        setStatus('hybridStatus', msg, false);
+      }
+    })();
+  </script>
+</body>
+</html>

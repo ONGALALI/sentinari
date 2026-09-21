@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gemma4:12B Training &amp; Testing Lab</title>
+    <style>
+        body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        section { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem; }
+        h2 { margin-top: 0; }
+        textarea, input { width: 100%; box-sizing: border-box; padding: 0.5rem; margin: 0.25rem 0; }
+        button { padding: 0.5rem 1rem; cursor: pointer; }
+        .answer-box { background: #f7f7f7; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap; margin-top: 0.5rem; }
+        .row { display: flex; gap: 1rem; }
+        .row > div { flex: 1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        td, th { border: 1px solid #ddd; padding: 0.4rem; font-size: 0.85rem; text-align: left; }
+    </style>
+</head>
+<body>
+    <h1>Gemma4:12B Lab</h1>
+
+    <section>
+        <h2>Training</h2>
+        <input id="qualifications" placeholder="Qualifications, comma separated">
+        <button onclick="startTraining()">Start Training Run</button>
+        <div id="trainingStatus"></div>
+        <table id="trainingHistory"></table>
+    </section>
+
+   <section>
+    <h2>Test — Batch Prompts (With Dataset vs Bare Model)</h2>
+    <textarea id="batchPrompts" rows="6" placeholder="One test prompt per line"></textarea>
+    <button onclick="runBatchTest()">Run All</button>
+    <div id="batchResults"></div>
+    <table id="testHistory"></table>
+</section>
+
+<script>
+    async function runBatchTest() {
+        const prompts = document.getElementById('batchPrompts').value.split('\n');
+        const box = document.getElementById('batchResults');
+        box.innerHTML = 'Running...';
+        const res = await fetch('/gemma-lab/test/batch', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({prompts})
+        });
+        const data = await res.json();
+        box.innerHTML = data.results.map(r => `
+            <div style="border:1px solid #ddd;border-radius:4px;padding:0.75rem;margin:0.5rem 0;">
+                <strong>Prompt:</strong> ${r.prompt}
+                <div class="row">
+                    <div><strong>With Dataset</strong><div class="answer-box">${r.answer_with_dataset}</div></div>
+                    <div><strong>Bare Model</strong><div class="answer-box">${r.answer_bare_model}</div></div>
+                </div>
+                <textarea rows="2" placeholder="Evaluation" onblur="saveEvaluationFor('${r.task_id}', this.value)"></textarea>
+            </div>
+        `).join('');
+        loadTestHistory();
+    }
+
+    async function saveEvaluationFor(taskId, evaluation) {
+        if (!evaluation.trim()) return;
+        await fetch('/gemma-lab/test/evaluate', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: taskId, evaluation})
+        });
+        loadTestHistory();
+    }
+</script>

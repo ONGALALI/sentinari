@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMi Operator Console</title>
+  <style>
+    :root {
+      --bg: #eff4f8;
+      --card: #ffffff;
+      --border: #d5dde6;
+      --ink: #1a2430;
+      --muted: #516273;
+      --accent: #1e5fae;
+      --accent-soft: #e8f0fb;
+      --ok: #156f39;
+      --err: #af2e24;
+      --warn: #8f5416;
+      --table-alt: #f8fbfe;
+    }
+    body {
+      margin: 0;
+      padding: 18px;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    h1, h2, h3 { margin: 0 0 12px; }
+    .hint, .small { color: var(--muted); font-size: 13px; }
+    .wrap { max-width: 1580px; margin: 0 auto; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 2px rgba(20, 35, 55, 0.04);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .field label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #2b3948;
+    }
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      border: 1px solid #c0cad6;
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    textarea { min-height: 100px; resize: vertical; }
+    input[type="checkbox"] { width: auto; margin: 0; padding: 0; }
+    .wide textarea { min-height: 120px; }
+    .task-field textarea { min-height: 120px; }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .row.spread { justify-content: space-between; }
+    button {
+      padding: 9px 13px;
+      border: 1px solid #7087a4;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary { background: #596d86; }
+    button.ghost { background: #f7fbff; color: #28425d; }
+    button.warn { background: #a4362e; }
+    button:disabled { opacity: 0.6; cursor: default; }
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 13px;
+      border: 1px solid #7087a4;
+      border-radius: 7px;
+      background: #f7fbff;
+      color: #28425d;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .toolbar-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0 16px;
+    }
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      background: #f2f6fa;
+      border-radius: 4px;
+      padding: 2px 5px;
+    }
+    .status {
+      min-height: 18px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: #214972;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 1040px;
+    }
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #dde5ee;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f4f8fc;
+      color: #334658;
+      z-index: 1;
+    }
+    tbody tr:nth-child(even) { background: var(--table-alt); }
+    tbody tr.is-selected { background: #e8f1fc; }
+    .compact { white-space: nowrap; }
+    .clip { max-width: 380px; white-space: pre-wrap; word-break: break-word; }
+    .actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .upload-hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .upload-list {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px dashed #bfd0e2;
+      border-radius: 7px;
+      background: #f8fbff;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .upload-list strong {
+      color: var(--ink);
+    }
+    .upload-list .row-item + .row-item {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #dde7f2;
+    }
+    .checkbox-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      color: #314354;
+      font-size: 13px;
+    }
+    .checkbox-row label {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      font-weight: 600;
+    }
+    .log-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .log-panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0f1720;
+      color: #e7eef7;
+      min-height: 220px;
+      max-height: 360px;
+      overflow: auto;
+      padding: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .learning-summary {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.4fr);
+      gap: 16px;
+      align-items: center;
+      margin-top: 12px;
+    }
+    .learning-pie {
+      width: 210px;
+      height: 210px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      box-shadow: inset 0 0 0 18px #fff;
+      margin: 0 auto;
+      background: conic-gradient(#9aa8b5 0deg, #d8e1ea 360deg);
+    }
+    .learning-bars {
+      display: grid;
+      gap: 10px;
+    }
+    .learning-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 190px) 1fr minmax(88px, auto);
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .learning-row strong {
+      color: #24364a;
+    }
+    .learning-bar {
+      height: 12px;
+      border-radius: 999px;
+      background: #e6edf4;
+      overflow: hidden;
+      border: 1px solid #d7e2ec;
+    }
+    .learning-bar span {
+      display: block;
+      height: 100%;
+      min-width: 2px;
+      background: #2a7f8f;
+    }
+    .learning-meta {
+      color: #607284;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 980px) {
+      body { padding: 12px; }
+      .grid { grid-template-columns: 1fr; }
+      .log-grid { grid-template-columns: 1fr; }
+      .learning-summary { grid-template-columns: 1fr; }
+      .learning-row { grid-template-columns: 1fr; }
+      .learning-meta { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SMi Operator Console</h1>
+    <div class="small">Persistent control surface for profile, guardrails, learning-field seeding, and task assignment.</div>
+    <div class="toolbar-links">
+      <a class="link-button" href="/ui/playground">Return to Playground</a>
+      <a class="link-button" href="#purpose-scope">Purpose and Addendums</a>
+      <a class="link-button" href="#safety-guardrails">Guardrails</a>
+      <a class="link-button" href="#learning-fields">Learning Fields</a>
+      <a class="link-button" href="#task-board">Task Board</a>
+    </div>
+
+    <div class="card">
+      <div class="row spread">
+        <div>
+          <h2>Service Status</h2>
+          <div id="statusBlock" class="small">Loading status...</div>
+        </div>
+        <div class="row">
+          <button id="btnRefresh" class="secondary">Refresh</button>
+          <button id="btnLogout" class="secondary">Logout</button>
+          <button id="btnStartIngest" class="secondary">Start Auto-Ingest</button>
+          <button id="btnStopIngest" class="warn">Stop Auto-Ingest</button>
+          <button id="btnScanNow" class="ghost">Scan Now</button>
+        </div>
+      </div>
+      <div id="statusMessage" class="status"></div>
+    </div>
+
+    <div class="card" id="service-logs">
+      <div class="row spread">
+        <div>
+          <h2>Service Logs</h2>
+          <div id="logSummary" class="small">Waiting for latest server logs...</div>
+        </div>
+        <div class="row">
+          <button id="btnRefreshLogs" class="ghost">Refresh Logs</button>
+          <label class="pill"><input id="autoRefreshLogs" type="checkbox" checked> Auto</label>
+        </div>
+      </div>
+      <div class="log-grid">
+        <div>
+          <div class="small">Standard Output</div>
+          <pre id="stdoutLog" class="log-panel">Loading stdout...</pre>
+        </div>
+        <div>
+          <div class="small">Standard Error / Server Events</div>
+          <pre id="stderrLog" class="log-panel">Loading stderr...</pre>
+        </div>
+      </div>
+      <div id="logMessage" class="status"></div>
+    </div>
+
+    <div class="card" id="purpose-scope">
+      <div class="row spread">
+        <div>
+          <h2>Purpose, Scope, and Personality</h2>
+          <div class="small">These fields are stored in the portable SQLite live-state table, mirrored to settings, and snapshotted after each save.</div>
+        </div>
+        <div class="row">
+          <a class="link-button" href="/ui/playground">Return to Playground</a>
+          <button id="btnExample" class="ghost">Insert Example Addendum</button>
+          <button id="btnSave">Save Profile</button>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:10px;">
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" type="text" maxlength="80" placeholder="SMi">
+        </div>
+        <div class="field">
+          <label for="tone">Tone</label>
+          <input id="tone" type="text" maxlength="200" placeholder="Friendly, warm, lightly humorous, evidence-first">
+        </div>
+        <div class="field">
+          <label for="defaultLanguage">Default Language</label>
+          <input id="defaultLanguage" type="text" maxlength="60" placeholder="English">
+        </div>
+        <div class="field">
+          <label for="supportedLanguages">Supported Languages (one per line)</label>
+          <textarea id="supportedLanguages" placeholder="English&#10;Afrikaans"></textarea>
+        </div>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="purpose">Purpose</label>
+        <textarea id="purpose" placeholder="Stable purpose statement for SMi."></textarea>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="domainFocus">Scope / Domain Focus</label>
+        <textarea id="domainFocus" placeholder="What domains SMi should focus on."></textarea>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="scopePolicy">Out-of-Scope Policy</label>
+        <textarea id="scopePolicy" placeholder="What SMi should decline, redirect, or ask before acting on."></textarea>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="goals">Goals (one per line)</label>
+        <textarea id="goals" placeholder="Goal 1&#10;Goal 2&#10;Goal 3"></textarea>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="generalAddendum">General Addendum</label>
+        <textarea id="generalAddendum" placeholder="Persistent general addendum applied to SMi behavior."></textarea>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="addendum">Coding Addendum</label>
+        <textarea id="addendum" placeholder="Persistent coding/system addendum for implementation-heavy work."></textarea>
+      </div>
+
+      <div id="saveMessage" class="status"></div>
+    </div>
+
+    <div class="card" id="safety-guardrails">
+      <div class="row spread">
+        <div>
+          <h2>Safety Guardrails</h2>
+          <div class="small">Behavior limits stay configurable, but the active guardrails now persist in SQLite and every update is snapshotted.</div>
+        </div>
+        <div class="row">
+          <a class="link-button" href="/ui/playground">Return to Playground</a>
+          <button id="btnSaveSafety">Save Guardrails</button>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:10px;">
+        <div class="field">
+          <label for="topKMin">Top K Min</label>
+          <input id="topKMin" type="number" min="0" max="100" step="1">
+        </div>
+        <div class="field">
+          <label for="topKMax">Top K Max</label>
+          <input id="topKMax" type="number" min="0" max="100" step="1">
+        </div>
+        <div class="field">
+          <label for="variantMin">Behavior Variant Min</label>
+          <input id="variantMin" type="number" min="0" max="25" step="0.1">
+        </div>
+        <div class="field">
+          <label for="variantMax">Behavior Variant Max</label>
+          <input id="variantMax" type="number" min="0" max="25" step="0.1">
+        </div>
+        <div class="field">
+          <label for="tempMin">Temperature Min</label>
+          <input id="tempMin" type="number" min="0" max="2" step="0.01">
+        </div>
+        <div class="field">
+          <label for="tempMax">Temperature Max</label>
+          <input id="tempMax" type="number" min="0" max="2" step="0.01">
+        </div>
+      </div>
+
+      <div class="checkbox-row">
+        <label><input id="calmModeEnabled" type="checkbox"> Calm Mode Enabled</label>
+        <label><input id="ethicsSafeCompletions" type="checkbox"> Enforce Safe Completions</label>
+        <label><input id="ethicsRefuseHarmful" type="checkbox"> Refuse Harmful/Illegal Requests</label>
+        <label><input id="ethicsPrivacyFirst" type="checkbox"> Privacy First</label>
+      </div>
+
+      <div class="field wide" style="margin-top:10px;">
+        <label for="anxietyKeywords">Calm Mode Anxiety Keywords (one per line)</label>
+        <textarea id="anxietyKeywords" placeholder="anxiety&#10;panic&#10;overwhelmed"></textarea>
+      </div>
+
+      <div id="safetyMessage" class="status"></div>
+    </div>
+
+    <div class="card" id="learning-fields">
+      <div class="row spread">
+        <div>
+          <h2>Sentinel Domains and Their Fields</h2>
+          <div class="small">Current scientific fields are indicated. Upload supporting PDF documentation and view the GitHub repository for each field.</div>
+        </div>
+        <button id="btnRefreshLearningFields" class="ghost">Refresh</button>
+      </div>
+      <div class="learning-summary">
+        <div>
+          <div id="learningPie" class="learning-pie"></div>
+          <div id="learningTotals" class="small" style="margin-top:10px; text-align:center;">Loading sentinel domains...</div>
+        </div>
+        <div id="learningBars" class="learning-bars"></div>
+      </div>
+      <div id="learningMessage" class="status"></div>
+      <!-- Sentinel domain list -->
+      <div class="grid" style="margin-top:12px;">
+        <div class="field">
+          <label>Foundations of Reality (Guardian of Matter & Energy)</label>
+          <textarea readonly rows="4">Physics: quantum, relativity, thermodynamics, particle physics
+Chemistry: atomic, molecular, materials science
+Astronomy & Cosmology: galaxies, universe structure, astrophysics
+Earth Sciences: geology, meteorology, oceanography</textarea>
+          <input type="file" accept=".pdf" id="pdfFoundations" />
+          <a href="https://github.com/yourrepo/Foundations" target="_blank" class="link-button">GitHub</a>
+        </div>
+        <div class="field">
+          <label>Life and Biological Systems (Guardian of Living Order)</label>
+          <textarea readonly rows="4">Biology: cellular, evolutionary, ecological
+Genetics & Molecular Biology
+Neuroscience
+Ecology & Environmental Biology</textarea>
+          <input type="file" accept=".pdf" id="pdfLife" />
+          <a href="https://github.com/yourrepo/Life" target="_blank" class="link-button">GitHub</a>
+        </div>
+        <div class="field">
+          <label>Human Behavior and Society (Guardian of Minds & Cultures)</label>
+          <textarea readonly rows="4">Psychology: cognitive, industrial, clinical
+Sociology
+Anthropology
+Economics
+Political Science</textarea>
+          <input type="file" accept=".pdf" id="pdfHuman" />
+          <a href="https://github.com/yourrepo/Human" target="_blank" class="link-button">GitHub</a>
+        </div>
+        <div class="field">
+          <label>Applied Systems and Technology (Guardian of Tools & Innovation)</label>
+          <textarea readonly rows="4">Engineering: mechanical, civil, electrical, systems
+Computer Science & AI
+Information Science
+Materials Science</textarea>
+          <input type="file" accept=".pdf" id="pdfTech" />
+          <a href="https://github.com/yourrepo/Tech" target="_blank" class="link-button">GitHub</a>
+        </div>
+        <div class="field">
+          <label>Health, Safety, and Well‑Being (Guardian of Life’s Continuity)</label>
+          <textarea readonly rows="4">Medicine
+Pharmacology
+Public Health
+Environmental Science</textarea>
+          <input type="file" accept=".pdf" id="pdfHealth" />
+          <a href="https://github.com/yourrepo/Health" target="_blank" class="link-button">GitHub</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="task-board">
+      <div class="row spread">
+        <div>
+          <h2>Task Board</h2>
+          <div class="small">Assign short structured tasks to SMi, save them permanently, and capture her feedback plus your evaluation.</div>
+        </div>
+        <div class="row">
+          <span id="currentTaskPill" class="pill">Task: new</span>
+          <button id="btnTaskCreate">Create Task</button>
+          <button id="btnTaskUpdate" class="secondary">Update Task</button>
+          <button id="btnTaskUpload" class="secondary">Upload Documents</button>
+          <button id="btnTaskAsk" class="ghost">Ask SMi</button>
+          <button id="btnTaskClear" class="secondary">Clear Form</button>
+          <button id="btnTaskRefresh" class="ghost">Refresh Tasks</button>
+        </div>
+      </div>
+
+      <input id="taskId" type="hidden" value="">
+      <div class="grid" style="margin-top:10px;">
+        <div class="field">
+          <label for="taskTargetDatetime">Target time date</label>
+          <input id="taskTargetDatetime" type="datetime-local">
+        </div>
+        <div class="field">
+          <label for="taskStatus">Status</label>
+          <select id="taskStatus">
+            <option value="pending">Pending</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+            <option value="blocked">Blocked</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field task-field" style="margin-top:10px;">
+        <label for="taskToPerform">Task to perform</label>
+        <textarea id="taskToPerform" placeholder="Describe the task you want SMi to complete."></textarea>
+      </div>
+
+      <div class="field task-field" style="margin-top:10px;">
+        <label for="taskQualityStandard">Quality Standard Expected</label>
+        <textarea id="taskQualityStandard" placeholder="State the standard, evidence, tone, or completion threshold expected."></textarea>
+      </div>
+
+      <div class="field task-field" style="margin-top:10px;">
+        <label for="taskKnowledgeLibrary">Knowledge Library Applicable</label>
+        <textarea id="taskKnowledgeLibrary" placeholder="Point SMi to the relevant knowledge library, document area, or subject scope."></textarea>
+      </div>
+
+      <div class="field task-field" style="margin-top:10px;">
+        <label for="taskFiles">Task Documents</label>
+        <input
+          id="taskFiles"
+          type="file"
+          multiple
+          accept=".pdf,.docx,.txt,.md,.html,.htm,.csv,.json,.xml,.yaml,.yml,.log,.py,.cs,.js,.jsx,.ts,.tsx,.ps1,.sql"
+        >
+        <div class="upload-hint">Upload source documents for the selected task. SMi ingests them immediately and keeps them listed on the task record.</div>
+      </div>
+
+      <div id="taskUploadSelection" class="upload-list">No task documents selected.</div>
+      <div id="taskAttachmentList" class="upload-list">No task documents uploaded yet.</div>
+
+      <div class="field task-field" style="margin-top:10px;">
+        <label for="taskFeedback">Feedback column by her</label>
+        <textarea id="taskFeedback" placeholder="SMi feedback is stored here after Ask SMi or manual editing."></textarea>
+      </div>
+
+      <div class="field task-field" style="margin-top:10px;">
+        <label for="taskEvaluation">Evaluation Column for me</label>
+        <textarea id="taskEvaluation" placeholder="Your evaluation, benchmark notes, or acceptance decision."></textarea>
+      </div>
+
+      <div id="taskMessage" class="status"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="compact">ID</th>
+              <th class="compact">Status</th>
+              <th>Task to perform</th>
+              <th class="compact">Target time date</th>
+              <th>Quality Standard Expected</th>
+              <th>Knowledge Library Applicable</th>
+              <th class="compact">Docs</th>
+              <th>Feedback column by her</th>
+              <th>Evaluation Column for me</th>
+              <th class="compact">Updated</th>
+              <th class="compact">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="taskTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Paths</h2>
+      <div class="small">Config file: <span id="configPath" class="mono"></span></div>
+      <div class="small">Raw upload folder: <span id="rawRoot" class="mono"></span></div>
+      <div class="small">Taxonomy folder: <span id="taxonomyRoot" class="mono"></span></div>
+    </div>
+  </div>
+
+  <script>
+    const exampleAddendum = [
+      "Keep SMi aligned to stable evidence-first reasoning, pattern recognition, and grounded knowledge work.",
+      "Prefer concise action over long framing; show risks and blockers explicitly.",
+      "When context is missing, ask the smallest necessary clarification instead of guessing.",
+      "Use indexed sources and retained session memory before broadening scope.",
+      "Preserve continuity, progress tracking, and recoverability across reconnects."
+    ].join("\\n");
+
+    const state = {
+      tasks: [],
+      currentTaskId: '',
+      learningFieldCount: 0,
+      taskUploadBusy: false,
+    };
+
+    const byId = (id) => document.getElementById(id);
+    const splitLines = (value) => String(value || '').split(/\\r?\\n/).map((x) => x.trim()).filter(Boolean);
+    const formatApiError = (detail, fallback) => {
+      if (!detail) return fallback;
+      if (Array.isArray(detail)) {
+        const parts = detail
+          .map((item) => {
+            if (!item || typeof item !== 'object') return String(item || '').trim();
+            const loc = Array.isArray(item.loc) ? item.loc.filter((token) => token !== 'body').join('.') : '';
+            const msg = String(item.msg || item.message || '').trim();
+            return [loc, msg].filter(Boolean).join(': ');
+          })
+          .filter(Boolean);
+        return parts.length ? parts.join(' | ') : fallback;
+      }
+      if (typeof detail === 'object') {
+        return String(detail.message || detail.error || detail.detail || fallback);
+      }
+      return String(detail || fallback);
+    };
+
+    const escapeHtml = (value) => String(value || '').replace(/[<>&\"]/g, (ch) => ({
+      '<': '&lt;',
+      '>': '&gt;',
+      '&': '&amp;',
+      '"': '&quot;',
+    }[ch]));
+
+    const shortText = (value, limit = 180) => {
+      const text = String(value || '').trim();
+      if (text.length <= limit) return text;
+      return `${text.slice(0, limit).trimEnd()}...`;
+    };
+    const formatBytes = (value) => {
+      const bytes = Number(value || 0);
+      if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const setMessage = (id, text, ok) => {
+      const el = byId(id);
+      el.textContent = text || '';
+      el.className = 'status ' + (ok ? 'ok' : 'err');
+    };
+
+    const redirectIfUnauthorized = (response) => {
+      if (response && response.status === 401) {
+        window.location.assign('/ui/login?next=/ui/admin');
+        return true;
+      }
+      return false;
+    };
+
+    const readApiJson = async (response, fallback = 'Request failed.') => {
+      const text = await response.text();
+      if (!text.trim()) return {};
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        const status = response ? `HTTP ${response.status}` : 'network response';
+        throw new Error(`${fallback} ${status} returned non-JSON: ${shortText(text, 240)}`);
+      }
+    };
+
+    const apiFetch = async (path, options = {}, fallback = 'Request failed.') => {
+      try {
+        return await fetch(path, {
+          cache: 'no-store',
+          ...options,
+        });
+      } catch (error) {
+        throw new Error(`${fallback} Could not reach the local SMi service. Confirm 127.0.0.1:8099 is running, then press Refresh.`);
+      }
+    };
+
+    const toLocalDateTimeValue = (value) => {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      if (/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(text)) return text;
+      const sqlLike = text.match(/^(\\d{4}-\\d{2}-\\d{2})[ T](\\d{2}:\\d{2})(?::\\d{2})?/);
+      if (sqlLike) return `${sqlLike[1]}T${sqlLike[2]}`;
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const pad = (num) => String(num).padStart(2, '0');
+      return [
+        parsed.getFullYear(),
+        '-',
+        pad(parsed.getMonth() + 1),
+        '-',
+        pad(parsed.getDate()),
+        'T',
+        pad(parsed.getHours()),
+        ':',
+        pad(parsed.getMinutes()),
+      ].join('');
+    };
+
+    const fromLocalDateTimeValue = (value) => String(value || '').trim();
+
+    const chartColors = ['#2a7f8f', '#5b6f95', '#9a6fb0', '#c8843f', '#4f8a5f', '#b54d4d', '#658fbd', '#7c7f3f', '#a35f7c', '#3f7569'];
+    const formatInt = (value) => Number(value || 0).toLocaleString();
+    const renderLearningFields = (payload) => {
+      const fields = Array.isArray(payload?.fields) ? payload.fields : [];
+      state.learningFieldCount = fields.length;
+      const totalSeeded = fields.reduce((sum, item) => sum + Number(item.seeded_quantity || 0), 0);
+      let cursor = 0;
+      const stops = fields.map((item, index) => {
+        const portion = totalSeeded > 0 ? (Number(item.seeded_quantity || 0) / totalSeeded) * 360 : (360 / Math.max(1, fields.length));
+        const start = cursor;
+        const end = cursor + portion;
+        cursor = end;
+        return `${chartColors[index % chartColors.length]} ${start.toFixed(1)}deg ${end.toFixed(1)}deg`;
+      });
+      byId('learningPie').style.background = stops.length ? `conic-gradient(${stops.join(', ')})` : 'conic-gradient(#9aa8b5 0deg, #d8e1ea 360deg)';
+
+      const totals = payload?.totals || {};
+      byId('learningTotals').textContent = [
+        `${formatInt(totals.documents)} docs`,
+        `${formatInt(totals.SMI_samples)} SMI samples`,
+        `${formatInt(totals.SMI_samples)} SMI samples`,
+      ].join(' | ');
+
+      byId('learningBars').innerHTML = fields.map((item, index) => {
+        const pct = Math.max(0, Math.min(100, Number(item.coverage || 0)));
+        const seeded = formatInt(item.seeded_quantity);
+        const docs = formatInt(item.documents);
+        const samples = formatInt(Number(item.SMI_samples || 0) + Number(item.SMI_samples || 0));
+        return `
+          <div class="learning-row">
+            <strong>${escapeHtml(item.field || 'Field')}</strong>
+            <div class="learning-bar"><span style="width:${pct.toFixed(1)}%; background:${chartColors[index % chartColors.length]};"></span></div>
+            <div class="learning-meta">${pct.toFixed(1)}% | ${seeded}</div>
+            <div class="small" style="grid-column: 1 / -1;">${docs} documents and ${samples} training samples seeded.</div>
+          </div>
+        `;
+      }).join('') || '<div class="small">No learning field data available yet.</div>';
+    };
+
+    const renderTasks = (items) => {
+      state.tasks = Array.isArray(items) ? items : [];
+      const body = byId('taskTableBody');
+      body.innerHTML = '';
+      state.tasks.forEach((task) => {
+        const tr = document.createElement('tr');
+        if (String(task.id) === String(state.currentTaskId || '')) {
+          tr.classList.add('is-selected');
+        }
+        tr.innerHTML = [
+          `<td class="compact">${escapeHtml(task.id)}</td>`,
+          `<td class="compact">${escapeHtml(task.status || '')}</td>`,
+          `<td class="clip">${escapeHtml(shortText(task.task_to_perform, 220))}</td>`,
+          `<td class="compact">${escapeHtml(task.target_datetime || '')}</td>`,
+          `<td class="clip">${escapeHtml(shortText(task.quality_standard_expected, 220))}</td>`,
+          `<td class="clip">${escapeHtml(shortText(task.knowledge_library_applicable, 220))}</td>`,
+          `<td class="compact">${escapeHtml(task.attachment_count || 0)}</td>`,
+          `<td class="clip">${escapeHtml(shortText(task.smi_feedback, 220))}</td>`,
+          `<td class="clip">${escapeHtml(shortText(task.evaluation, 220))}</td>`,
+          `<td class="compact">${escapeHtml(task.updated_at || '')}</td>`,
+          `<td class="compact"><div class="actions"><button class="ghost" data-action="select" data-task-id="${escapeHtml(task.id)}">Select</button><button class="secondary" data-action="ask" data-task-id="${escapeHtml(task.id)}">Ask SMi</button></div></td>`
+        ].join('');
+        body.appendChild(tr);
+      });
+      if (!body.children.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="11" class="small">No tasks saved yet.</td>';
+        body.appendChild(tr);
+      }
+    };
+
+    const renderSelectedTaskFiles = () => {
+      const files = Array.from(byId('taskFiles')?.files || []);
+      const el = byId('taskUploadSelection');
+      if (!files.length) {
+        el.textContent = 'No task documents selected.';
+        return;
+      }
+      el.textContent = files.map((file) => `${file.name} (${formatBytes(file.size)})`).join(' | ');
+    };
+
+    const renderTaskAttachments = (task) => {
+      const el = byId('taskAttachmentList');
+      const attachments = Array.isArray(task?.attachments) ? task.attachments : [];
+      if (!attachments.length) {
+        el.textContent = 'No task documents uploaded yet.';
+        return;
+      }
+      el.innerHTML = attachments.map((item) => {
+        const label = item?.title || item?.original_name || item?.stored_name || 'document';
+        const meta = [
+          item?.uploaded_at || '',
+          formatBytes(item?.bytes),
+          item?.document_id ? `doc ${item.document_id}` : '',
+        ].filter(Boolean).join(' | ');
+        return `<div class="row-item"><strong>${escapeHtml(label)}</strong><div>${escapeHtml(meta)}</div></div>`;
+      }).join('');
+    };
+
+    const updateTaskPill = () => {
+      const id = String(state.currentTaskId || '').trim();
+      byId('currentTaskPill').textContent = id ? `Task: ${id}` : 'Task: new';
+    };
+
+    const fillTaskForm = (task) => {
+      const resolved = task || {};
+      state.currentTaskId = String(resolved.id || '');
+      byId('taskId').value = state.currentTaskId;
+      byId('taskToPerform').value = resolved.task_to_perform || '';
+      byId('taskTargetDatetime').value = toLocalDateTimeValue(resolved.target_datetime || '');
+      byId('taskQualityStandard').value = resolved.quality_standard_expected || '';
+      byId('taskKnowledgeLibrary').value = resolved.knowledge_library_applicable || '';
+      byId('taskFeedback').value = resolved.smi_feedback || '';
+      byId('taskEvaluation').value = resolved.evaluation || '';
+      byId('taskStatus').value = resolved.status || 'pending';
+      byId('taskFiles').value = '';
+      renderSelectedTaskFiles();
+      renderTaskAttachments(resolved);
+      updateTaskPill();
+      renderTasks(state.tasks);
+    };
+
+    const clearTaskForm = () => {
+      state.currentTaskId = '';
+      byId('taskId').value = '';
+      byId('taskToPerform').value = '';
+      byId('taskTargetDatetime').value = '';
+      byId('taskQualityStandard').value = '';
+      byId('taskKnowledgeLibrary').value = '';
+      byId('taskFeedback').value = '';
+      byId('taskEvaluation').value = '';
+      byId('taskStatus').value = 'pending';
+      byId('taskFiles').value = '';
+      renderSelectedTaskFiles();
+      renderTaskAttachments(null);
+      updateTaskPill();
+      renderTasks(state.tasks);
+    };
+
+    const buildTaskPayload = () => ({
+      task_to_perform: String(byId('taskToPerform').value || '').trim(),
+      target_datetime: fromLocalDateTimeValue(byId('taskTargetDatetime').value),
+      quality_standard_expected: String(byId('taskQualityStandard').value || '').trim(),
+      knowledge_library_applicable: String(byId('taskKnowledgeLibrary').value || '').trim(),
+      smi_feedback: String(byId('taskFeedback').value || '').trim(),
+      evaluation: String(byId('taskEvaluation').value || '').trim(),
+      status: String(byId('taskStatus').value || 'pending'),
+    });
+
+    const loadLearningFields = async () => {
+      const res = await apiFetch('/api/admin/learning-fields', {}, 'Failed to load learning fields.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Failed to load learning fields.');
+      if (!res.ok || !data.ok) {
+        throw new Error(data.detail || data.error || 'Failed to load learning fields.');
+      }
+      renderLearningFields(data);
+      setMessage('learningMessage', `Loaded ${state.learningFieldCount} learning fields.`, true);
+    };
+
+    const loadTasks = async () => {
+      const res = await apiFetch('/api/admin/tasks?limit=120', {}, 'Failed to load tasks.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Failed to load tasks.');
+      if (!res.ok || !data.ok) {
+        throw new Error(data.detail || data.error || 'Failed to load tasks.');
+      }
+      renderTasks(data.items || []);
+      const currentTask = state.tasks.find((item) => String(item.id) === String(state.currentTaskId || ''));
+      if (currentTask) {
+        renderTaskAttachments(currentTask);
+      }
+    };
+
+    const loadConfig = async () => {
+      const res = await apiFetch('/api/admin/config', {}, 'Failed to load admin config.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Failed to load admin config.');
+      if (!data.ok) throw new Error('Failed to load admin config.');
+
+      const p = data.personality || {};
+      byId('name').value = p.name || '';
+      byId('tone').value = p.tone || '';
+      byId('defaultLanguage').value = p.default_language || 'English';
+      byId('supportedLanguages').value = (p.supported_languages || []).join('\n');
+      byId('purpose').value = p.purpose || '';
+      byId('domainFocus').value = p.domain_focus || '';
+      byId('scopePolicy').value = p.out_of_scope_policy || '';
+      byId('goals').value = (p.goals || []).join('\n');
+      byId('generalAddendum').value = p.general_addendum || '';
+      byId('addendum').value = p.coding_mode_system_addendum || '';
+
+      byId('configPath').textContent = data.config_path || '';
+      byId('rawRoot').textContent = (data.paths || {}).raw_root || '';
+      byId('taxonomyRoot').textContent = (data.paths || {}).taxonomy_root || '';
+
+      const safety = data.safety || {};
+      const guard = safety.parameter_guardrails || {};
+      const calm = safety.calm_mode || {};
+      const ethics = safety.ethics || {};
+      byId('topKMin').value = String(guard.top_k_min ?? 0);
+      byId('topKMax').value = String(guard.top_k_max ?? 20);
+      byId('variantMin').value = String(guard.behavior_variant_min ?? 0.1);
+      byId('variantMax').value = String(guard.behavior_variant_max ?? 25.0);
+      byId('tempMin').value = String(guard.temperature_min ?? 0);
+      byId('tempMax').value = String(guard.temperature_max ?? 0.7);
+      byId('calmModeEnabled').checked = Boolean(calm.enabled ?? true);
+      byId('anxietyKeywords').value = Array.isArray(calm.anxiety_keywords) ? calm.anxiety_keywords.join('\n') : '';
+      byId('ethicsSafeCompletions').checked = Boolean(ethics.enforce_safe_completions ?? true);
+      byId('ethicsRefuseHarmful').checked = Boolean(ethics.refuse_harmful_or_illegal ?? true);
+      byId('ethicsPrivacyFirst').checked = Boolean(ethics.privacy_first ?? true);
+
+      loadLearningFields().catch((e) => setMessage('learningMessage', e.message || String(e), false));
+
+      const ingest = data.auto_ingest || {};
+      const auth = (data.security || {}).admin_auth || {};
+      const operatorState = data.operator_state || {};
+      const operatorSource = operatorState.last_saved_source ? ` | SQLite source: ${operatorState.last_saved_source}` : '';
+      const operatorUpdated = operatorState.updated_at ? ` | SQLite live state: ${operatorState.updated_at}` : '';
+      const sqliteDbPath = data.sqlite_db_path ? ` | DB: ${data.sqlite_db_path}` : '';
+      const llmFirewall = (data.security || {}).llm_firewall_ok ? 'ok' : 'attention needed';
+      byId('statusBlock').textContent =
+        `Auto-ingest running: ${String(Boolean(ingest.running))} | Poll seconds: ${String(ingest.poll_seconds || '')} | Learning fields: ${String(state.learningFieldCount)} | Admin auth: ${String(Boolean(auth.enabled))} | LLM firewall: ${llmFirewall}${operatorSource}${operatorUpdated}${sqliteDbPath}`;
+    };
+
+    const renderLogBlock = (id, payload, emptyText) => {
+      const data = payload || {};
+      const content = String(data.content || '').trim();
+      byId(id).textContent = content || emptyText;
+    };
+
+    const loadServiceLogs = async ({ silent = false } = {}) => {
+      if (!silent) setMessage('logMessage', 'Refreshing service logs...', true);
+      const res = await apiFetch('/api/admin/service-logs', {}, 'Failed to refresh service logs.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Failed to refresh service logs.');
+      if (!res.ok || !data.ok) {
+        throw new Error((data && (data.detail || data.error)) || 'Failed to refresh service logs.');
+      }
+      renderLogBlock('stdoutLog', data.stdout, 'No stdout log entries yet.');
+      renderLogBlock('stderrLog', data.stderr, 'No stderr/server event log entries yet.');
+      const stdoutSize = Number((data.stdout || {}).size || 0);
+      const stderrSize = Number((data.stderr || {}).size || 0);
+      byId('logSummary').textContent = `Log root: ${data.log_root || ''} | stdout ${stdoutSize} bytes | stderr ${stderrSize} bytes | refreshed ${data.refreshed_at || ''}`;
+      if (!silent) setMessage('logMessage', 'Service logs refreshed.', true);
+    };
+
+    const savePersonality = async () => {
+      const payload = {
+        name: String(byId('name').value || '').trim(),
+        tone: String(byId('tone').value || '').trim(),
+        default_language: String(byId('defaultLanguage').value || '').trim(),
+        supported_languages: splitLines(byId('supportedLanguages').value),
+        purpose: String(byId('purpose').value || '').trim(),
+        domain_focus: String(byId('domainFocus').value || '').trim(),
+        out_of_scope_policy: String(byId('scopePolicy').value || '').trim(),
+        goals: splitLines(byId('goals').value),
+        general_addendum: String(byId('generalAddendum').value || '').trim(),
+        coding_mode_system_addendum: String(byId('addendum').value || '').trim(),
+      };
+      const res = await apiFetch('/api/admin/personality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }, 'Profile save failed.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Profile save failed.');
+      if (!res.ok || !data.ok) {
+        throw new Error(formatApiError(data && (data.detail || data.error), 'Profile save failed.'));
+      }
+      setMessage('saveMessage', `Profile saved. Snapshot ${data.snapshot_id || ''}`.trim(), true);
+      await loadConfig();
+      await loadLearningFields();
+    };
+
+    const saveSafety = async () => {
+      const payload = {
+        top_k_min: Number(byId('topKMin').value || 0),
+        top_k_max: Number(byId('topKMax').value || 20),
+        behavior_variant_min: Number(byId('variantMin').value || 0.1),
+        behavior_variant_max: Number(byId('variantMax').value || 25.0),
+        temperature_min: Number(byId('tempMin').value || 0),
+        temperature_max: Number(byId('tempMax').value || 0.7),
+        calm_mode_enabled: Boolean(byId('calmModeEnabled').checked),
+        anxiety_keywords: splitLines(byId('anxietyKeywords').value),
+        enforce_safe_completions: Boolean(byId('ethicsSafeCompletions').checked),
+        refuse_harmful_or_illegal: Boolean(byId('ethicsRefuseHarmful').checked),
+        privacy_first: Boolean(byId('ethicsPrivacyFirst').checked)
+      };
+      const res = await apiFetch('/api/admin/safety', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }, 'Safety save failed.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Safety save failed.');
+      if (!res.ok || !data.ok) {
+        throw new Error(formatApiError(data && (data.detail || data.error), 'Safety save failed.'));
+      }
+      setMessage('safetyMessage', `Guardrails saved. Snapshot ${data.snapshot_id || ''}`.trim(), true);
+      await loadConfig();
+      await loadLearningFields();
+    };
+
+    const persistTask = async ({ forceCreate = false } = {}) => {
+      const payload = buildTaskPayload();
+      if (!payload.task_to_perform) {
+        throw new Error('Task to perform is required.');
+      }
+
+      const taskId = String(state.currentTaskId || '').trim();
+      const isUpdate = Boolean(taskId) && !forceCreate;
+      const path = isUpdate ? `/api/admin/tasks/${encodeURIComponent(taskId)}` : '/api/admin/tasks';
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const res = await apiFetch(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }, 'Task save failed.');
+      if (redirectIfUnauthorized(res)) return null;
+      const data = await readApiJson(res, 'Task save failed.');
+      if (!res.ok || !data.ok) {
+        throw new Error((data && (data.detail || data.error)) || 'Task save failed.');
+      }
+      fillTaskForm(data.task || {});
+      await loadTasks();
+      return data.task || null;
+    };
+
+    const setTaskUploadBusy = (busy) => {
+      state.taskUploadBusy = Boolean(busy);
+      byId('btnTaskUpload').disabled = state.taskUploadBusy;
+      byId('taskFiles').disabled = state.taskUploadBusy;
+      byId('btnTaskUpload').textContent = state.taskUploadBusy ? 'Uploading...' : 'Upload Documents';
+    };
+
+    const uploadTaskDocuments = async () => {
+      if (state.taskUploadBusy) return;
+      const files = Array.from(byId('taskFiles').files || []);
+      if (!files.length) {
+        throw new Error('Select one or more task documents before uploading.');
+      }
+
+      let taskId = String(state.currentTaskId || '').trim();
+      if (!taskId) {
+        const task = await persistTask();
+        taskId = String(task?.id || '').trim();
+      }
+      if (!taskId) {
+        throw new Error('Task could not be created before uploading documents.');
+      }
+
+      const form = new FormData();
+      files.forEach((file) => form.append('files', file, file.name));
+      setTaskUploadBusy(true);
+      setMessage('taskMessage', `Uploading ${files.length} document(s) to task ${taskId}...`, true);
+
+      try {
+        const res = await apiFetch(`/api/admin/tasks/${encodeURIComponent(taskId)}/upload`, {
+          method: 'POST',
+          body: form,
+        }, 'Task document upload failed.');
+        if (redirectIfUnauthorized(res)) return;
+        const data = await readApiJson(res, 'Task document upload failed.');
+        if (!res.ok || !data.ok) {
+          throw new Error((data && (data.detail || data.error)) || 'Task document upload failed.');
+        }
+
+        await loadTasks();
+        const latestTask = state.tasks.find((item) => String(item.id) === String(taskId));
+        fillTaskForm(latestTask || data.task || {});
+        const ingested = Number(data.ingested || 0);
+        const failed = Number(data.failed || 0);
+        setMessage(
+          'taskMessage',
+          failed > 0
+            ? `Uploaded to task ${taskId}. Ingested ${ingested} document(s), ${failed} failed.`
+            : `Uploaded to task ${taskId}. Ingested ${ingested} document(s).`,
+          true
+        );
+      } finally {
+        setTaskUploadBusy(false);
+      }
+    };
+
+    const askSmiForTask = async (taskId) => {
+      const resolvedId = String(taskId || state.currentTaskId || '').trim();
+      if (!resolvedId) {
+        const task = await persistTask();
+        if (!task || !task.id) {
+          throw new Error('Task could not be created before asking SMi.');
+        }
+        return askSmiForTask(task.id);
+      }
+      setMessage('taskMessage', `Sending task ${resolvedId} to SMi...`, true);
+      const res = await apiFetch(`/api/admin/tasks/${encodeURIComponent(resolvedId)}/ask-smi`, { method: 'POST' }, 'SMi task run failed.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'SMi task run failed.');
+      if (!res.ok || !data.ok) {
+        throw new Error((data && (data.detail || data.error)) || 'SMi task run failed.');
+      }
+      fillTaskForm(data.task || {});
+      await loadTasks();
+      setMessage('taskMessage', `SMi feedback saved for task ${resolvedId}.`, true);
+    };
+
+    const callIngestEndpoint = async (path, doneMessage) => {
+      const res = await apiFetch(path, { method: 'POST' }, 'Request failed.');
+      if (redirectIfUnauthorized(res)) return;
+      const data = await readApiJson(res, 'Request failed.');
+      if (!res.ok || !data.ok) {
+        throw new Error((data && (data.detail || data.error)) || 'Request failed.');
+      }
+      setMessage('statusMessage', doneMessage, true);
+      await loadConfig();
+    };
+
+    byId('btnRefresh').addEventListener('click', async () => {
+      try {
+        await loadConfig();
+        await loadServiceLogs({ silent: true });
+        await loadLearningFields();
+        await loadTasks();
+        setMessage('statusMessage', 'Console refreshed.', true);
+      } catch (e) {
+        setMessage('statusMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnLogout').addEventListener('click', async () => {
+      await apiFetch('/api/admin/logout', { method: 'POST' }, 'Logout failed.');
+      window.location.assign('/ui/login?next=/ui/admin');
+    });
+
+    byId('btnStartIngest').addEventListener('click', async () => {
+      try {
+        await callIngestEndpoint('/api/admin/auto-ingest/start', 'Auto-ingest started.');
+      } catch (e) {
+        setMessage('statusMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnStopIngest').addEventListener('click', async () => {
+      try {
+        await callIngestEndpoint('/api/admin/auto-ingest/stop', 'Auto-ingest stopped.');
+      } catch (e) {
+        setMessage('statusMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnScanNow').addEventListener('click', async () => {
+      try {
+        await callIngestEndpoint('/api/taxonomy/scan-now', 'Scan completed.');
+      } catch (e) {
+        setMessage('statusMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnRefreshLogs').addEventListener('click', async () => {
+      try {
+        await loadServiceLogs({ silent: false });
+      } catch (e) {
+        setMessage('logMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnExample').addEventListener('click', () => {
+      byId('generalAddendum').value = exampleAddendum;
+    });
+
+    byId('btnSave').addEventListener('click', async () => {
+      try {
+        await savePersonality();
+      } catch (e) {
+        setMessage('saveMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnSaveSafety').addEventListener('click', async () => {
+      try {
+        await saveSafety();
+      } catch (e) {
+        setMessage('safetyMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnRefreshLearningFields').addEventListener('click', async () => {
+      try {
+        await loadLearningFields();
+      } catch (e) {
+        setMessage('learningMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnTaskCreate').addEventListener('click', async () => {
+      try {
+        const task = await persistTask({ forceCreate: true });
+        setMessage('taskMessage', `Task ${task?.id || ''} created.`.trim(), true);
+      } catch (e) {
+        setMessage('taskMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnTaskUpdate').addEventListener('click', async () => {
+      try {
+        const task = await persistTask();
+        setMessage('taskMessage', `Task ${task?.id || ''} saved.`.trim(), true);
+      } catch (e) {
+        setMessage('taskMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnTaskUpload').addEventListener('click', async () => {
+      try {
+        await uploadTaskDocuments();
+      } catch (e) {
+        setMessage('taskMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnTaskAsk').addEventListener('click', async () => {
+      try {
+        await askSmiForTask();
+      } catch (e) {
+        setMessage('taskMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('btnTaskClear').addEventListener('click', () => {
+      clearTaskForm();
+      setMessage('taskMessage', 'Task form cleared.', true);
+    });
+
+    byId('btnTaskRefresh').addEventListener('click', async () => {
+      try {
+        await loadTasks();
+        setMessage('taskMessage', 'Task list refreshed.', true);
+      } catch (e) {
+        setMessage('taskMessage', e.message || String(e), false);
+      }
+    });
+
+    byId('taskFiles').addEventListener('change', renderSelectedTaskFiles);
+
+    byId('taskTableBody').addEventListener('click', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const action = target.getAttribute('data-action');
+      const taskId = target.getAttribute('data-task-id');
+      if (!action || !taskId) return;
+
+      const task = state.tasks.find((item) => String(item.id) === String(taskId));
+      if (action === 'select') {
+        fillTaskForm(task || {});
+        setMessage('taskMessage', `Task ${taskId} loaded into the form.`, true);
+        return;
+      }
+      if (action === 'ask') {
+        try {
+          fillTaskForm(task || {});
+          await askSmiForTask(taskId);
+        } catch (e) {
+          setMessage('taskMessage', e.message || String(e), false);
+        }
+      }
+    });
+
+    (async () => {
+      try {
+        clearTaskForm();
+        await loadConfig();
+        await loadServiceLogs({ silent: true });
+        await loadLearningFields();
+        await loadTasks();
+        setMessage('statusMessage', 'Operator console ready.', true);
+        setMessage('logMessage', 'Service logs ready.', true);
+        setMessage('learningMessage', 'Learning field seeding is ready.', true);
+        setMessage('taskMessage', 'Task board is ready.', true);
+      } catch (e) {
+        const msg = e.message || String(e);
+        setMessage('statusMessage', msg, false);
+        setMessage('logMessage', msg, false);
+        setMessage('learningMessage', msg, false);
+        setMessage('taskMessage', msg, false);
+      }
+    })();
+
+    window.setInterval(() => {
+      const auto = byId('autoRefreshLogs');
+      if (!auto || !auto.checked) return;
+      loadServiceLogs({ silent: true }).catch(() => {});
+    }, 5000);
+  </script>
+</body>
+</html>
+

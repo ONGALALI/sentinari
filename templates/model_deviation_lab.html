@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model Deviation Lab</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --line: #d8dee8;
+      --text: #151b28;
+      --muted: #667184;
+      --blue: #195bbf;
+      --green: #15734f;
+      --teal: #0f7c83;
+      --red: #a33232;
+      --amber: #8a5d00;
+      --gold: #d59a22;
+      --soft-blue: #edf4ff;
+      --soft-green: #eaf7f1;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Segoe UI, Arial, sans-serif; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 16px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0; }
+    h2 { margin: 0 0 12px; font-size: 15px; }
+    a { color: var(--blue); text-decoration: none; }
+    main { max-width: 1500px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px; }
+    section, aside { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 15px; }
+    label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 5px; }
+    input, textarea, button {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    input, textarea { width: 100%; padding: 9px 10px; color: var(--text); background: #fff; }
+    textarea { min-height: 110px; resize: vertical; line-height: 1.42; }
+    button { border: 0; min-height: 40px; padding: 9px 13px; color: #fff; background: var(--blue); cursor: pointer; }
+    button.secondary { background: #303a4f; }
+    button:disabled { opacity: .62; cursor: wait; }
+    .row { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .pill { display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; margin-bottom: 8px; background: #fafbfc; font-size: 13px; }
+    .ok { color: var(--green); font-weight: 700; }
+    .bad { color: var(--red); font-weight: 700; }
+    .warn { color: var(--amber); font-weight: 700; }
+    .answer-paste { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+    .results { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; font-size: 13px; }
+    th { background: #f7f8fb; color: #2b3547; position: sticky; top: 0; }
+    .answer { white-space: pre-wrap; max-width: 520px; line-height: 1.4; }
+    .flags { color: var(--amber); }
+    .score { font-weight: 700; }
+    .tabs { display: flex; gap: 7px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+    .tab-button {
+      min-height: 38px;
+      padding: 8px 14px;
+      color: var(--muted);
+      background: transparent;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      border-radius: 6px 6px 0 0;
+      font-weight: 700;
+    }
+    .tab-button.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--soft-blue); }
+    .tab-panel[hidden] { display: none; }
+    .score-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .score-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fbfcfe; }
+    .score-card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .score-card .value { margin-top: 5px; font-size: 20px; line-height: 1.15; font-weight: 800; color: #263650; overflow-wrap: anywhere; }
+    .score-card.winner { background: linear-gradient(135deg, #fff8df, #fff); border-color: #ead194; }
+    .score-card.local { background: linear-gradient(135deg, var(--soft-green), #fff); border-color: #acd8c5; }
+    .score-chart { position: relative; padding: 8px 0 4px; }
+    .score-axis { display: grid; grid-template-columns: repeat(5, 1fr); margin: 0 66px 7px 168px; color: var(--muted); font-size: 10px; }
+    .score-axis span { text-align: right; }
+    .score-axis span:first-child { text-align: left; }
+    .score-row { display: grid; grid-template-columns: 158px minmax(240px, 1fr) 56px; gap: 10px; align-items: center; margin: 11px 0; }
+    .score-model { text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+    .local-badge { display: inline-block; margin-left: 5px; padding: 2px 5px; border-radius: 999px; color: var(--green); background: var(--soft-green); font-size: 9px; letter-spacing: .05em; vertical-align: 1px; }
+    .score-track {
+      position: relative;
+      height: 34px;
+      overflow: hidden;
+      border: 1px solid #d8e1ed;
+      border-radius: 8px;
+      background:
+        linear-gradient(to right, transparent 24.8%, #dfe5ed 25%, transparent 25.2%, transparent 49.8%, #dfe5ed 50%, transparent 50.2%, transparent 74.8%, #dfe5ed 75%, transparent 75.2%),
+        #f3f6fa;
+    }
+    .score-fill { height: 100%; min-width: 2px; border-radius: 7px; transition: width .45s ease; }
+    .score-fill.rank-1 { background: linear-gradient(90deg, #b77600, var(--gold)); }
+    .score-fill.local { background: linear-gradient(90deg, #0d6c48, #27a36f); }
+    .score-fill.other { background: linear-gradient(90deg, #2865b7, #66a0e8); }
+    .score-gap { position: absolute; inset: 0 9px 0 auto; display: flex; align-items: center; color: #24344e; font-size: 11px; font-weight: 700; }
+    .score-value { font-size: 17px; font-weight: 800; color: #263650; }
+    .score-note { margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--blue); background: #f5f8fc; }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; padding: 12px; }
+      .score-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .score-row { grid-template-columns: 110px minmax(180px, 1fr) 48px; gap: 7px; }
+      .score-axis { margin-left: 117px; margin-right: 55px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Model Deviation Lab</h1>
+    <div class="row">
+      <button class="secondary" id="refresh">Refresh Status</button>
+      <a href="/ui/gemma-direct">Gemma Direct</a>
+      <a href="/ui/gemma-qualia">Gemma Qualia</a>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <h2>Status</h2>
+      <div id="status"></div>
+      <p class="meta" id="logPath"></p>
+
+      <label for="runLabel">Run label</label>
+      <input id="runLabel" value="baseline-deviation">
+
+      <label for="model">Local Gemma model</label>
+      <input id="model" value="gemma4:26b">
+
+      <label for="prompt">Shared test prompt</label>
+      <textarea id="prompt">Which is the largest continent on Earth? Answer directly, then explain your reasoning in two sentences.</textarea>
+
+      <div class="row" style="margin-top:10px">
+        <button id="run">Run Comparison</button>
+        <button class="secondary" id="science">Science prompt</button>
+      </div>
+
+      <p class="meta">Paste Gemini, Grok, Claude, DeepSeek, or other model answers below. The same prompt and scoring sheet will be logged with Gemma's local answer.</p>
+    </aside>
+
+    <section>
+      <h2>Other Model Answers</h2>
+      <div id="manualAnswers"></div>
+      <button class="secondary" id="addModel">Add model answer</button>
+    </section>
+
+    <section style="grid-column:1 / -1">
+      <div class="tabs" role="tablist" aria-label="Comparison result views">
+        <button class="tab-button active" id="tabScore" role="tab" aria-selected="true" aria-controls="scorePanel">Score Graph</button>
+        <button class="tab-button" id="tabResults" role="tab" aria-selected="false" aria-controls="resultsPanel">Full Results</button>
+      </div>
+      <div class="tab-panel" id="scorePanel" role="tabpanel" aria-labelledby="tabScore">
+        <div id="scoreSummary" class="score-summary"></div>
+        <div id="scoreChart" class="score-chart">
+          <p class="meta">Run a comparison to build the score graph.</p>
+        </div>
+        <p class="meta score-note">Overall score uses the lab's existing weighted composite: directness 35%, depth 25%, evidence 25%, and non-refusal 15%, less any short-answer penalty.</p>
+      </div>
+      <div class="tab-panel" id="resultsPanel" role="tabpanel" aria-labelledby="tabResults" hidden>
+        <h2>Deviation Results</h2>
+        <div class="results">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Overall Score</th>
+                <th>Direct</th>
+                <th>Depth</th>
+                <th>Evidence</th>
+                <th>Refusal</th>
+                <th>Words</th>
+                <th>Flags</th>
+                <th>Answer</th>
+              </tr>
+            </thead>
+            <tbody id="results">
+              <tr><td colspan="9" class="meta">No run yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="meta" id="runMeta"></p>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let manualCount = 0;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function pill(label, value, state) {
+      return `<div class="pill"><span>${label}</span><span class="${state}">${value}</span></div>`;
+    }
+
+    function addManual(label = "", answer = "") {
+      manualCount += 1;
+      const wrap = document.createElement("div");
+      wrap.className = "answer-paste";
+      wrap.innerHTML = `
+        <label>Model label</label>
+        <input class="manual-label" value="${label || "Model " + manualCount}">
+        <label>Answer</label>
+        <textarea class="manual-answer">${answer}</textarea>
+      `;
+      $("manualAnswers").appendChild(wrap);
+    }
+
+    async function refreshStatus() {
+      $("status").innerHTML = pill("Lab", "checking", "warn");
+      try {
+        const res = await fetch("/api/playground/model-lab/status");
+        const data = await res.json();
+        $("status").innerHTML = [
+          pill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "bad"),
+          pill("Local model", data.model || "not set", data.model ? "ok" : "bad"),
+          pill("Previous runs", String((data.recent_runs || []).length), "ok")
+        ].join("");
+        $("model").value = data.model || $("model").value;
+        $("logPath").textContent = data.log_path || "";
+        const recent = data.recent_runs || [];
+        if (recent.length) renderResults(recent[recent.length - 1]);
+      } catch (err) {
+        $("status").innerHTML = pill("Lab API", "not answering", "bad");
+      }
+    }
+
+    function collectManualAnswers() {
+      return Array.from(document.querySelectorAll(".answer-paste")).map((el) => ({
+        model_label: el.querySelector(".manual-label").value,
+        answer: el.querySelector(".manual-answer").value
+      })).filter((item) => item.answer.trim());
+    }
+
+    function renderResults(data) {
+      const rows = data.results || [];
+      if (!rows.length) {
+        $("results").innerHTML = `<tr><td colspan="9" class="meta">No answers returned.</td></tr>`;
+        renderScoreGraph([]);
+        return;
+      }
+      $("results").innerHTML = rows.map((row) => {
+        const s = row.scores || {};
+        return `
+          <tr>
+            <td><strong>${escapeHtml(row.model_label || "")}</strong><br><span class="meta">${escapeHtml(row.provider || "")}</span></td>
+            <td class="score">${s.coherence_score ?? ""}</td>
+            <td>${s.directness_score ?? ""}</td>
+            <td>${s.depth_score ?? ""}</td>
+            <td>${s.evidence_score ?? ""}</td>
+            <td>${s.refusal_score ?? ""}</td>
+            <td>${s.word_count ?? ""}</td>
+            <td class="flags">${escapeHtml((s.flags || []).join(", "))}</td>
+            <td class="answer">${escapeHtml(row.answer || row.error || "")}</td>
+          </tr>
+        `;
+      }).join("");
+      renderScoreGraph(rows);
+      $("runMeta").textContent = `${data.run_label || ""} | ${data.log_path || ""}`;
+    }
+
+    function isLocalGemma(row) {
+      return String(row?.provider || "").toLowerCase() === "local_ollama"
+        || String(row?.model_label || "").toLowerCase().includes("gemma");
+    }
+
+    function renderScoreGraph(rows) {
+      const ranked = (rows || [])
+        .map((row) => ({
+          row,
+          label: String(row?.model_label || "Unnamed model"),
+          score: Math.max(0, Math.min(1, Number(row?.scores?.coherence_score) || 0)),
+          local: isLocalGemma(row)
+        }))
+        .sort((a, b) => b.score - a.score);
+      if (!ranked.length) {
+        $("scoreSummary").innerHTML = "";
+        $("scoreChart").innerHTML = `<p class="meta">No scored answers returned.</p>`;
+        return;
+      }
+
+      const leader = ranked[0];
+      const local = ranked.find((item) => item.local);
+      const runnerUp = ranked[1] || leader;
+      const spread = leader.score - ranked[ranked.length - 1].score;
+      $("scoreSummary").innerHTML = `
+        <div class="score-card winner">
+          <div class="label">Leader</div>
+          <div class="value">${escapeHtml(leader.label)} · ${(leader.score * 100).toFixed(1)}%</div>
+        </div>
+        <div class="score-card local">
+          <div class="label">Local Gemma</div>
+          <div class="value">${local ? `${(local.score * 100).toFixed(1)}%` : "Not included"}</div>
+        </div>
+        <div class="score-card">
+          <div class="label">Closest contender</div>
+          <div class="value">${escapeHtml(runnerUp.label)} · ${(runnerUp.score * 100).toFixed(1)}%</div>
+        </div>
+        <div class="score-card">
+          <div class="label">Score spread</div>
+          <div class="value">${(spread * 100).toFixed(1)} pts</div>
+        </div>
+      `;
+
+      const axis = `<div class="score-axis"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>`;
+      const bars = ranked.map((item, index) => {
+        const gap = (leader.score - item.score) * 100;
+        const gapLabel = index === 0 ? "Leader" : `${gap.toFixed(1)} pts behind`;
+        const classes = index === 0 ? "rank-1" : (item.local ? "local" : "other");
+        return `
+          <div class="score-row">
+            <div class="score-model">${escapeHtml(item.label)}${item.local ? '<span class="local-badge">LOCAL</span>' : ""}</div>
+            <div class="score-track" title="${escapeHtml(item.label)}: ${(item.score * 100).toFixed(1)}%">
+              <div class="score-fill ${classes}" style="width:${(item.score * 100).toFixed(1)}%"></div>
+              <div class="score-gap">${gapLabel}</div>
+            </div>
+            <div class="score-value">${(item.score * 100).toFixed(1)}</div>
+          </div>
+        `;
+      }).join("");
+      $("scoreChart").innerHTML = axis + bars;
+    }
+
+    function activateTab(tabName) {
+      const showScore = tabName === "score";
+      $("scorePanel").hidden = !showScore;
+      $("resultsPanel").hidden = showScore;
+      $("tabScore").classList.toggle("active", showScore);
+      $("tabResults").classList.toggle("active", !showScore);
+      $("tabScore").setAttribute("aria-selected", String(showScore));
+      $("tabResults").setAttribute("aria-selected", String(!showScore));
+    }
+
+    async function runLab() {
+      $("run").disabled = true;
+      $("runMeta").textContent = "Running comparison...";
+      try {
+        const payload = {
+          run_label: $("runLabel").value,
+          prompt: $("prompt").value,
+          model: $("model").value,
+          include_gemma: true,
+          manual_answers: collectManualAnswers()
+        };
+        const res = await fetch("/api/playground/model-lab/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        renderResults(await res.json());
+      } catch (err) {
+        $("runMeta").textContent = "The comparison run failed.";
+      } finally {
+        $("run").disabled = false;
+      }
+    }
+
+    $("refresh").addEventListener("click", refreshStatus);
+    $("tabScore").addEventListener("click", () => activateTab("score"));
+    $("tabResults").addEventListener("click", () => activateTab("results"));
+    $("addModel").addEventListener("click", () => addManual());
+    $("run").addEventListener("click", runLab);
+    $("science").addEventListener("click", () => {
+      $("prompt").value = "What is the golden thread linking scientific fields? Answer directly, then explain how the scientific method and mathematical modeling relate to shared objective reality.";
+    });
+
+    addManual("Gemini 2.0", "");
+    addManual("Claude", "");
+    addManual("Grok", "");
+    addManual("DeepSeek", "");
+    refreshStatus();
+  </script>
+</body>
+</html>

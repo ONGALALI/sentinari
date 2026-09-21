@@ -1,0 +1,41 @@
+# SMi Sentinel Core — fresh repository ignore rules
+# Data, models and runtime artifacts live on disk, not in git.
+
+# Runtime data (6.7 GB: library DBs, taxonomy stores, backups, archives)
+data/
+Logs/
+logs/
+sentinel_uploads/
+ingest_status.json
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets & keys
+1-run-key.txt
+.env
+*.key
+
+# Local IDE / tool noise
+.vs/
+.vscode/
+.idea/
+.gemini/
+.continue/
+New folder/
+
+# OS noise
+~$*
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Freebuff agent tool noise
+.freebuff/
+
+# ETDP app lives here physically but is a SEPARATE application (see CONTINUITY_LOG)
+VocationalLLM/

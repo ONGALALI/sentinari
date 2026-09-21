@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A1 Logs</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --line: #d4dee8;
+      --text: #152433;
+      --muted: #4b6178;
+      --blue: #1d6fd8;
+      --green: #1d7a3a;
+      --red: #ac3a2a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Segoe UI, Tahoma, Arial, sans-serif; background: var(--bg); color: var(--text); }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; font-size: 16px; }
+    a { color: var(--blue); text-decoration: none; }
+    main { max-width: 1500px; margin: 0 auto; padding: 14px; display: grid; gap: 14px; }
+    section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    button { border: 1px solid #7e95b0; border-radius: 6px; background: var(--blue); color: #fff; font-weight: 700; padding: 9px 12px; cursor: pointer; min-height: 40px; }
+    button.secondary { background: #5e7188; }
+    .hint, .meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .status { margin-top: 6px; min-height: 18px; font-size: 13px; }
+    .ok { color: var(--green); font-weight: 700; }
+    .err { color: var(--red); font-weight: 700; }
+    .logs { display: grid; gap: 8px; max-height: 420px; overflow: auto; }
+    .log-item { border: 1px solid #d7e3f0; border-radius: 8px; background: #fbfdff; padding: 10px; font-size: 13px; line-height: 1.4; }
+    .log-item strong { display: block; margin-bottom: 5px; }
+    .table-wrap { overflow: auto; border: 1px solid #d6e2f1; border-radius: 8px; background: #fff; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 930px; }
+    th, td { padding: 8px 9px; border-bottom: 1px solid #dde6f2; text-align: left; vertical-align: top; }
+    th { background: #f2f7fd; color: #37516a; position: sticky; top: 0; z-index: 1; }
+    tbody tr:nth-child(even) { background: #f9fbfe; }
+    .note { max-width: 360px; white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>A1 Logs</h1>
+      <div class="hint">Audit history for Gemma Qualia prompts, simulations, recommendations, and continuity metrics.</div>
+    </div>
+    <div class="row">
+      <button id="refreshAll">Refresh All</button>
+      <a href="/ui/gemma-qualia">Gemma Qualia Lab</a>
+      <a href="/ui/start">Start</a>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Recent Logged Exchanges</h2>
+      <div id="recentLogs" class="logs"></div>
+      <div id="recentStatus" class="status"></div>
+    </section>
+
+    <section>
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <h2>Semantic State Continuity Log</h2>
+          <div class="hint">Recent Qualia rows translated into phenomenodynamic metrics so prompt effects can be compared over time.</div>
+        </div>
+        <button class="secondary" id="refreshHistory">Refresh Log</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Run</th>
+              <th>Session</th>
+              <th>Continuity</th>
+              <th>Cognitive</th>
+              <th>Stability</th>
+              <th>Bounded Drift</th>
+              <th>Anxiety</th>
+              <th>Attractor</th>
+              <th>Gamma Field</th>
+              <th>Recommended Vector</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="continuityBody">
+            <tr><td colspan="12">No log loaded yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="historyStatus" class="status"></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const asNum = (value, fallback = 0) => {
+      const parsed = Number(String(value ?? "").replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const fmt = (value, digits = 3) => Number(asNum(value, 0)).toFixed(digits);
+    const pct = (value) => `${Math.round(clamp(asNum(value, 0), 0, 1) * 100)}%`;
+    const escapeHtml = (text) => String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    const short = (text, max) => {
+      text = String(text || "");
+      return text.length > max ? text.slice(0, max - 1) + "..." : text;
+    };
+    function setStatus(id, text, good = true) {
+      $(id).textContent = text || "";
+      $(id).className = `status ${good ? "ok" : "err"}`;
+    }
+    function profileFromHistory(item) {
+      const after = item.after_state || {};
+      const summary = item.benchmark_summary?.qualia_summary || after.qualia_summary || {};
+      const stability = clamp(asNum(item.stability_index ?? summary.stability_index, 0.7), 0, 1);
+      const influence = clamp(asNum(item.influence ?? summary.attention_pull, 0.3), 0, 1);
+      const gamma = clamp(asNum(item.gamma_effective ?? item.gamma_requested, 0.16), 0, 1);
+      const gammaCap = 0.25;
+      const volatility = clamp(asNum(summary.volatility, 1 - stability), 0, 1);
+      const continuity = clamp((0.58 * stability) + (0.22 * (1 - volatility)) + (0.20 * (1 - Math.abs(influence - 0.35))), 0, 1);
+      const cognitive = clamp(asNum(item.reasoning_score, asNum(item.logic_score, 0)) * 0.7 + Math.min(0.3, influence * 0.25), 0, 1);
+      const drift = clamp(1 - (volatility * 0.55) - (Math.abs(influence - 0.35) * 0.25), 0, 1);
+      const anxiety = clamp(1 - stability, 0, 1);
+      const attractor = clamp((stability * 0.48) + (drift * 0.28) + (continuity * 0.24), 0, 1);
+      const gammaField = clamp((gamma / gammaCap) * 0.55 + cognitive * 0.25 + stability * 0.20, 0, 1);
+      const targetRatio = clamp((continuity * 0.42) + (attractor * 0.24) + (gammaField * 0.18) - (anxiety * 0.16), 0, 1);
+      return {
+        continuity,
+        cognitive,
+        stability,
+        drift,
+        anxiety,
+        attractor,
+        gammaField,
+        vector: `variant ${fmt(0.1 + targetRatio * 24.9, 2)} | gamma ${fmt(Math.min(gammaCap, 0.08 + gammaField * gammaCap * 0.55), 2)} | bias ${fmt(clamp(0.42 + anxiety * 0.28 + (1 - drift) * 0.14, 0, 1), 2)}`
+      };
+    }
+    async function loadRecentLogs() {
+      try {
+        const res = await fetch("/api/playground/gemma-qualia/status");
+        const data = await res.json();
+        const logs = Array.isArray(data.recent_logs) ? data.recent_logs : [];
+        $("recentLogs").innerHTML = logs.slice().reverse().map((item) => `
+          <div class="log-item">
+            <strong>#${escapeHtml(item.history_entry_id || "")} ${escapeHtml(item.model || "")}</strong>
+            <div>${escapeHtml(short(item.message, 220))}</div>
+            <div class="meta">${escapeHtml(short(item.answer || item.error, 420))}</div>
+            <div class="meta">stability ${fmt(item.qualia?.stability_index, 4)} | influence ${fmt(item.qualia?.influence, 3)} | gamma ${fmt(item.qualia?.gamma_effective, 3)} | ${escapeHtml(item.elapsed_ms || "")} ms</div>
+          </div>
+        `).join("") || '<p class="hint">No recent Gemma Qualia logs yet.</p>';
+        setStatus("recentStatus", `Loaded ${logs.length} recent exchange logs.`, true);
+      } catch (err) {
+        setStatus("recentStatus", err.message || String(err), false);
+      }
+    }
+    async function loadContinuityLog() {
+      try {
+        const res = await fetch("/api/playground/qualia/history?limit=80");
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.detail || data.error || "History failed.");
+        const rows = Array.isArray(data.items) ? data.items : [];
+        $("continuityBody").innerHTML = rows.length ? rows.slice(0, 60).map((item) => {
+          const p = profileFromHistory(item);
+          const note = item.benchmark_summary?.answer_preview || item.benchmark_summary?.message_preview || item.recommendation?.reason || "";
+          return `<tr>
+            <td>${escapeHtml(String(item.created_at || "").replace(".000000", ""))}</td>
+            <td>${escapeHtml(item.run_type || "")}</td>
+            <td>${escapeHtml(item.session_id || "")}</td>
+            <td>${pct(p.continuity)}</td>
+            <td>${pct(p.cognitive)}</td>
+            <td>${pct(p.stability)}</td>
+            <td>${pct(p.drift)}</td>
+            <td>${pct(p.anxiety)}</td>
+            <td>${pct(p.attractor)}</td>
+            <td>${pct(p.gammaField)}</td>
+            <td>${escapeHtml(p.vector)}</td>
+            <td class="note">${escapeHtml(short(note, 240))}</td>
+          </tr>`;
+        }).join("") : '<tr><td colspan="12">No qualia history recorded yet.</td></tr>';
+        setStatus("historyStatus", `Loaded ${rows.length} Qualia history rows.`, true);
+      } catch (err) {
+        setStatus("historyStatus", err.message || String(err), false);
+      }
+    }
+    async function refreshAll() {
+      await Promise.all([loadRecentLogs(), loadContinuityLog()]);
+    }
+    $("refreshAll").addEventListener("click", refreshAll);
+    $("refreshHistory").addEventListener("click", loadContinuityLog);
+    refreshAll();
+  </script>
+</body>
+</html>

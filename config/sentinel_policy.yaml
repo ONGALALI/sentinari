@@ -1,0 +1,31 @@
+# Sentinel firewall policy — what may enter the knowledge libraries.
+# Edit and restart (or use the API reload) to change; values here override defaults.
+
+# Empty list = every extension allowed unless explicitly blocked below.
+allowed_extensions: []
+
+# Executables and installers never belong in a knowledge library.
+blocked_extensions:
+  - .exe
+  - .dll
+  - .bat
+  - .cmd
+  - .ps1
+  - .msi
+  - .sh
+  - .bin
+  - .iso
+
+# Filename patterns that are refused (temp files, partial downloads, editor droppings).
+blocked_name_patterns:
+  - "^~\\$"
+  - "\\.tmp$"
+  - "\\.part$"
+  - "\\.crdownload$"
+
+# Hard size cap per file (MB). Sentinel UI caps (PDF 30 MB / docs 80 MB) still
+# apply on top of this for their own lanes.
+max_file_mb: 300
+
+# Refused files are moved to data/sentinel_quarantine/ and logged (never silently dropped).
+quarantine_on_block: true

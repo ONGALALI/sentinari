@@ -1,0 +1,13 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pydantic==2.12.3
+python-multipart==0.0.20
+PyYAML==6.0.3
+requests==2.32.5
+beautifulsoup4==4.13.4
+python-docx==1.1.2
+pypdf==5.9.0
+openpyxl==3.1.5
+numpy==2.4.3
+imageio-ffmpeg==0.6.0
+docling>=2.70.0,<3.0.0

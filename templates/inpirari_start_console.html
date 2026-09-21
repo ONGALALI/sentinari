@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inpirari Start</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --line: #d8dee8;
+      --text: #151b28;
+      --muted: #667184;
+      --blue: #195bbf;
+      --green: #15734f;
+      --red: #a33232;
+      --amber: #8a5d00;
+      --ink: #2d374b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, Arial, sans-serif;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    main { max-width: 1400px; margin: 0 auto; padding: 18px; }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button, a.button {
+      border: 0;
+      border-radius: 6px;
+      background: var(--blue);
+      color: #fff;
+      min-height: 42px;
+      padding: 10px 14px;
+      font: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    button.secondary, a.secondary { background: var(--ink); }
+    button:disabled { opacity: .62; cursor: wait; }
+    .status {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: var(--panel);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+    .ok { color: var(--green); font-weight: 700; }
+    .bad { color: var(--red); font-weight: 700; }
+    .warn { color: var(--amber); font-weight: 700; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 210px;
+    }
+    .card.feature {
+      grid-column: 1 / -1;
+      min-height: 150px;
+      border-color: #aebfda;
+      background: #f8fbff;
+    }
+    .card.feature h2 { font-size: 21px; }
+    .card h2 { margin: 0; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 14px; }
+    .actions { margin-top: auto; display: flex; gap: 9px; flex-wrap: wrap; }
+    .backup {
+      margin-top: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .command {
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      background: #f2f4f8;
+      border: 1px solid var(--line);
+      padding: 8px;
+      border-radius: 6px;
+      overflow-wrap: anywhere;
+      margin: 7px 0;
+    }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    @media (max-width: 980px) {
+      .grid, .status { grid-template-columns: 1fr; }
+      main { padding: 12px; }
+      header { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Inpirari Start</h1>
+      <div class="meta">One browser page for Gemma, Qualia, SMi, and model comparison.</div>
+    </div>
+    <div class="toolbar">
+      <button id="refresh">Refresh Status</button>
+      <button class="secondary" id="startGemma">Start Gemma</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="status" id="status"></div>
+
+    <section class="grid">
+      <div class="card feature">
+        <h2>Scientific Fields + Gemma Test Run</h2>
+        <p>Start here when you want Gemma to learn from a new scientific field. Open the Sentinel domain grid first, discover and load datasets into the field, then use the Qualia lab to test whether Gemma can answer from that new knowledge.</p>
+        <div class="actions">
+          <a class="button" href="/ui/playground">Open Sentinel Domains</a>
+          <a class="button secondary" href="/ui/document-layouts">Document Layouts</a>
+          <a class="button secondary" href="/ui/gemma-qualia">Test in Qualia</a>
+          <a class="button secondary" href="/ui/admin">Check Learning Fields</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Gemma Direct Chat</h2>
+        <p>Plain local Gemma discussion with minimal wrapping and response logging. Use this when you want to talk to her without the SMi knowledge pipeline.</p>
+        <div class="actions">
+          <a class="button" href="/ui/gemma-direct">Open Chat</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Gemma Qualia Lab</h2>
+        <p>Gemma linked to the Qualia state model. Use this when you want response logs plus the Qualia parameters and history entry.</p>
+        <div class="actions">
+          <a class="button" href="/ui/gemma-qualia">Open Qualia</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Model Deviation Lab</h2>
+        <p>Compare Gemma against Gemini, Grok, Claude, DeepSeek, and pasted model answers using the same prompt and scoring sheet.</p>
+        <div class="actions">
+          <a class="button" href="/ui/model-lab">Open Lab</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>SMi Playground</h2>
+        <p>The original SMi playground and training controls. Dedicated to Gemma 4:12B with scientific fields, tutor runs, and Qualia metrics.</p>
+        <div class="actions">
+          <a class="button secondary" href="/ui/playground">Open SMi</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Admin Console</h2>
+        <p>Learning fields, seeded quantities, profile settings, guardrails, and operator state views.</p>
+        <div class="actions">
+          <a class="button secondary" href="/ui/admin">Open Admin</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Quick Sanity</h2>
+        <p>Use the direct chat page and ask: “Which is the largest continent on Earth?” If she answers Asia, the model path is alive.</p>
+        <div class="actions">
+          <a class="button secondary" href="/ui/gemma-direct">Run Manual Test</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="backup">
+      <h2>Backup Launch Files</h2>
+      <p class="meta">You should not need these from day to day. They are here only if the browser page is unavailable.</p>
+      <div class="command">D:\Inpirari\START-HERE.bat</div>
+      <div class="command">D:\Inpirari\Launch-Gemma.bat</div>
+      <div class="command">D:\Inpirari\Launch-Gemma-Direct-Page.bat</div>
+      <div class="command">D:\Inpirari\Launch-Gemma-Qualia-Lab.bat</div>
+      <div class="command">D:\Inpirari\Launch-Model-Deviation-Lab.bat</div>
+      <p class="meta" id="logs"></p>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function pill(label, value, state) {
+      return `<div class="pill"><span>${label}</span><span class="${state}">${value}</span></div>`;
+    }
+
+    async function refreshStatus() {
+      $("status").innerHTML = pill("System", "checking", "warn");
+      try {
+        const res = await fetch("/api/inpirari/start/status");
+        const data = await res.json();
+        const personaInfo = data.persona || {};
+
+        $("status").innerHTML = [
+          pill("Active Engine", "Gemma 4:12B (Science)", "ok"),
+          pill("Active Library", "library_gemma.db", "ok"),
+          pill("Isolation Guard", "Strict On (No Mismatch)", "ok"),
+          pill("SMi Web Host", data.smi_reachable ? "running" : "offline", data.smi_reachable ? "ok" : "bad"),
+          pill("Ollama / Gemma", (data.gemma_reachable || data.SMI_reachable) ? "running" : "offline", (data.gemma_reachable || data.SMI_reachable) ? "ok" : "bad"),
+          pill("Active Model", personaInfo.active_model || data.gemma_model || "not found", "ok"),
+          pill("Base URL", data.gemma_base_url || data.SMI_base_url || "", (data.gemma_base_url || data.SMI_base_url) ? "ok" : "bad")
+        ].join("");
+        $("logs").textContent = data.logs ? `Logs: ${data.logs.gemma_direct || data.logs.SMI_direct} | ${data.logs.gemma_qualia || data.logs.SMI_qualia} | ${data.logs.model_deviation}` : "";
+      } catch (err) {
+        $("status").innerHTML = pill("Start page API", "not answering", "bad");
+      }
+    }
+
+    async function startGemma() {
+      $("startGemma").disabled = true;
+      $("startGemma").textContent = "Starting...";
+      try {
+        await fetch("/api/inpirari/start/gemma", { method: "POST" });
+        setTimeout(refreshStatus, 3500);
+      } finally {
+        $("startGemma").disabled = false;
+        $("startGemma").textContent = "Start Gemma";
+      }
+    }
+
+    $("refresh").addEventListener("click", refreshStatus);
+    $("startGemma").addEventListener("click", startGemma);
+    refreshStatus();
+  </script>
+</body>
+</html>
+
