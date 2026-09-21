@@ -557,3 +557,32 @@ progresses; for now we concentrate on scholarly sources that "have done the hard
 Sentinel Pie Diagram area) bumped **9.5px → 11px** (+1.5pt), orientation (vertical-rl) untouched.
 
 Commit: philosophy field + label bump. One restart + hard refresh picks both up.
+
+## §20 — Pattern recognition pause switch (owner request: OFF until the new rig) (2026-09-21, ~08:20 SAST)
+
+Owner reported background resource use and asked for pattern recognition to be switched OFF until the machine
+migration, while keeping candidate sourcing/uploads fully working. Delighted the workspace is an eye-opener! 🎉
+
+**Diagnosis first**: there is NO always-on pattern thread. The resource consumers are (a) discovery jobs started
+from the Patterns workspace (background LLM threads, minutes per document on this laptop) and (b) any NEW job
+starts. Auto-ingest digesting files is separate and unaffected.
+
+**Built — persisted master switch**:
+- `pattern_settings` table in patterns.db + `get_pattern_recognition_enabled()` / `set_pattern_recognition_enabled()`
+  (default ON; survives restarts).
+- **Gates**: `discover/field/{slug}`, `analyze/{id}`, `process-queue`, `synthesize` all refuse with 409 +
+  PAUSED_MESSAGE while paused. `extract_document` checks the switch at every CHUNK boundary — a running job
+  stops mid-document at the next chunk (no wasted LLM cycles).
+- **Cancellation**: `load_progress.cancel_job(job_id)` + `is_cancel_requested()`; pausing cancels all
+  `_ACTIVE_DISCOVERY` jobs; the discovery loop exits cleanly at the next document boundary with
+  `{"cancelled": true, "analyzed": N}`. `ProgressReporter` now exposes `.job_id`.
+- **API**: `GET/POST /api/patterns/recognition-switch` — NOTE: defined ABOVE `GET /{pattern_id}` (the §16
+  route-order lesson struck again on the first attempt).
+- **UI**: "Pattern recognition ON/PAUSED" checkbox in the Library-wide recognition card; red paused banner;
+  status line shows the state; discovery start button surfaces the paused message if clicked.
+
+**State now: OFF (as requested).** Verified live: GET shows `recognition_enabled:false`; discovery refused 409;
+resume/re-pause cycle persists; sourcing while paused returned 9 Philosophy candidates — uploads/loads unaffected.
+On the new rig: flip the toggle in the Patterns workspace (or POST recognition-switch {"enabled":true}).
+
+Commit: pause switch. Restart + hard refresh to see the toggle.

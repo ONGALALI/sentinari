@@ -16,10 +16,13 @@ from .pattern_store import (
     _connect as _store_connect,
     ensure_pattern_store,
     get_pattern,
+    get_pattern_recognition_enabled,
     list_patterns,
     review_pattern,
+    set_pattern_recognition_enabled,
     store_stats,
 )
+from .pattern_store import PAUSED_MESSAGE
 from .pattern_worker import extract_document, process_queue, queue_document, synthesize_cross_domain
 
 router = APIRouter(prefix="/api/patterns", tags=["Pattern Recognition"])
@@ -133,6 +136,8 @@ def pattern_workspace() -> dict[str, Any]:
             field: _load_progress.job_snapshot(job_id)
             for field, job_id in list(_ACTIVE_DISCOVERY.items())
         },
+        "recognition_enabled": get_pattern_recognition_enabled(),
+        "paused_message": "" if get_pattern_recognition_enabled() else PAUSED_MESSAGE,
     }
 
 
@@ -140,6 +145,7 @@ def pattern_workspace() -> dict[str, Any]:
 def pattern_discovery_status() -> dict[str, Any]:
     """Overall recognition coverage across the whole knowledge library."""
     ensure_pattern_store()
+    enabled = get_pattern_recognition_enabled()
     total_docs = 0
     try:
         with _library_connection("gemma") as conn:
@@ -163,6 +169,7 @@ def pattern_discovery_status() -> dict[str, Any]:
         "candidate_patterns": candidates,
         "percent": percent,
         "active": dict(_ACTIVE_DISCOVERY),
+        "recognition_enabled": enabled,
     }
 
 
@@ -258,8 +265,12 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
     for index, doc_id in enumerate(doc_ids, start=1):
         title = str(rows[index - 1]["title"] or doc_id)
         rep.report((index - 1) / len(doc_ids), f"Extracting patterns from \"{title[:60]}\" ({index}/{len(doc_ids)})...")
+        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+            return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": index - 1}
         try:
             result = extract_document(doc_id, max_chunks=max_chunks)
+            if str(result.get("reason") or "") == "paused":
+                return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": index - 1}
             if not result.get("ok") and result.get("reason"):
                 errors.append(f"doc {doc_id}: {result.get('reason')}")
         except Exception as ex:
@@ -307,7 +318,10 @@ def _discover_field_worker(field_slug: str, job_id: str, max_documents: int, max
     try:
         with _load_progress.bind(rep):
             result = _discover_field_impl(field_slug, rep, max_documents, max_chunks)
-        _load_progress.finish_job(job_id, result)
+        if result.get("cancelled"):
+            _load_progress.finish_job(job_id, {**result, "message": "Pattern discovery paused by owner."})
+        else:
+            _load_progress.finish_job(job_id, result)
     except Exception as ex:
         _load_progress.error_job(job_id, str(ex) or ex.__class__.__name__)
     finally:
@@ -322,6 +336,8 @@ def discover_field_patterns(
 ) -> dict[str, Any]:
     """Start live pattern discovery for one scientific field (background job)."""
     ensure_pattern_store()
+    if not get_pattern_recognition_enabled():
+        raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
     field = str(field_slug or "").strip().lower()
     if not field or field == "unassigned":
         raise HTTPException(status_code=400, detail="Provide a valid scientific field.")
@@ -356,6 +372,38 @@ def list_future_requests_endpoint(kind: str = Query(default="")) -> dict[str, An
     return {"ok": True, "requests": _list_future_requests(kind)}
 
 
+# ---------------------------------------------------------------------------
+# Pattern recognition master switch (owner pause control)
+# ---------------------------------------------------------------------------
+
+class RecognitionSwitch(BaseModel):
+    enabled: bool
+
+
+@router.get("/recognition-switch")
+def recognition_switch_status() -> dict[str, Any]:
+    return {"ok": True, "recognition_enabled": get_pattern_recognition_enabled()}
+
+
+@router.post("/recognition-switch")
+def recognition_switch_set(payload: RecognitionSwitch) -> dict[str, Any]:
+    """Persist the owner's ON/OFF switch. When pausing, any running discovery
+    job is cancelled at its next document/chunk boundary."""
+    set_pattern_recognition_enabled(bool(payload.enabled))
+    cancelled: list[str] = []
+    if not payload.enabled:
+        with _DISCOVERY_LOCK:
+            for field, job_id in list(_ACTIVE_DISCOVERY.items()):
+                _load_progress.cancel_job(job_id)
+                cancelled.append(f"{field}:{job_id}")
+    return {
+        "ok": True,
+        "recognition_enabled": bool(payload.enabled),
+        "cancelled_jobs": cancelled,
+        "message": "Pattern recognition resumed." if payload.enabled else PAUSED_MESSAGE,
+    }
+
+
 @router.get("/{pattern_id}")
 def get_pattern_detail(pattern_id: int) -> dict[str, Any]:
     pattern = get_pattern(pattern_id)
@@ -376,6 +424,8 @@ def review_pattern_endpoint(pattern_id: int, payload: ReviewRequest) -> dict[str
 @router.post("/analyze/{document_id}")
 def analyze_document(document_id: int) -> dict[str, Any]:
     """Queue + immediately extract patterns from one library document."""
+    if not get_pattern_recognition_enabled():
+        raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
     queue_document(document_id)
     result = extract_document(document_id)
     return {"ok": result.get("ok", False), "result": result}
@@ -383,11 +433,15 @@ def analyze_document(document_id: int) -> dict[str, Any]:
 
 @router.post("/process-queue")
 def run_queue(limit: int = Query(default=5, ge=1, le=25)) -> dict[str, Any]:
+    if not get_pattern_recognition_enabled():
+        raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
     return process_queue(limit=limit)
 
 
 @router.post("/synthesize")
 def run_synthesis(max_pairs: int = Query(default=6, ge=1, le=20)) -> dict[str, Any]:
+    if not get_pattern_recognition_enabled():
+        raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
     try:
         return synthesize_cross_domain(max_pairs=max_pairs)
     except LLMGatewayError as ex:

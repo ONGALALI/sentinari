@@ -28,6 +28,7 @@ from .db import library_connection
 from .llm_gateway import LLMGatewayError, get_gateway
 from .pattern_store import (
     ensure_pattern_store,
+    get_pattern_recognition_enabled as pattern_recognition_enabled,
     log_extraction,
     propose_pattern,
     register_template,
@@ -156,6 +157,11 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
     pattern_drafts: list[dict[str, Any]] = []
 
     for chunk in chunks:
+        # Owner pause switch: stop burning CPU/LLM cycles mid-document when
+        # pattern recognition has been switched off.
+        if not pattern_recognition_enabled():
+            log_id = log_extraction(document_id, "skipped", error="pattern recognition paused", started_at=started)
+            return {"ok": False, "reason": "paused", "log_id": log_id}
         try:
             reply = gateway.chat_json(
                 [

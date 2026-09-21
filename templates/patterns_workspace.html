@@ -76,6 +76,9 @@
   .future-request-item { border: 1px solid #e9eef6; border-radius: 8px; padding: 7px 10px; margin-top: 6px; font-size: 12px; color: #47586b; background: #fbfdff; }
   .future-request-item b { color: #17304f; }
   .future-request-item .fr-kind { font-weight: 700; color: #6b5a86; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
+  .oa-toggle input { width: auto; margin: 0; accent-color: #2f6fb2; }
+  #recognitionSwitch:not(:checked) + #recognitionSwitchLabel { color: #8f3a45; font-weight: 700; }
+  #recognitionSwitch:checked + #recognitionSwitchLabel { color: #22743a; font-weight: 700; }
   .alert { margin-top: 12px; border-radius: 10px; padding: 9px 12px; font-size: 13px; }
   .alert.ok { background: #e6f6ea; border: 1px solid #b7e2c2; color: #22743a; }
   .alert.err { background: #fdf0f1; border: 1px solid #efc3c9; color: #8f3a45; }
@@ -107,8 +110,15 @@
           <h2>Library-wide recognition</h2>
           <div class="hint">How much of the knowledge library Sentinel has analyzed for new patterns so far.</div>
         </div>
-        <button id="btnRefresh" class="ghost" type="button">Refresh</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label class="hint oa-toggle" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
+            <input id="recognitionSwitch" type="checkbox">
+            <span id="recognitionSwitchLabel">Pattern recognition ON</span>
+          </label>
+          <button id="btnRefresh" class="ghost" type="button">Refresh</button>
+        </div>
       </div>
+      <div id="pausedBanner" class="alert err" style="margin-top:10px;" hidden></div>
       <div class="stats-grid">
         <div class="stat"><b id="stDocs">0</b><span>Library documents</span></div>
         <div class="stat"><b id="stAnalyzed">0</b><span>Documents analyzed</span></div>
@@ -194,10 +204,43 @@
       setBar($('overallFill'), $('overallLabel'), data.percent,
         `${fmtInt(data.documents_analyzed)} of ${fmtInt(data.library_documents)} documents analyzed · ${fmtInt(data.queued)} queued`);
       $('overallPct').textContent = pctText(data.percent);
+      const sw = $('recognitionSwitch');
+      if (sw) sw.checked = data.recognition_enabled !== false;
+      updateSwitchUi(data.recognition_enabled !== false, data.paused_message || '');
     } catch (error) {
       setBar($('overallFill'), $('overallLabel'), 0, `Status unavailable: ${error.message}`);
     }
   }
+
+  function updateSwitchUi(enabled, message) {
+    const label = $('recognitionSwitchLabel');
+    const banner = $('pausedBanner');
+    if (label) label.textContent = enabled ? 'Pattern recognition ON' : 'Pattern recognition PAUSED';
+    if (banner) {
+      banner.hidden = enabled;
+      if (!enabled) banner.textContent = message || 'Pattern recognition is paused — no discovery jobs will run until you resume it. Sourcing and loads continue normally.';
+    }
+  }
+
+  $('recognitionSwitch')?.addEventListener('change', async (event) => {
+    const enabled = Boolean(event.target.checked);
+    const sw = event.target;
+    sw.disabled = true;
+    try {
+      const r = await api('/api/patterns/recognition-switch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      showAlert(r.message || (enabled ? 'Pattern recognition resumed.' : 'Pattern recognition paused.'), enabled);
+      updateSwitchUi(enabled, r.message);
+      if (!enabled) await loadWorkspace();
+    } catch (error) {
+      sw.checked = !enabled;
+      showAlert(error.message, false);
+    } finally {
+      sw.disabled = false;
+    }
+  });
 
   function patternCard(p) {
     const status = String(p.status || 'candidate');

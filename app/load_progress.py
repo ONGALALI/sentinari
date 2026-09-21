@@ -40,6 +40,7 @@ class ProgressReporter:
 
     def __init__(self, job: dict[str, Any]) -> None:
         self._job = job
+        self.job_id = job.get("job_id", "")
 
     def stage(self, stage: str, message: str | None = None) -> None:
         band = BANDS.get(stage)
@@ -245,3 +246,21 @@ def error_job(job_id: str, error: str) -> None:
         job["error"] = str(error)[:500]
         job["message"] = f"Load failed: {str(error)[:280]}"
         job["finished_at"] = time.time()
+
+
+def cancel_job(job_id: str, message: str = "Cancelled by owner.") -> bool:
+    """Flag a job as cancelled. Cooperative: running pattern-discovery workers
+    check the flag at their next document/chunk boundary and exit cleanly."""
+    with _LOCK:
+        job = _JOBS.get(job_id)
+        if not job:
+            return False
+        job["cancel_requested"] = True
+        job["message"] = str(message)[:280]
+        return True
+
+
+def is_cancel_requested(job_id: str) -> bool:
+    with _LOCK:
+        job = _JOBS.get(job_id)
+        return bool(job and job.get("cancel_requested"))

@@ -614,3 +614,55 @@ def list_future_requests(kind: str = "") -> list[dict[str, Any]]:
     with _connect() as conn:
         rows = conn.execute(query, params).fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Pattern recognition master switch (persisted in patterns.db)
+# ---------------------------------------------------------------------------
+
+def _ensure_settings_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pattern_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+
+
+def get_pattern_recognition_enabled() -> bool:
+    """True unless the owner has paused pattern recognition (persisted)."""
+    try:
+        with _connect() as conn:
+            _ensure_settings_table(conn)
+            row = conn.execute(
+                "SELECT value FROM pattern_settings WHERE key = 'recognition_enabled'"
+            ).fetchone()
+        return str(row["value"]).lower() != "off" if row is not None else True
+    except Exception:
+        return True
+
+
+def set_pattern_recognition_enabled(enabled: bool) -> dict[str, Any]:
+    """Persist the pattern-recognition master switch."""
+    ensure_pattern_store()
+    with _connect() as conn:
+        _ensure_settings_table(conn)
+        conn.execute(
+            """
+            INSERT INTO pattern_settings (key, value, updated_at)
+            VALUES ('recognition_enabled', ?, datetime('now'))
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            """,
+            ("on" if enabled else "off",),
+        )
+        conn.commit()
+    return {"recognition_enabled": bool(enabled)}
+
+
+PAUSED_MESSAGE = (
+    "Pattern recognition is paused by the owner (resume it in the Patterns workspace). "
+    "Candidate sourcing, loads and ingestion continue unaffected."
+)
