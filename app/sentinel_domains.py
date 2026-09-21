@@ -65,6 +65,7 @@ SENTINEL_DOMAINS: list[dict[str, Any]] = [
         "name": "Human Behavior and Society (Guardian of Minds & Cultures)",
         "description": "Studies human decision-making, culture, and collective survival.",
         "fields": [
+            {"name": "Philosophy", "detail": "ethics, epistemology, metaphysics, logic, philosophy of science"},
             {"name": "Psychology", "detail": "cognitive, industrial, clinical"},
             {"name": "Sociology", "detail": "society, institutions, social dynamics"},
             {"name": "Anthropology", "detail": "cultures, human evolution, ethnography"},
@@ -106,7 +107,7 @@ SENTINEL_ROOMS: list[dict[str, Any]] = [
     {"name": "Earth & Climate Sciences", "fields": ["Earth Sciences", "Environmental Science"]},
     {"name": "Computer Science, AI Engineering & Robotics", "fields": ["Computer Science & AI", "Information Science", "Engineering"]},
     {"name": "Mathematics & Statistics", "fields": []},
-    {"name": "Neuroscience & Psychology", "fields": ["Neuroscience", "Psychology"]},
+    {"name": "Neuroscience & Psychology", "fields": ["Neuroscience", "Psychology", "Philosophy"]},
     {"name": "Social Sciences", "fields": ["Sociology", "Anthropology"]},
     {"name": "Economics", "fields": ["Economics"]},
     {"name": "Agricultural & Food Sciences", "fields": []},

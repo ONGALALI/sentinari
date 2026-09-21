@@ -534,3 +534,26 @@ worker's docstring. Files remain on disk for migration.
   (`hideAbstractOnly`, applies to panel listing incl. stored rows) and status notes "· full text only".
 - **Verified live**: OFF → PMC papers lead (mixed lineup, PMC-first); ON → 6/6 PubMed papers with PMCIDs.
   One restart + hard refresh picks it up.
+
+## §19 — Philosophy field + sourcing-label bump + future-sources policy (2026-09-21, ~07:40 SAST)
+
+**Owner directive (recorded for all future sessions):** additional data sources WILL be added as the project
+progresses; for now we concentrate on scholarly sources that "have done the hard work and include cited works"
+(OpenAlex, PubMed/PMC). When evaluating new sources, prefer those with citation graphs and stable identifiers.
+
+**(1) Philosophy as a Scientific Field** (owner: "the origin... starting point of all sciences"):
+- Added to `SENTINEL_DOMAINS` in **Human Behavior and Society (Guardian of Minds & Cultures)** — FIRST position,
+  beside Psychology, exactly as the owner requested ("same category as Psychology").
+- detail: "ethics, epistemology, metaphysics, logic, philosophy of science" (drives OpenAlex concept matching).
+- Also mapped into the **Neuroscience & Psychology** main-LLM room (SENTINEL_ROOMS).
+- Architecture note: `_resolve_field` auto-derives slugs/dirs/status from the domain list — NO rewrites needed
+  anywhere; the field gets worker boxes, sourcing, capacity bar, uploads, ingestion, reports for free.
+- Sources: all three GitHub/HF/OpenAlex lanes remain active per owner instruction ("one might never know what
+  they produce"); **PubMed is excluded automatically** by its medical-fields gate (verified: pubmed_count=0).
+- **Verified live**: status lists Philosophy first in the domain; search "Philosophy" returned 15 candidates —
+  5 OpenAlex (incl. Anscombe's "Modern Moral Philosophy", "Philosophy in the Flesh"), 5 GitHub, 5 HF.
+
+**(2) Ribbon label size**: `.sentinel-ribbon .rname` (the vertical field names in the library-share bar under the
+Sentinel Pie Diagram area) bumped **9.5px → 11px** (+1.5pt), orientation (vertical-rl) untouched.
+
+Commit: philosophy field + label bump. One restart + hard refresh picks both up.
