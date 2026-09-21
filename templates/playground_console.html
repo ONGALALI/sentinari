@@ -539,7 +539,7 @@
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
               <h2>Scientific Dataset Discovery &amp; Review</h2>
-              <div class="hint">Searches GitHub, Hugging Face, and OpenAlex <strong>at the same time</strong> using the field's own name (e.g. just "Physics" — not its sub-sciences). Candidates are stored here for Approve / Reject / Test, then <strong>Load into field</strong> downloads and ingests with a progress bar. You can also run the same worker inside any Sentinel field above.</div>
+              <div class="hint">Searches GitHub, Hugging Face, OpenAlex, and PubMed <strong>at the same time</strong> using the field's own name (e.g. just "Physics" — not its sub-sciences). PubMed is active for <strong>Health, Medicine, Psychology and Neuroscience</strong> fields only. Candidates are stored here for Approve / Reject / Test, then <strong>Load into field</strong> downloads and ingests with a progress bar. You can also run the same worker inside any Sentinel field above.</div>
             </div>
             <div class="mono">Review before ingest</div>
           </div>
@@ -2115,7 +2115,7 @@
           <div class="sentinel-sourcing" data-role="sourcing">
             <div class="row" style="align-items:flex-end; gap:8px;">
               <div class="field" style="flex:2 1 240px; margin:0;">
-                <label class="hint" for="sourcing-query-${fieldSlug}">Find datasets for this field (GitHub + Hugging Face + OpenAlex searched together)</label>
+                <label class="hint" for="sourcing-query-${fieldSlug}">Find datasets for this field (GitHub + Hugging Face + OpenAlex + PubMed searched together)</label>
                 <input type="text" id="sourcing-query-${fieldSlug}" data-role="sourcing-query" value="${escapeAttr(String(field?.field_name || fieldName))}" placeholder="e.g. ${escapeAttr(String(field?.field_name || fieldName))}" aria-label="Dataset query for ${fieldName}">
               </div>
               <div class="field" style="flex:0 1 130px; margin:0;">
@@ -2125,7 +2125,7 @@
               <button class="ghost" type="button" data-role="sourcing-find" data-field="${fieldSlug}">Find datasets</button>
               <button class="ghost" type="button" data-role="sourcing-clear" data-field="${fieldSlug}">Clear</button>
             </div>
-            <div class="hint" data-role="sourcing-status">The sourcing worker searches GitHub, Hugging Face, and OpenAlex at the same time using the field's own name, and lines the results up for Approve / Reject / Test. Nothing is ingested until you Load. Clear wipes this field's un-loaded candidates when you switch sciences.</div>
+            <div class="hint" data-role="sourcing-status">The sourcing worker searches GitHub, Hugging Face, OpenAlex, and PubMed at the same time using the field's own name, and lines the results up for Approve / Reject / Test. PubMed participates only for Health, Medicine, Psychology and Neuroscience. Nothing is ingested until you Load. Clear wipes this field's un-loaded candidates when you switch sciences.</div>
             <div data-role="sourcing-results"></div>
             <div class="sentinel-loaded">
               <div class="loaded-head">Loaded datasets — permanently listed in this container</div>
@@ -2476,7 +2476,7 @@
       }
     });
 
-    const SOURCE_LABELS = { github: 'GitHub', huggingface: 'Hugging Face', openalex: 'OpenAlex' };
+    const SOURCE_LABELS = { github: 'GitHub', huggingface: 'Hugging Face', openalex: 'OpenAlex', pubmed: 'PubMed' };
 
     // Identity keys of datasets already loaded into fields — powers the
     // "Already loaded" badge and stops duplicate Load attempts.
@@ -2548,7 +2548,7 @@
         if (statusEl) statusEl.textContent = 'Type a research topic, or use the field\'s own name (e.g. "Physics").';
         return;
       }
-      if (statusEl) statusEl.textContent = 'Sourcing worker searching GitHub, Hugging Face, and OpenAlex at the same time... nothing is ingested yet.';
+      if (statusEl) statusEl.textContent = 'Sourcing worker searching GitHub, Hugging Face, OpenAlex, and PubMed (medical fields) at the same time... nothing is ingested yet.';
       try {
         const response = await fetch('/api/skill-review/find', {
           method: 'POST',
@@ -2567,7 +2567,7 @@
           const dupNote = Number(data.duplicates_skipped || 0) > 0
             ? ` — <span class="dup-note">${formatInt(data.duplicates_skipped)} duplicate(s) skipped</span>`
             : '';
-          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
+          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = `Dataset search failed: ${error.message || error}`;

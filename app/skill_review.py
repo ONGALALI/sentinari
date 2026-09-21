@@ -56,6 +56,11 @@ def slugify_text(value: str) -> str:
     return slug[:80] or "untitled"
 
 
+def _pmid_from_url(url: str) -> str:
+    m = re.search(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", str(url or ""), re.I)
+    return m.group(1) if m else ""
+
+
 def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any] | None, title: str = "") -> str:
     """Stable identity key for a candidate, so the same dataset arriving
     under different URLs (DOI link vs landing page vs PMC mirror; repo URL
@@ -94,6 +99,23 @@ def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any]
                 oa_id = m.group(1).upper()
         if oa_id:
             return f"openalex:{oa_id.split('/')[-1].upper()}"
+        return f"url:{_norm_url(url)}"
+
+    if stype == "pubmed":
+        # PubMed identity: PMID (canon), DOI (shared with OpenAlex), or PMC id.
+        doi = str((metadata or {}).get("doi") or "").strip().lower()
+        if not doi:
+            m = re.search(r"doi\.org/(10\.[^/?#]+(?:/[^/?#]+)*)", url, re.I)
+            if m:
+                doi = m.group(1).strip().lower().rstrip(".")
+        if doi:
+            return f"doi:{doi}"  # Same DOI as an OpenAlex candidate = SAME paper, one row.
+        m = re.search(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", url, re.I)
+        if m:
+            return f"pmid:{m.group(1)}"
+        pmcid = str((metadata or {}).get("pmcid") or "").strip().upper()
+        if pmcid:
+            return f"pmc:{pmcid}"
         return f"url:{_norm_url(url)}"
 
     if stype == "github":
@@ -224,6 +246,31 @@ def _ensure_schema_body(conn: Any) -> None:
             """
         )
         conn.commit()
+
+        # One-time upgrade: PubMed rows whose identity fell back to pmid:*
+        # get their DOI identity (shared with OpenAlex) once top-level
+        # metadata is available.
+        pm_rows = conn.execute(
+            "SELECT id, source_type, source_url, metadata_json FROM skill_review_candidates"
+            " WHERE source_type = 'pubmed' AND identity_key LIKE 'pmid:%'"
+        ).fetchall()
+        for pm_row in pm_rows:
+            try:
+                pm_meta = json.loads(str(pm_row["metadata_json"] or "{}"))
+            except Exception:
+                pm_meta = {}
+            # Legacy rows may carry the ids nested under _metadata (pre-flatten
+            # storage); new rows have them at the top level.
+            nested = pm_meta.get("_metadata") if isinstance(pm_meta.get("_metadata"), dict) else {}
+            doi = str(pm_meta.get("doi") or nested.get("doi") or "").strip().lower()
+            upgraded = f"doi:{doi}" if doi else ""
+            if upgraded:
+                conn.execute(
+                    "UPDATE skill_review_candidates SET identity_key = ? WHERE id = ? AND identity_key LIKE 'pmid:%'",
+                    (upgraded, int(pm_row["id"])),
+                )
+        if pm_rows:
+            conn.commit()
 
 
 class DiscoveryRequest(BaseModel):
@@ -716,15 +763,39 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    # All three sources at the same time.
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    def _pubmed_search() -> list[dict[str, Any]]:
+        try:
+            from .pubmed_worker import search_pubmed_papers
+
+            result = search_pubmed_papers(
+                query,
+                field=field_text,
+                limit=payload.limit,
+                from_year=payload.from_year,
+            )
+            if not result.get("ok"):
+                return []
+            return list(result.get("candidates") or [])
+        except Exception:
+            return []
+
+    # All four sources at the same time.
+    with ThreadPoolExecutor(max_workers=4) as pool:
         github_future = pool.submit(_github_search)
         hf_future = pool.submit(_huggingface_search)
         openalex_future = pool.submit(_openalex_search)
-        candidates = [*github_future.result(), *hf_future.result(), *openalex_future.result()]
+        pubmed_future = pool.submit(_pubmed_search)
+        candidates = [*github_future.result(), *hf_future.result(), *openalex_future.result(), *pubmed_future.result()]
 
     # Normalize the unique key every source needs before storage.
     for item in candidates:
+        # Flatten PubMed's nested metadata (pmid/pmcid/doi) to the top level so
+        # identity resolution and the load lane see them directly.
+        extra = item.get("_metadata") if isinstance(item.get("_metadata"), dict) else {}
+        for k in ("pmid", "pmcid", "doi"):
+            if extra.get(k) and not item.get(k):
+                item[k] = str(extra[k])
+        item.pop("_metadata", None)
         source_url = str(item.get("source_url") or "").strip()
         if not source_url and str(item.get("source_type") or "") == "openalex":
             source_url = str(
@@ -770,11 +841,12 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                 item["previously_rejected"] = str(existing["status"]) == "reject"
                 if str(existing["status"]) in ("pending", "approve", "test"):
                     conn.execute(
-                        "UPDATE skill_review_candidates SET description = ?, scientific_field = ?, license = ? WHERE id = ?",
+                        "UPDATE skill_review_candidates SET description = ?, scientific_field = ?, license = ?, metadata_json = ? WHERE id = ?",
                         (
                             str(item.get("description") or item.get("abstract") or "")[:1000],
                             field_text,
                             str(item.get("license") or ""),
+                            json.dumps(item, ensure_ascii=True)[:6000],
                             int(existing["id"]),
                         ),
                     )
@@ -825,6 +897,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         "github_count": sum(1 for c in candidates if c["source_type"] == "github"),
         "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
+        "pubmed_count": sum(1 for c in candidates if c["source_type"] == "pubmed"),
         "candidates": candidates,
         "review_required": True,
     }
@@ -986,10 +1059,16 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
         metadata = json.loads(metadata_raw) if isinstance(metadata_raw, str) else dict(metadata_raw or {})
     except Exception:
         metadata = {}
+    # Legacy PubMed rows carry the ids nested under _metadata; accept both
+    # shapes so the load lane always sees pmid/pmcid/doi.
+    nested_meta = metadata.get("_metadata") if isinstance(metadata.get("_metadata"), dict) else {}
+    for _k in ("pmid", "pmcid", "doi"):
+        if not metadata.get(_k) and nested_meta.get(_k):
+            metadata[_k] = str(nested_meta[_k])
     source_type = str(candidate.get("source_type") or "").strip().lower()
 
     field, field_slug = _resolve_target_field(candidate_id, candidate, metadata)
-    _SOURCE_LABELS = {"github": "GitHub", "huggingface": "Hugging Face", "openalex": "OpenAlex"}
+    _SOURCE_LABELS = {"github": "GitHub", "huggingface": "Hugging Face", "openalex": "OpenAlex", "pubmed": "PubMed"}
     _source_label = _SOURCE_LABELS.get(source_type, source_type or "the source")
     load_progress.emit_meta(
         field=field_slug,
@@ -1012,6 +1091,22 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
         dataset = source_url.split("/datasets/")[1] if "/datasets/" in source_url else str(metadata.get("dataset") or candidate.get("title") or "")
         result = ingest_huggingface_dataset_to_field(field, dataset.strip("/"), config_name="default", split="train", rows=50)
         result["source_type"] = "huggingface"
+    elif source_type == "pubmed":
+        load_progress.stage("download", "Fetching the paper from PubMed Central (open access) or PubMed...")
+        from .pubmed_worker import load_pubmed_papers_into_field
+
+        result = load_pubmed_papers_into_field(
+            field,
+            [
+                {
+                    "pmid": str(metadata.get("pmid") or _pmid_from_url(str(candidate.get("source_url") or ""))),
+                    "pmcid": str(metadata.get("pmcid") or ""),
+                    "title": str(candidate.get("title") or ""),
+                }
+            ],
+            max_papers=1,
+        )
+        result["source_type"] = "pubmed"
     else:
         load_progress.stage("download", "Fetching the work from OpenAlex (PDF, landing page, or record)...")
         work = {
@@ -1047,6 +1142,10 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             source_url = str(candidate.get("source_url") or "")
             dataset = source_url.split("/datasets/")[1] if "/datasets/" in source_url else str(candidate.get("title") or "")
             like_patterns = [f"%hf-{slugify(dataset.strip('/'))}%"]
+        elif source_type == "pubmed":
+            pmid = str(metadata.get("pmid") or _pmid_from_url(str(candidate.get("source_url") or "")))
+            if pmid:
+                like_patterns = [f"%pm{slugify(pmid)}%"]
         try:
             if like_patterns:
                 with library_connection("gemma") as conn:

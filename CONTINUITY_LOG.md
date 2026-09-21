@@ -470,3 +470,43 @@ Owner asked to "start with the commit to ensure we are safe" for Sentinel.git co
 - **Integrity**: git fsck exit 0; working tree clean (0 uncommitted).
 - **Safety point**: annotated tag `v0.1.0-lean-baseline` on 5b6085f — any future experiment can be measured/reset against it (`git describe`, `git diff v0.1.0-lean-baseline`).
 Rule going forward: every commit in this repo must keep the app lean — if a change wants to track data/, models, or ETDP, stop and reconsider.
+
+## §18 — Fourth sourcing lane: PubMed/PMC for the medical fields (2026-09-21, ~05:30 SAST)
+
+Owner added `pubmedapi.md` (NCBI API key — 36 hex chars, VERIFIED WORKING) and `pubmedprocess.md` (E-utilities
+two-step process guide) in SMI_Core root. Built the lane per that guide:
+
+**New `app/pubmed_worker.py`**:
+- **Field gate** `pubmed_field_allowed()`: PubMed participates ONLY for Health, Medicine, Psychology, Neuroscience
+  (+ compound variants: "Medicine & Health", "Public Health", "Pharmacology", "Neuroscience & Psychology",
+  "Genetics & Molecular Biology"). Physics/Engineering/Economics etc. are blocked.
+- **Search** (`search_pubmed_papers`): esearch (term + optional year filter) -> PMIDs -> esummary JSON (title,
+  journal, date, authors, DOI, PMCID via articleids). Rate-limited thread-safely: 0.11 s keyed / 0.35 s keyless.
+- **Load** (`load_pubmed_papers_into_field`): attempt 1 = PMC Open Access FULL TEXT via efetch db=pmc (XML ->
+  plain text, stored under `data/knowledge_taxonomy/scientific_fields/<field>/pubmed/`); attempt 2 = PubMed
+  abstract (always available). Then `ingest_files` digest+embed with progress — same pipeline as all lanes.
+- API key read order: `NCBI_API_KEY` env -> `pubmedapi.md` (only if it matches the 36-hex key format).
+
+**Wiring in `skill_review.py`**:
+- `/find` now runs **four sources in parallel** (ThreadPoolExecutor max_workers=4); response adds `pubmed_count`.
+- **Identity**: PubMed candidates resolve to `doi:<doi>` FIRST (same DOI as OpenAlex = same paper, ONE row),
+  else `pmid:<id>`, else `pmc:<id>`. Legacy pmid:* identities are auto-upgraded in `_ensure_schema` (reads both
+  top-level and legacy nested `_metadata` shapes).
+- **Load dispatch**: `source_type == "pubmed"` -> `load_pubmed_papers_into_field` with pmid/pmcid from metadata
+  (endpoint reads both metadata shapes for legacy rows).
+- Re-matched candidates now refresh `metadata_json` too (was description/field/license only).
+
+**UI**: all sourcing labels/status lines mention PubMed; hint notes the medical-fields-only gate; per-field
+labels updated ("GitHub + Hugging Face + OpenAlex + PubMed searched together").
+
+**Verified live (port 8077)**:
+- Gate exact: Medicine/Psychology/Neuroscience/Public Health ALLOWED; Physics/Engineering/Economics blocked.
+- Medicine search "long covid fatigue": 6 PubMed candidates (2 PMC open-access) among 18 total from 4 lanes.
+- **Full cycle**: approve -> Load candidate 264 -> **PMC full text 159,758 chars downloaded + ingested as
+  document 5405**, candidate status `loaded`, linked. (A first test stored the abstract fallback — legacy
+  metadata shape — then re-load with PMC text; abstract doc 5404 removed to avoid duplication.)
+- Psychology search "mindfulness anxiety": 3 papers (abstract-only records) — gate + search OK.
+
+**Key security**: `pubmedapi.md` (the real key) is gitignored — a credential must never enter the repo.
+`pubmedprocess.md` also kept local (contains pasted third-party chat content); the design lives in the
+worker's docstring. Files remain on disk for migration.

@@ -39,3 +39,8 @@ Thumbs.db
 
 # ETDP app lives here physically but is a SEPARATE application (see CONTINUITY_LOG)
 VocationalLLM/
+
+# NCBI PubMed API key (kept local; app reads it via pubmed_worker)
+pubmedapi.md
+# Owner's PubMed process notes (contains pasted third-party chat content - kept local by design)
+pubmedprocess.md
