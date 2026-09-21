@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search Library — SMi Sentinel</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #f4f7fc; color: #1d2b3a; }
+  .layout { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .sidebar { background: linear-gradient(180deg, #10233c 0%, #17304f 100%); color: #dfe8f3; padding: 18px 14px; }
+  .brand { font-size: 26px; font-weight: 800; letter-spacing: 1px; color: #fff; margin-bottom: 4px; }
+  .sidecopy { font-size: 11.5px; color: #9fb4cd; margin-bottom: 18px; line-height: 1.45; }
+  .nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav a { display: block; padding: 8px 10px; border-radius: 8px; color: #cfdcea; text-decoration: none; font-size: 13.5px; font-weight: 600; }
+  .nav a small { display: block; font-weight: 400; font-size: 11px; color: #8fa6c0; margin-top: 1px; }
+  .nav a:hover { background: rgba(255,255,255,0.08); }
+  .nav a.active { background: #2f6fb2; color: #fff; }
+  .nav a.active small { color: #d8e6f5; }
+  .page-shell { padding: 22px 26px 40px; }
+  h1 { margin: 0 0 4px; font-size: 25px; }
+  h2 { margin: 0 0 6px; font-size: 17px; }
+  .hint { font-size: 12.5px; color: #5b6b7d; line-height: 1.5; }
+  .card { background: #fff; border: 1px solid #e3eaf5; border-radius: 12px; padding: 14px 16px; margin-top: 14px; box-shadow: 0 1px 2px rgba(16,35,60,0.04); }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill { background: #eef3fa; border: 1px solid #dbe6f3; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; color: #33506e; }
+  button { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border: 1px solid #ccd9ea; background: #f6f9fd; color: #1d2b3a; cursor: pointer; }
+  button:hover { filter: brightness(0.96); }
+  button:focus-visible { outline: 2px solid #b8860b; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(47,111,178,0.25); }
+  button.primary { background: #2f6fb2; border-color: #2f6fb2; color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type="text"] { font: inherit; font-size: 13.5px; padding: 7px 10px; border: 1px solid #ccd9ea; border-radius: 8px; min-width: 260px; }
+
+  /* Domain containers */
+  .domain { border: 1px solid #dbe6f3; border-radius: 12px; background: #fff; margin-top: 12px; overflow: hidden; }
+  .domain > .dhead { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; user-select: none; }
+  .domain > .dhead:hover { background: #f4f8fd; }
+  .dhead .dtoggle { font-size: 15px; color: #2f6fb2; width: 16px; }
+  .dhead .dname { font-size: 15px; font-weight: 700; color: #17304f; flex: 1; }
+  .dhead .dsmall { font-size: 11.5px; color: #5b6b7d; }
+  .dbody { display: none; border-top: 1px solid #e8eef8; padding: 10px 16px 14px; }
+  .domain.open .dbody { display: block; }
+  .domain.open .dhead .dtoggle::before { content: "▾"; }
+  .dhead .dtoggle::before { content: "▸"; }
+
+  /* Field containers */
+  .fieldbox { border: 1px solid #e3eaf5; border-radius: 10px; margin-top: 10px; background: #fbfdff; overflow: hidden; }
+  .fieldbox > .fhead { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; user-select: none; }
+  .fieldbox > .fhead:hover { background: #f1f6fc; }
+  .fhead .ftoggle { font-size: 13px; color: #2f6fb2; width: 14px; }
+  .fhead .ftoggle::before { content: "▸"; }
+  .fieldbox.open .fhead .ftoggle::before { content: "▾"; }
+  .fhead .fname { font-size: 13.5px; font-weight: 700; color: #1f2d47; flex: 1; }
+  .fhead .fstats { font-size: 11.5px; color: #5b6b7d; }
+  .fbody { display: none; padding: 8px 12px 12px; border-top: 1px solid #e8eef8; }
+  .fieldbox.open .fbody { display: block; }
+
+  /* Dataset list */
+  .searchrow { display: flex; gap: 8px; align-items: center; margin: 4px 0 10px; flex-wrap: wrap; }
+  .doclist { display: flex; flex-direction: column; gap: 6px; }
+  .docitem { border: 1px solid #dce6f4; border-radius: 8px; background: #fff; padding: 8px 12px; }
+  .docitem .di-title { font-size: 13.5px; font-weight: 600; color: #1f2d47; }
+  .docitem .di-meta { font-size: 11.5px; color: #5b6b85; margin-top: 2px; }
+  .docitem .di-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .docitem .di-actions button { font-size: 11.5px; padding: 3px 10px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .badge.ok { background: #e5f6e9; color: #1e7d32; border: 1px solid #bfe4c8; }
+  .badge.warn { background: #fff5e0; color: #9a6a00; border: 1px solid #f0dca8; }
+
+  /* Preview modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(16,35,60,0.45); display: none; align-items: center; justify-content: center; z-index: 40; }
+  .modal-backdrop.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; width: min(880px, 92vw); max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 18px 50px rgba(16,35,60,0.25); }
+  .modal header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #e8eef8; }
+  .modal header .mtitle { font-weight: 700; font-size: 15px; color: #17304f; flex: 1; }
+  .modal .mmeta { font-size: 11.5px; color: #5b6b7d; padding: 8px 16px 0; }
+  .modal .mbody { overflow: auto; padding: 10px 16px 16px; }
+  .chunk { border: 1px solid #e6edf7; border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; background: #fbfdff; }
+  .chunk .cidx { font-size: 10.5px; font-weight: 700; color: #2f6fb2; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">SMi</div>
+    <div class="sidecopy">Search workspace — the ingested knowledge library as a searchable database, grouped by scientific area.</div>
+    <nav class="nav">
+      <a href="/ui/playground">Dashboard Home<small>Main landing page.</small></a>
+      <a href="/ui/search" class="active">Search Library<small>Datasets ingested per scientific field.</small></a>
+      <a href="/ui/patterns">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
+    </nav>
+  </aside>
+  <main class="page-shell">
+    <h1>Search Library</h1>
+    <div class="hint">Every dataset Sentinel has loaded and ingested lives here as searchable database entries — grouped under the five main scientific areas. Open an area, then a scientific field container, to see and search the datasets available to preview. Datasets are never listed here before they are loaded.</div>
+    <div class="card">
+      <div class="row">
+        <div class="pill" id="statDatasets">– datasets</div>
+        <div class="pill" id="statChunks">– chunks</div>
+        <div class="pill" id="statEmbedded">– with vectors</div>
+        <span style="flex:1"></span>
+        <button type="button" id="btnRefresh" class="primary">Refresh</button>
+      </div>
+    </div>
+    <div id="domainRoot"></div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="previewBackdrop">
+  <div class="modal">
+    <header>
+      <div class="mtitle" id="pvTitle">Dataset preview</div>
+      <button type="button" id="pvClose">Close</button>
+    </header>
+    <div class="mmeta" id="pvMeta"></div>
+    <div class="mbody" id="pvBody"></div>
+  </div>
+</div>
+
+<script>
+  const byId = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const attr = (s) => esc(s).replace(/\n/g, ' ');
+  const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+
+  let CURRENT = null;
+
+  const docItemHtml = (doc) => {
+    const embedded = Number(doc.embedded_chunks || 0);
+    const total = Number(doc.chunk_count || 0);
+    const badge = total > 0 && embedded === total
+      ? '<span class="badge ok">Searchable</span>'
+      : '<span class="badge warn">Vectors pending</span>';
+    return `
+      <div class="docitem">
+        <div class="di-title">${esc(doc.title || 'Untitled dataset')}${badge}</div>
+        <div class="di-meta">${esc(doc.source_type || '')}${doc.authors ? ' · ' + esc(doc.authors) : ''}${doc.published_date ? ' · ' + esc(String(doc.published_date).slice(0, 10)) : ''} · ${fmt(doc.chunk_count)} chunks · added ${esc(String(doc.created_at || '').slice(0, 16).replace('T', ' '))}</div>
+        <div class="di-actions">
+          <button type="button" data-act="preview" data-id="${Number(doc.id)}">Preview</button>
+          <button type="button" data-act="download" data-id="${Number(doc.id)}">Download .pdf</button>
+        </div>
+      </div>`;
+  };
+
+  const fieldHtml = (field) => `
+    <div class="fieldbox" data-field="${attr(field.slug)}">
+      <div class="fhead">
+        <span class="ftoggle"></span>
+        <span class="fname">${esc(field.name || field.slug)}</span>
+        <span class="fstats">${fmt(field.dataset_count)} datasets · ${fmt(field.chunk_count)} chunks</span>
+      </div>
+      <div class="fbody">
+        <div class="searchrow">
+          <input type="text" data-role="fsearch" placeholder="Search these datasets (title, author, source)…" aria-label="Search datasets in ${attr(field.name || field.slug)}">
+          <button type="button" data-act="fsearch-go">Search</button>
+        </div>
+        <div class="doclist" data-role="doclist"><div class="hint">Open this container to list its datasets.</div></div>
+      </div>
+    </div>`;
+
+  const domainHtml = (domain) => `
+    <div class="domain" data-domain="${attr(domain.slug)}">
+      <div class="dhead">
+        <span class="dtoggle"></span>
+        <span class="dname">${esc(domain.name)}</span>
+        <span class="dsmall">${fmt(domain.dataset_count)} datasets · ${fmt(domain.chunk_count)} chunks</span>
+      </div>
+      <div class="dbody">${(domain.fields || []).map(fieldHtml).join('') || '<div class="hint">No field containers yet.</div>'}</div>
+    </div>`;
+
+  const loadDocs = async (fieldbox) => {
+    const field = fieldbox.dataset.field || '';
+    const phrase = fieldbox.querySelector('[data-role="fsearch"]')?.value || '';
+    const listEl = fieldbox.querySelector('[data-role="doclist"]');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="hint">Searching…</div>';
+    try {
+      const params = new URLSearchParams({ field, limit: '200' });
+      if (phrase.trim()) params.set('q', phrase.trim());
+      const response = await fetch(`/api/search-library/documents?${params}`);
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.detail || 'Search failed.');
+      listEl.innerHTML = (data.documents || []).length
+        ? data.documents.map(docItemHtml).join('')
+        : `<div class="hint">No datasets ${phrase.trim() ? 'match this search' : 'in this field yet'} — datasets appear here after they are loaded in the Playground.</div>`;
+    } catch (error) {
+      listEl.innerHTML = `<div class="hint">Could not list datasets: ${esc(error.message || error)}</div>`;
+    }
+  };
+
+  const openPreview = async (docId) => {
+    try {
+      const response = await fetch(`/api/skill-review/documents/${docId}/preview`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Preview failed.');
+      const doc = data.document || {};
+      byId('pvTitle').textContent = doc.title || 'Dataset preview';
+      byId('pvMeta').textContent = [doc.source_type, doc.scientific_field, doc.authors, doc.published_date].filter(Boolean).join(' · ');
+      const chunks = data.preview_chunks || [];
+      byId('pvBody').innerHTML =
+        (doc.source_url ? `<div class="hint"><a href="${attr(doc.source_url)}" target="_blank" rel="noreferrer">${esc(doc.source_url)}</a></div>` : '') +
+        (data.truncated ? `<div class="hint">Showing the first ${chunks.length} of ${fmt(data.chunk_total)} chunks.</div>` : '') +
+        chunks.map((c) => `<div class="chunk"><span class="cidx">Chunk ${Number(c.index) + 1}</span>\n${esc(c.text || '')}</div>`).join('');
+      byId('previewBackdrop').classList.add('show');
+    } catch (error) {
+      alert(`Preview failed: ${error.message || error}`);
+    }
+  };
+
+  const loadOverview = async () => {
+    try {
+      const response = await fetch('/api/search-library/overview');
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.detail || 'Could not load the library overview.');
+      CURRENT = data;
+      byId('statDatasets').textContent = `${fmt(data.total_datasets)} datasets`;
+      byId('statChunks').textContent = `${fmt(data.total_chunks)} searchable chunks`;
+      const embedded = (data.domains || []).reduce((acc, d) => acc + (d.fields || []).reduce((a, f) => a + Number(f.embedded_chunks || 0), 0), 0);
+      byId('statEmbedded').textContent = `${fmt(embedded)} chunks with vectors`;
+      byId('domainRoot').innerHTML = (data.domains || []).map(domainHtml).join('');
+    } catch (error) {
+      byId('domainRoot').innerHTML = `<div class="card hint">Could not load the library: ${esc(error.message || error)}</div>`;
+    }
+  };
+
+  document.addEventListener('click', async (event) => {
+    const target = event.target.closest('button, .dhead, .fhead');
+    if (!target) return;
+    if (target.matches('.dhead')) {
+      target.closest('.domain')?.classList.toggle('open');
+      return;
+    }
+    if (target.matches('.fhead')) {
+      const fieldbox = target.closest('.fieldbox');
+      const opening = !fieldbox.classList.contains('open');
+      fieldbox.classList.toggle('open');
+      if (opening && fieldbox.querySelector('[data-role="doclist"]')?.dataset.loaded !== '1') {
+        await loadDocs(fieldbox);
+        const listEl = fieldbox.querySelector('[data-role="doclist"]');
+        if (listEl) listEl.dataset.loaded = '1';
+      }
+      return;
+    }
+    const act = target.dataset.act;
+    if (act === 'preview') await openPreview(Number(target.dataset.id));
+    else if (act === 'download') window.open(`/api/skill-review/documents/${Number(target.dataset.id)}/download`, '_blank');
+    else if (act === 'fsearch-go') {
+      const fieldbox = target.closest('.fieldbox');
+      await loadDocs(fieldbox);
+      const listEl = fieldbox?.querySelector('[data-role="doclist"]');
+      if (listEl) listEl.dataset.loaded = '1';
+    }
+  });
+
+  document.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    const input = event.target.closest('[data-role="fsearch"]');
+    if (!input) return;
+    const fieldbox = input.closest('.fieldbox');
+    await loadDocs(fieldbox);
+    const listEl = fieldbox?.querySelector('[data-role="doclist"]');
+    if (listEl) listEl.dataset.loaded = '1';
+  });
+
+  byId('pvClose').addEventListener('click', () => byId('previewBackdrop').classList.remove('show'));
+  byId('previewBackdrop').addEventListener('click', (event) => { if (event.target === byId('previewBackdrop')) byId('previewBackdrop').classList.remove('show'); });
+  byId('btnRefresh').addEventListener('click', loadOverview);
+
+  loadOverview();
+</script>
+</body>
+</html>

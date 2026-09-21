@@ -75,6 +75,46 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# ---------------------------------------------------------------------------
+# Language gate (owner directive: English-only, discarded immediately)
+# ---------------------------------------------------------------------------
+
+# Codepoint ranges that only appear in non-English alphabets (accented
+# Latin, Greek, Cyrillic, CJK, etc.). A dense-enough presence of these in a
+# document means it is not English and it must not reach the library.
+_NON_ENGLISH_RANGES = [
+    (0x00C0, 0x00FF),   # Latin-1 accented capitals/lowercase (é, ü, ñ, ...)
+    (0x0100, 0x024F),   # Latin Extended (Polish, Czech, Turkish, Vietnamese, ...)
+    (0x0370, 0x03FF),   # Greek
+    (0x0400, 0x04FF),   # Cyrillic
+    (0x0600, 0x06FF),   # Arabic
+    (0x0900, 0x097F),   # Devanagari
+    (0x3040, 0x30FF),   # Hiragana / Katakana
+    (0x4E00, 0x9FFF),   # CJK Unified
+    (0xAC00, 0xD7AF),   # Hangul
+]
+
+
+def _looks_non_english(sample: str) -> bool:
+    """Heuristic: a text sample dense with non-English script/accent marks.
+
+    Deliberately conservative (only flags clearly non-English bodies) — the
+    scholarly lanes already gate on source metadata; this is the last-line
+    filter for full texts that arrive without a declared language.
+    """
+    text = str(sample or "")
+    letters = [c for c in text if c.isalpha()]
+    if len(letters) < 400:
+        return False  # too little evidence to judge
+
+    def _marked(c: str) -> bool:
+        cp = ord(c)
+        return any(lo <= cp <= hi for lo, hi in _NON_ENGLISH_RANGES)
+
+    marked = sum(1 for c in letters if _marked(c))
+    return marked / max(1, len(letters)) > 0.25
+
+
 def _archive_file(source_path: Path, checksum: str) -> str:
     settings = get_settings()
     archive_root = Path(settings["paths"]["archive_root"])
@@ -230,9 +270,32 @@ def _upsert_document_with_chunks(
     )
     embeddings: list[list[float] | None] = [None] * len(chunks)
     if embedding_model is not None:
+        # Owner directive: hard per-document embed budget. One crawling embed
+        # call used to be able to stall a document for ~48 minutes (145 chunks
+        # × 20s timeouts) while the ingest write-lock was held.
+        import time as _time
+
+        _budget = int(get_settings().get("ingestion", {}).get("embed_budget_seconds") or 300)
+        _deadline = _time.monotonic() + max(30, _budget)
         load_progress.emit(message=f"Embedding {len(chunks)} chunk(s)...")
+        _failed_embeds = 0
         for idx, chunk in enumerate(chunks):
-            embeddings[idx] = embedding_model.embed(chunk)
+            if _time.monotonic() > _deadline:
+                load_progress.emit(
+                    message=f"Embed budget ({_budget}s) exhausted after {idx}/{len(chunks)} chunks — continuing without vectors (the re-embed migration can fill them)."
+                )
+                break
+            embedding = embedding_model.embed(chunk)
+            if embedding is None:
+                _failed_embeds += 1
+                if _failed_embeds >= 3:
+                    load_progress.emit(
+                        message=f"Embedding service unavailable ({_failed_embeds} consecutive failures) — continuing without vectors for this document."
+                    )
+                    break
+            else:
+                _failed_embeds = 0
+            embeddings[idx] = embedding
             load_progress.embed_progress(idx + 1, len(chunks))
 
     extra_metadata_json = _json_dumps(metadata.get("extra_metadata") or {})
@@ -501,6 +564,12 @@ def _ingest_files_locked(
                     parsed = parse_document_from_path(str(path), strip_noise=strip_noise)
                     text = str(parsed.get("text") or "")
                     source_type = str(parsed.get("source_type") or "text")
+                    if str(metadata.get("enforce_english") or "").lower() in {"1", "true", "yes"}:
+                        if _looks_non_english(text[:20000]):
+                            raise ValueError(
+                                "Non-English content rejected by the language gate (owner directive). "
+                                "Non-English datasets are discarded immediately."
+                            )
                     if not text.strip():
                         pdf_engine = ""
                         extra_metadata = parsed.get("extra_metadata")

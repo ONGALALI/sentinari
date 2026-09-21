@@ -399,6 +399,9 @@ def search_openalex_works(
 
 _MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024  # per file, matches the Sentinel PDF cap
 _DOWNLOAD_TIMEOUT = 180
+# Owner directive: the whole load (every attempt chain) must finish inside this
+# wall-clock budget — no more 10-minute hangs on the small machine.
+_LOAD_WALL_BUDGET_SECONDS = 150
 
 _PDF_MAGIC = b"%PDF-"
 
@@ -412,8 +415,13 @@ def _safe_filename(text: str, max_len: int = 80) -> str:
     return (cleaned or "openalex-work")[:max_len]
 
 
-def _download(url: str) -> tuple[str, bytes, str]:
-    """Download an artifact; return (content_type, bytes, final_url)."""
+def _download(url: str, deadline: float | None = None) -> tuple[str, bytes, str]:
+    """Download an artifact; return (content_type, bytes, final_url).
+
+    Owner directive: no download may ever hold the app hostage. The wall-clock
+    ``deadline`` (monotonic timestamp) is enforced across the streamed body —
+    a slow trickle of bytes cannot stretch a download into a 10-minute hang.
+    """
     headers = _openalex_headers()
     resp = _retry_get(url, headers=headers, timeout=_DOWNLOAD_TIMEOUT, stream=True, attempts=4)
     resp.raise_for_status()
@@ -425,6 +433,8 @@ def _download(url: str) -> tuple[str, bytes, str]:
             continue
         chunks.append(chunk)
         total += len(chunk)
+        if deadline is not None and time.monotonic() > deadline:
+            raise TimeoutError(f"Download exceeded the {int(_LOAD_WALL_BUDGET_SECONDS)}s wall-clock budget ({total} bytes so far).")
         if total > _MAX_DOWNLOAD_BYTES:
             break
     return content_type, b"".join(chunks), str(resp.url or url)
@@ -472,6 +482,7 @@ def load_openalex_works_into_field(
     stored_paths: list[str] = []
     items: list[dict[str, Any]] = []
     total_bytes = 0
+    work_records: dict[str, dict[str, Any]] = {}
 
     for index, work in enumerate(works, start=1):
         openalex_id = str(work.get("openalex_id") or "")
@@ -479,12 +490,13 @@ def load_openalex_works_into_field(
         load_progress.stage("download", f"Fetching work {index}/{len(works)}: {title[:60]}...")
         base = f"{slugify(title)[:60]}-{_safe_filename(openalex_id.split('/')[-1] or str(index))}"
         stored = False
+        load_started = time.monotonic()
 
         # Attempt 1: direct open-access PDF.
         pdf_url = str(work.get("pdf_url") or "")
         if pdf_url:
             try:
-                _content_type, blob, _final = _download(pdf_url)
+                _content_type, blob, _final = _download(pdf_url, deadline=load_started + _LOAD_WALL_BUDGET_SECONDS)
                 if _looks_like_pdf(blob):
                     pdf_path = target_root / f"{base}.pdf"
                     pdf_path.write_bytes(blob)
@@ -500,7 +512,7 @@ def load_openalex_works_into_field(
         landing_url = str(work.get("landing_page_url") or "")
         if not stored and landing_url and not landing_url.lower().startswith("https://doi.org/"):
             try:
-                content_type, blob, _final = _download(landing_url)
+                content_type, blob, _final = _download(landing_url, deadline=load_started + _LOAD_WALL_BUDGET_SECONDS)
                 lowered = (content_type or "").lower()
                 is_html = (
                     "html" in lowered
@@ -535,6 +547,7 @@ def load_openalex_works_into_field(
                 text_path = target_root / f"{base}.json.txt"
                 text_path.write_text(_work_metadata_record(work_record), encoding="utf-8")
                 stored_paths.append(str(text_path))
+                work_records[str(text_path)] = work_record
                 total_bytes += text_path.stat().st_size
                 items.append({"ok": True, "title": title, "kind": "metadata", "bytes": text_path.stat().st_size, "path": str(text_path)})
                 stored = True
@@ -553,8 +566,50 @@ def load_openalex_works_into_field(
             "status": get_sentinel_status(refresh_counts=False),
         }
 
-    load_progress.stage("digest", f"Stored {len(stored_paths)} file(s) — digesting into the knowledge library...")
-    result = ingest_files(stored_paths, metadata=_field_metadata(resolved), allow_embeddings=True)
+    # Owner directive: non-English content is discarded immediately. When the
+    # work was downloaded as a metadata record, re-check the detected language
+    # of the authoritative record before it can reach the library.
+    english_paths: list[str] = []
+    for item in items:
+        if item.get("ok") and item.get("kind") == "metadata":
+            rec = work_records.get(str(item.get("path") or ""))
+            if rec is not None and not _is_english_work(rec):
+                try:
+                    Path(str(item.get("path"))).unlink(missing_ok=True)
+                except Exception:
+                    pass
+                stored_paths = [p for p in stored_paths if p != str(item.get("path"))]
+                item["ok"] = False
+                item["error"] = "Non-English work discarded (OpenAlex language gate)."
+                continue
+        if item.get("ok") and item.get("path"):
+            english_paths.append(str(item.get("path")))
+    if not english_paths:
+        return {
+            "ok": False,
+            "field": resolved["field_name"],
+            "field_slug": resolved["field_slug"],
+            "downloaded": len(items),
+            "ingested": 0,
+            "failed": len(works),
+            "items": items,
+            "status": get_sentinel_status(refresh_counts=False),
+        }
+
+    load_progress.stage("digest", f"Stored {len(english_paths)} file(s) — digesting into the knowledge library...")
+    result = ingest_files(
+        english_paths,
+        metadata={**_field_metadata(resolved), "enforce_english": True},
+        allow_embeddings=True,
+    )
+    # Owner directive: a failed digest must leave nothing behind — the
+    # artifact files are removed so no half-state lingers in the container.
+    if int(result.get("ingested") or 0) == 0:
+        for path in english_paths:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except Exception:
+                pass
     ingested = int(result.get("ingested") or 0)
     _note_last_ingest(resolved["field_slug"])
     return {

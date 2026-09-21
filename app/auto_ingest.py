@@ -169,9 +169,23 @@ class AutoIngestService:
         for root in roots:
             if not root.exists() or not root.is_dir():
                 continue
+            # Owner directive: Sentinel's scientific-field containers are
+            # served ONLY by the load/upload lanes. The auto-ingest daemon
+            # must never re-digest them — its no-embedding re-digest used to
+            # wipe fresh chunk vectors and its scans collided with active
+            # loads (the post-load "freeze" on the small machine).
+            root_name = root.name.lower()
+            if root_name in {"scientific_fields", "scientific-fields"} or "scientific_fields" in str(root).lower().replace("\\", "/").split("/"):
+                continue
             iterator = root.rglob("*") if self.recursive_scan else root.glob("*")
             for path in iterator:
                 if not path.is_file():
+                    continue
+                # Owner directive (subtree guard): never re-digest Sentinel's
+                # scientific-field containers even when they sit under a
+                # configured scan root — those files belong to the load/upload
+                # lanes, and a no-embedding re-digest would wipe fresh vectors.
+                if "scientific_fields" in path.parts:
                     continue
                 if self._is_discussion_memory_file(path, settings):
                     continue

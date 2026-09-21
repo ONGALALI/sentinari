@@ -147,3 +147,10 @@ pdf_preprocess:
   poppler_layout: true
   ghostscript_flatten_first: false
   dangerzone_sanitize_first: false
+
+# Owner directives (2026-09-22): load reliability + library hygiene.
+ingestion:
+  # Hard per-document embed budget: no crawl can stall a load while the
+  # ingest write-lock is held. Chunks that miss the budget are stored
+  # without vectors (scripts/reembed_gemini.py can fill them later).
+  embed_budget_seconds: 300

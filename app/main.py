@@ -276,6 +276,9 @@ app.include_router(skill_review_router)
 from .pattern_api import router as pattern_router  # noqa: E402
 
 app.include_router(pattern_router)
+from .search_api import router as search_library_router  # noqa: E402
+
+app.include_router(search_library_router)
 _auto_ingest_service = AutoIngestService()
 
 
@@ -713,6 +716,19 @@ def ui_playground(request: Request) -> HTMLResponse:
     page = get_project_root() / "templates" / "playground_console.html"
     if not page.exists():
         raise HTTPException(status_code=500, detail="playground_console.html template not found.")
+    return HTMLResponse(page.read_text(encoding="utf-8"))
+
+
+@app.get("/ui/search", response_class=HTMLResponse)
+def ui_search(request: Request) -> HTMLResponse:
+    """Search workspace: the ingested library grouped by scientific area."""
+    auth = get_admin_auth_settings(get_settings())
+    if auth["enabled"] and not _is_admin_authenticated(request):
+        return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/search"})
+
+    page = get_project_root() / "templates" / "search_workspace.html"
+    if not page.exists():
+        raise HTTPException(status_code=500, detail="search_workspace.html template not found.")
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 

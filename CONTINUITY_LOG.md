@@ -656,3 +656,60 @@ SAFE by design — verified against the code:
 5. Optional decommission afterwards: stop relying on Ollama entirely — the app no longer references it for any LLM traffic.
 
 Current state on THIS laptop: UNCHANGED (staged, verified both firewall states PASS, server boots, status endpoint green).
+
+---
+
+## §24 — Load reliability: the post-load freeze killed; Search Library workspace (2026-09-22)
+
+Owner reports: loads freeze the app until reboot; OpenAlex/PubMed downloads crawl and die after ~10 min;
+non-English still leaking through; failed loads leaving debris. Diagnosed and fixed:
+
+### The freeze — root cause chain (proven)
+1. A Load succeeds → paper lands under `data/knowledge_taxonomy/scientific_fields/<field>/...`.
+2. **Auto-ingest daemon** (10s poll; default roots = raw_root + **taxonomy_root**) re-discovers the
+   file ~10s later and re-digests it with `allow_embeddings=False` → same checksum →
+   `reset_document_chunks` **deletes the freshly embedded chunks** and re-inserts them with NULL vectors.
+3. Each embed call on this laptop can hang ~20s; ×145 chunks ≈ 48 min of crawl **while the global
+   ingest write-lock is held** → every other writer (loads, uploads, chat) starves → "frozen, must reboot".
+**Fixes:** auto-ingest never scans `scientific_fields` (root-name + per-path parts guard);
+verified live: scan returns 0 field files (17 legacy strays remain, matching the 17 unembedded
+"Other fields" docs — victims of the old behavior).
+
+### Hard budgets (owner: "no download may run 10 minutes")
+- OpenAlex/PubMed load chains enforce a **150s wall-clock deadline** (stream-body + element-loop checks).
+- Per-document **embed budget** `ingestion.embed_budget_seconds: 300` (settings.yaml): chunks that miss
+  the budget store without vectors (re-embed migration can fill them); 3 consecutive embed failures
+  → continue without vectors instead of stalling. Latency probe during a real load: worst 0.24s.
+
+### English-only enforced at every layer (owner directive)
+- OpenAlex: `language:en` server-side + per-result filter + **metadata-record re-check before digest**
+  (non-English record files deleted on arrival).
+- PubMed: `english[lang]` + metadata filter.
+- **New last-line ingestion gate** (`enforce_english: true` on scholarly loads): codepoint-range
+  heuristic (Latin-ext/Greek/Cyrillic/CJK/Arabic...) rejects dense non-English bodies at digest time.
+
+### Failed load = clean field + permanent reject (owner directive)
+- `_ingest_candidate_impl`: on failure → `purge_field_documents(field, attempted_doc_ids)` (new helper,
+  sentinel_domains.py) removes any partial documents/chunks/FTS rows; artifact files unlinked;
+  identity → `remember_rejected_identity` so the dataset **never reappears**.
+- Workers also unlink artifacts when a digest ingests 0 files. Reject now also blocks **same-title
+  variants** (same work under a different URL can no longer dodge the cache).
+
+### NEW: Search Library workspace (`/ui/search`, templates/search_workspace.html, app/search_api.py)
+- Library as a **searchable database** grouped under the five main scientific areas (Sentinel domains);
+  opening a domain reveals field containers; opening a field lists its datasets (title, source,
+  authors, date, chunk count, "Searchable / Vectors pending" badge).
+- Per-container search box (title/author/source, library-wide `?q=` also works); Preview (HTML modal,
+  chunk view) and Download .pdf buttons per dataset. Endpoints: `/api/search-library/overview`,
+  `/api/search-library/documents`. "Other Recorded Fields" catch-all keeps nothing hidden (17 legacy
+  docs surfaced).
+- **Playground lightened (owner directive):** per-field loaded lists replaced by a count + link to the
+  Search Library; sidebar gains "Search Library".
+
+### Live proof
+- OpenAlex load "Review of Particle Physics": ok, 215 chunks / 195 embedded, 23.2s total, app stayed
+  responsive (12 probes, worst 0.24s). Document immediately visible in Search Library.
+- Reject cycle: TURBOMOLE paper rejected → re-search → does NOT reappear.
+- Overview: 5,555 datasets / 184,363 chunks across 5 domains + Other.
+
+One action: restart `run_smi.py` + hard refresh. §23's staged Gemini flip remains ready.

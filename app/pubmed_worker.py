@@ -281,8 +281,17 @@ def fetch_pubmed_abstract(pmid: str) -> str:
 # Load (download full text + ingest into the field)
 # ---------------------------------------------------------------------------
 
-def _pmc_full_text(pmcid: str) -> str:
-    """Full text of a PMC Open Access paper (XML -> plain text)."""
+# Owner directive: the whole load (every attempt chain) must finish inside
+# this wall-clock budget — no more 10-minute hangs on the small machine.
+_LOAD_WALL_BUDGET_SECONDS = 150
+
+
+def _pmc_full_text(pmcid: str, deadline: float | None = None) -> str:
+    """Full text of a PMC Open Access paper (XML -> plain text).
+
+    Owner directive: the wall-clock ``deadline`` guarantees no download can
+    stretch into a 10-minute hang — a slow NCBI response fails fast instead.
+    """
     numeric = str(pmcid).upper().replace("PMC", "").strip()
     resp = _eget(
         f"{EUTILS_BASE}/efetch.fcgi",
@@ -295,6 +304,8 @@ def _pmc_full_text(pmcid: str) -> str:
     for element in root.iter():
         tag = element.tag.split("}")[-1]
         if tag in ("title", "p", "td", "th", "li", "sec", "abstract"):
+            if deadline is not None and time.monotonic() > deadline:
+                raise TimeoutError(f"PMC fetch exceeded the {int(_LOAD_WALL_BUDGET_SECONDS)}s wall-clock budget.")
             text = _clean_text("".join(element.itertext()))
             if text:
                 parts.append(text)
@@ -317,6 +328,8 @@ def load_pubmed_papers_into_field(
     max_papers: int = 10,
 ) -> dict[str, Any]:
     """Download + digest PubMed/PMC papers into a Sentinel scientific field."""
+    import time as _time
+
     from .ingestion import ingest_files
 
     if not pubmed_field_allowed(field):
@@ -346,12 +359,13 @@ def load_pubmed_papers_into_field(
         load_progress.stage("download", f"Fetching paper {index}/{len(papers)}: {title[:60]}...")
         base = f"{slugify(title)[:60]}-pm{slugify(pmid or str(index))}"
         stored = False
+        load_started = _time.monotonic()
 
         # Attempt 1: PMC Open Access full text.
         pmcid = str(paper.get("pmcid") or "").strip()
         if pmcid and pmcid.upper().startswith("PMC"):
             try:
-                full_text = _pmc_full_text(pmcid)
+                full_text = _pmc_full_text(pmcid, deadline=load_started + _LOAD_WALL_BUDGET_SECONDS)
                 if len(full_text) > 500:
                     text_path = target_root / f"{base}.txt"
                     header = f"{title}\nPubMed https://pubmed.ncbi.nlm.nih.gov/{pmid}/  PMC{pmcid.replace('PMC', '')}\n\n"
@@ -391,9 +405,32 @@ def load_pubmed_papers_into_field(
         }
 
     load_progress.stage("digest", f"Stored {len(stored_paths)} paper file(s) — digesting into the knowledge library...")
-    result = ingest_files(stored_paths, metadata=_field_metadata(resolved), allow_embeddings=True)
+    result = ingest_files(
+        stored_paths,
+        metadata={**_field_metadata(resolved), "enforce_english": True},
+        allow_embeddings=True,
+    )
     ingested = int(result.get("ingested") or 0)
     _note_last_ingest(resolved["field_slug"])
+    # Owner directive: a failed digest must leave nothing behind — the
+    # artifact files are removed so no half-state lingers in the container.
+    if ingested == 0 and stored_paths:
+        for path in stored_paths:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except Exception:
+                pass
+        return {
+            "ok": False,
+            "field": resolved["field_name"],
+            "field_slug": resolved["field_slug"],
+            "downloaded": len(stored_paths),
+            "ingested": 0,
+            "failed": len(papers),
+            "items": items + (result.get("items") or []),
+            "purged": True,
+            "status": get_sentinel_status(refresh_counts=False),
+        }
     return {
         "ok": ingested > 0,
         "field": resolved["field_name"],

@@ -130,6 +130,49 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def purge_field_documents(field: str, doc_ids: list[int], *, keep_docs: list[int] | None = None) -> dict[str, int]:
+    """Remove documents (and every chunk/FTS row) from a field's library.
+
+    Owner directive: a failed load must leave **nothing** behind — partial
+    chunks are deleted and the whole field's library is left clean.
+    """
+    keep = {int(d) for d in (keep_docs or [])}
+    targets = [int(d) for d in doc_ids if int(d) > 0 and int(d) not in keep]
+    removed_documents = 0
+    removed_chunks = 0
+    if targets:
+        from .db import library_connection
+
+        placeholders = ",".join("?" for _ in targets)
+        with library_connection("gemma") as conn:
+            removed_chunks = int(
+                conn.execute(
+                    f"SELECT COUNT(1) AS n FROM chunks WHERE document_id IN ({placeholders});", targets
+                ).fetchone()["n"]
+            )
+            conn.execute(f"DELETE FROM chunks WHERE document_id IN ({placeholders});", targets)
+            conn.execute(f"DELETE FROM chunk_fts WHERE document_id IN ({placeholders});", targets)
+            conn.execute(f"DELETE FROM documents WHERE id IN ({placeholders});", targets)
+            conn.commit()
+        removed_documents = len(targets)
+        _refresh_field_counts_safe(field)
+    return {"removed_documents": removed_documents, "removed_chunks": removed_chunks}
+
+
+def _refresh_field_counts_safe(field: str) -> None:
+    """Best-effort count refresh after a purge (never masks a purge failure)."""
+    try:
+        resolved = _resolve_field(field)
+    except Exception:
+        return
+    try:
+        with library_connection("gemma") as conn:
+            _refresh_field_counts(conn)
+            conn.commit()
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Database schema + ensure logic
 # ---------------------------------------------------------------------------

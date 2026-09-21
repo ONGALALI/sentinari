@@ -1275,6 +1275,30 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             _time.sleep(0.5)
     if update_error is not None:
         raise update_error
+    if not loaded_ok:
+        # Owner directive: a failed load must leave NOTHING behind — partial
+        # documents/chunks are purged from the field's library, and the
+        # dataset is recorded as rejected so it can never reappear in a
+        # future search or be re-loaded in this broken state.
+        try:
+            from .sentinel_domains import purge_field_documents
+
+            attempt_doc_ids = [
+                int(item.get("document_id"))
+                for item in (result.get("items") or [])
+                if isinstance(item, dict) and int(item.get("document_id") or 0) > 0
+            ]
+            purge_field_documents(field_slug, attempt_doc_ids)
+        except Exception:
+            pass
+        try:
+            from .pattern_store import remember_rejected_identity
+
+            _failed_identity = str(candidate.get("identity_key") or "")
+            if _failed_identity:
+                remember_rejected_identity(_failed_identity)
+        except Exception:
+            pass
     result["candidate_id"] = candidate_id
     result["candidate_status"] = "loaded" if loaded_ok else "failed"
     result["document_id"] = document_ids[0] if document_ids else None
@@ -1317,6 +1341,12 @@ def review_candidate(
                     from .pattern_store import remember_rejected_identity
 
                     remember_rejected_identity(identity)
+                    # Also block same-title variants: the same work often
+                    # resurfaces under a different URL (mirrors, DOI vs landing
+                    # page) — identical titles must not dodge the cache.
+                    title_key = _source_identity(str(row["source_type"] or ""), "", {}, str(row["title"] or ""))
+                    if title_key and title_key != identity:
+                        remember_rejected_identity(title_key)
                 except Exception:
                     pass
             return {

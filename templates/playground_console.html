@@ -480,6 +480,7 @@
         <a href="#learning-check">Learning Check<small>Verify learning from uploaded datasets.</small></a>
         <a href="#sentinel-grid">Sentinel Domains<small>Scientific fields feeding the main LLM.</small></a>
         <a href="/ui/patterns">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
+        <a href="/ui/search">Search Library<small>Datasets ingested per scientific field.</small></a>
         <a href="/ui/model-lab">Model Deviation Lab<small>Score SMi against Gemini, Grok, Claude, and manual answers.</small></a>
         <a href="#tutor-mode">Exploratory Composite Indices<small>Constructed display, audit log, and sandbox proposals.</small></a>
         <a href="/ui/playground/wan">Workflow 2 CPU Video<small>Script, scenes, image stitch, and MP4 export.</small></a>
@@ -2140,7 +2141,7 @@
             <div class="hint" data-role="sourcing-status">The sourcing worker searches GitHub, Hugging Face, OpenAlex, and PubMed at the same time using the field's own name, and lines the results up for Approve / Reject / Test. OpenAlex leads the lineup (2020–current, most-cited first). PubMed participates only for Health, Medicine, Psychology and Neuroscience. Nothing is ingested until you Load. Clear wipes this field's un-loaded candidates when you switch sciences.</div>
             <div data-role="sourcing-results"></div>
             <div class="sentinel-loaded">
-              <div class="loaded-head">Loaded datasets — permanently listed in this container</div>
+              <div class="loaded-head">Loaded datasets — kept in the searchable library</div>
               <div data-role="loaded-list"><div class="hint">Nothing loaded into this field yet.</div></div>
             </div>
           </div>
@@ -2789,20 +2790,10 @@
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || 'Could not load the loaded dataset list.');
         const rows = (data.loaded || []).filter((row) => String(row.scientific_field || '').toLowerCase() === String(fieldSlug).toLowerCase());
+        // Owner directive: keep the Playground light — the full searchable
+        // dataset list lives in the Search Library workspace.
         listEl.innerHTML = rows.length
-          ? rows.map((row) => {
-              const label = SOURCE_LABELS[String(row.source_type || '').toLowerCase()] || String(row.source_type || 'Dataset');
-              const docId = Number(row.loaded_document_id || 0);
-              return `
-              <div class="loaded-item" data-document-id="${docId}">
-                <div class="li-title">${escapeHtml(row.loaded_title || row.title || 'Dataset')}</div>
-                <div class="li-meta">${escapeHtml(label)}${row.chunk_count ? ` · ${formatInt(row.chunk_count)} searchable chunks` : ''}${row.loaded_at ? ` · loaded ${escapeHtml(String(row.loaded_at).slice(0, 16).replace('T', ' '))}` : ''}</div>
-                <div class="li-actions">
-                  <button type="button" class="ghost" data-role="loaded-preview" data-field="${escapeAttr(fieldSlug)}">Preview</button>
-                  <button type="button" class="ghost" data-role="loaded-download" data-field="${escapeAttr(fieldSlug)}">Download .pdf</button>
-                </div>
-              </div>`;
-            }).join('')
+          ? `<div class="hint">${rows.length} dataset${rows.length === 1 ? '' : 's'} loaded and ingested into this field — browse, search, preview and download them in the <a href="/ui/search" target="_blank" rel="noreferrer">Search Library</a>.</div>`
           : '<div class="hint">Nothing loaded into this field yet.</div>';
       } catch (error) {
         listEl.innerHTML = `<div class="hint">Loaded list unavailable: ${escapeHtml(String(error.message || error))}</div>`;
