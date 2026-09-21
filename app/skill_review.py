@@ -28,6 +28,7 @@ class FindRequest(BaseModel):
     limit: int = Field(default=12, ge=1, le=25)
     min_citations: int = Field(default=0, ge=0, le=100000)
     from_year: int | None = Field(default=None, ge=1500, le=2100)
+    pubmed_full_text_only: bool = Field(default=False)
 
 
 def _root() -> Path:
@@ -787,6 +788,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                 field=field_text,
                 limit=payload.limit,
                 from_year=payload.from_year,
+                full_text_only=bool(payload.pubmed_full_text_only),
             )
             if not result.get("ok"):
                 return []

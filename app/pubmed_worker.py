@@ -160,8 +160,14 @@ def search_pubmed_papers(
     field: str = "",
     limit: int = 12,
     from_year: int | None = None,
+    full_text_only: bool = False,
 ) -> dict[str, Any]:
-    """Search PubMed and return candidate papers for the review lineup."""
+    """Search PubMed and return candidate papers for the review lineup.
+
+    ``full_text_only=True`` restricts the search to the PMC Open Access
+    Subset (query-level filter) AND drops any straggler without a PMCID,
+    so every returned paper downloads as complete full text.
+    """
     field_text = str(field or "").strip()
     if not pubmed_field_allowed(field_text):
         return {"ok": False, "candidates": [], "count": 0, "note": "PubMed is enabled for Health, Medicine, Psychology and Neuroscience fields only."}
@@ -169,6 +175,8 @@ def search_pubmed_papers(
     term = str(query or "").strip()
     if from_year:
         term = f"{term} AND {int(from_year)}:3000[dp]"
+    if full_text_only:
+        term = f"{term} AND free full text[sb]"
 
     try:
         # Fetch a wider pool so open-access (PMC full-text) papers can be
@@ -203,6 +211,11 @@ def search_pubmed_papers(
         # within each group, but papers with PMC full text lead the lineup.
         candidates.sort(key=lambda c: 0 if c.get("has_full_text") else 1)
 
+        if full_text_only:
+            # Defense in depth: the OA filter can occasionally match records
+            # without a PMCID (e.g. free full text on the publisher site only).
+            candidates = [c for c in candidates if c.get("has_full_text")]
+
         full_text_count = sum(1 for c in candidates if c.get("has_full_text"))
         candidates = candidates[: max(1, min(25, int(limit or 12)))]
         return {
@@ -212,6 +225,7 @@ def search_pubmed_papers(
             "total_available": int(esearch.get("count") or 0),
             "full_text_count": sum(1 for c in candidates if c.get("has_full_text")),
             "full_text_available": full_text_count,
+            "full_text_only": bool(full_text_only),
         }
     except Exception as ex:
         return {"ok": False, "candidates": [], "count": 0, "note": f"PubMed search failed: {str(ex)[:140]}", "full_text_count": 0}

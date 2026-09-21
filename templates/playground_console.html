@@ -420,6 +420,7 @@
     .pmc-pill { display: inline-block; margin-left: 7px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; vertical-align: middle; }
     .pmc-pill.full { background: #e6f6ea; border: 1px solid #9fd6a9; color: #22743a; }
     .pmc-pill.abs { background: #fff7e0; border: 1px solid #f0dfae; color: #8a6d1a; }
+    .oa-toggle input { width: auto; margin: 0; accent-color: #2f6fb2; }
 
     /* Button color states (selection feedback) */
     .sourcing-result .actions button.approve-picked { background: #2f9e44; border-color: #2f9e44; color: #fff; }
@@ -558,6 +559,10 @@
             <button id="btnDiscoverScientificCandidates" type="button">Discover Candidates</button>
             <button id="btnClearScientificCandidates" type="button" class="ghost">Clear Candidates</button>
           </div>
+          <label class="hint oa-toggle" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;">
+            <input id="pubmedFullTextOnly" type="checkbox">
+            PubMed full text only (skip abstract-only papers)
+          </label>
           <div id="scientificCandidateStatus" class="hint" style="margin-top:8px;">No discovery run yet.</div>
           <div id="scientificCandidateList" class="list" style="margin-top:10px;"></div>
         </div>
@@ -2125,6 +2130,10 @@
                 <label class="hint" for="sourcing-limit-${fieldSlug}">Results</label>
                 <input type="number" id="sourcing-limit-${fieldSlug}" data-role="sourcing-limit" min="1" max="25" value="10">
               </div>
+              <label class="hint oa-toggle" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
+                <input type="checkbox" data-role="sourcing-fulltext-only">
+                Full text only
+              </label>
               <button class="ghost" type="button" data-role="sourcing-find" data-field="${fieldSlug}">Find datasets</button>
               <button class="ghost" type="button" data-role="sourcing-clear" data-field="${fieldSlug}">Clear</button>
             </div>
@@ -2558,6 +2567,7 @@
       }
       if (statusEl) statusEl.textContent = 'Sourcing worker searching GitHub, Hugging Face, OpenAlex, and PubMed (medical fields) at the same time... nothing is ingested yet.';
       try {
+        const fullTextOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fulltext-only"]')?.checked);
         const response = await fetch('/api/skill-review/find', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2565,17 +2575,18 @@
             query,
             scientific_field: fieldSlug,
             limit: Math.max(1, Math.min(25, Number(limitInput?.value || 10))),
+            pubmed_full_text_only: fullTextOnly,
           }),
         });
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || 'Dataset search failed.');
         sentinelFieldSourcingResults[fieldSlug] = data.candidates || [];
-        renderSourcingResults(fieldSlug, data.candidates || []);
+        renderSourcingResults(fieldSlug, pubmedFullTextOnlyActive() || fullTextOnly ? hideAbstractOnly(data.candidates || []) : (data.candidates || []));
         if (statusEl) {
           const dupNote = Number(data.duplicates_skipped || 0) > 0
             ? ` — <span class="dup-note">${formatInt(data.duplicates_skipped)} duplicate(s) skipped</span>`
             : '';
-          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
+          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}${fullTextOnly ? ' · full text only' : ''}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = `Dataset search failed: ${error.message || error}`;
@@ -3258,6 +3269,11 @@
       }).join('') || '<div class="hint">No pending scientific candidates. Use Discover Candidates above, or Find datasets inside a Sentinel field.</div>';
     };
 
+    const pubmedFullTextOnlyActive = () => Boolean(byId('pubmedFullTextOnly')?.checked);
+    const hideAbstractOnly = (items) => pubmedFullTextOnlyActive()
+      ? (items || []).filter((c) => !(String(c.source_type || '') === 'pubmed' && !c.pmcid))
+      : (items || []);
+
     async function loadScientificCandidates() {
       const fieldName = String(byId('scientificCandidateField')?.value || '').trim();
       const scope = fieldName ? `&scientific_field=${encodeURIComponent(fieldName)}` : '';
@@ -3265,7 +3281,7 @@
       const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.detail || data.error || 'Could not load candidates.');
       sentinelFieldSourcingResults.__panel__ = data.candidates || [];
-      renderScientificCandidates(data.candidates || []);
+      renderScientificCandidates(hideAbstractOnly(data.candidates || []));
     }
 
     const discoverScientificCandidates = async () => {
@@ -3274,7 +3290,7 @@
         setStatus('scientificCandidateStatus', 'Enter a scientific topic or query first — the field\'s own name (e.g. "Physics") works best.', false);
         return;
       }
-      setStatus('scientificCandidateStatus', 'Searching GitHub, Hugging Face, and OpenAlex at the same time. Nothing is being ingested yet.', true);
+      setStatus('scientificCandidateStatus', 'Searching GitHub, Hugging Face, OpenAlex, and PubMed (medical fields) at the same time. Nothing is being ingested yet.', true);
       try {
         const response = await fetch('/api/skill-review/find', {
           method: 'POST',
@@ -3282,7 +3298,8 @@
           body: JSON.stringify({
             query,
             scientific_field: String(byId('scientificCandidateField')?.value || '').trim(),
-            limit: 10
+            limit: 10,
+            pubmed_full_text_only: pubmedFullTextOnlyActive()
           })
         });
         const data = await readApiJson(response);
@@ -3292,7 +3309,10 @@
         const dupNote = Number(data.duplicates_skipped || 0) > 0
           ? ` <span class="dup-note">(${formatInt(data.duplicates_skipped)} duplicate(s) skipped)</span>`
           : '';
-        setStatus('scientificCandidateStatus', `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)}). They are stored below for review.${dupNote}`, true);
+        const pmNote = Number(data.pubmed_count || 0) > 0
+          ? ` · PubMed ${formatInt(data.pubmed_count)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}`
+          : '';
+        setStatus('scientificCandidateStatus', `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)}${pmNote}). They are stored below for review.${dupNote}`, true);
         await loadScientificCandidates();
       } catch (error) {
         setStatus('scientificCandidateStatus', error.message, false);

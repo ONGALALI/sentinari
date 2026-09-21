@@ -523,3 +523,14 @@ worker's docstring. Files remain on disk for migration.
   global review panel and per-field sourcing); status line reports "with N full text".
 - **Verified live**: Medicine search → lineup order FULL×6 (9 full-text in pool); stored-rows enrichment
   8/8 has_full_text, 5/8 pmcid; UI strings present. One restart + hard refresh picks it up.
+
+### §18 addendum 2 — "PubMed full text only" toggle (2026-09-21, ~07:00 SAST)
+- **`pubmed_worker.search_pubmed_papers(full_text_only=)`**: adds `AND free full text[sb]` to the esearch term
+  (EMPIRICALLY VERIFIED: `open access[filter]` and `pmc open access[filter]` return 0 hits; `free full text[sb]`
+  returns ~144k) + defense-in-depth post-filter dropping any record without a PMCID.
+- **`FindRequest.pubmed_full_text_only`** threaded through `/find`.
+- **UI**: checkbox "PubMed full text only (skip abstract-only papers)" in the global panel; "Full text only"
+  checkbox in every field's sourcing row. When ON, results views hide abstract-only stragglers too
+  (`hideAbstractOnly`, applies to panel listing incl. stored rows) and status notes "· full text only".
+- **Verified live**: OFF → PMC papers lead (mixed lineup, PMC-first); ON → 6/6 PubMed papers with PMCIDs.
+  One restart + hard refresh picks it up.
