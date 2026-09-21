@@ -510,3 +510,16 @@ labels updated ("GitHub + Hugging Face + OpenAlex + PubMed searched together").
 **Key security**: `pubmedapi.md` (the real key) is gitignored — a credential must never enter the repo.
 `pubmedprocess.md` also kept local (contains pasted third-party chat content); the design lives in the
 worker's docstring. Files remain on disk for migration.
+
+### §18 addendum — PMC availability badges + open-access-first lineup (2026-09-21, ~06:15 SAST)
+- **`pubmed_worker.py`**: candidates now carry top-level `pmid`/`pmcid`/`doi`/`has_full_text` (no more nested-only
+  `_metadata`); search fetches a 3x-wider PMID pool and **stable-sorts PMC full-text papers to the top** of the
+  lineup (NCBI relevance order preserved within each group) before trimming to the limit; response adds
+  `full_text_count` (in lineup) + `full_text_available` (in pool).
+- **`skill_review.py`**: `/find` response adds `pubmed_fulltext_count`; `/candidates` listing surfaces
+  pmid/pmcid/doi + `has_full_text` for stored PubMed rows (both metadata shapes) so the panel pills work
+  everywhere; transient `journal` NameError from the refactor caught and fixed by live test.
+- **UI**: green **"PMC full text ✓"** pill vs amber **"Abstract only"** pill on every PubMed card (both the
+  global review panel and per-field sourcing); status line reports "with N full text".
+- **Verified live**: Medicine search → lineup order FULL×6 (9 full-text in pool); stored-rows enrichment
+  8/8 has_full_text, 5/8 pmcid; UI strings present. One restart + hard refresh picks it up.

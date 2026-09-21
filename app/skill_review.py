@@ -295,7 +295,22 @@ def list_candidates(
     sql += " ORDER BY discovered_at DESC LIMIT 300"
     with get_connection() as conn:
         rows = conn.execute(sql, args).fetchall()
-    return {"ok": True, "candidates": [dict(row) for row in rows]}
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        if str(item.get("source_type") or "") == "pubmed":
+            # Surface PubMed ids at the top level for the PMC availability pill.
+            try:
+                meta = json.loads(str(item.get("metadata_json") or "{}"))
+            except Exception:
+                meta = {}
+            nested = meta.get("_metadata") if isinstance(meta.get("_metadata"), dict) else {}
+            for k in ("pmid", "pmcid", "doi"):
+                if not item.get(k):
+                    item[k] = str(meta.get(k) or nested.get(k) or "")
+            item["has_full_text"] = bool(item.get("pmcid"))
+        candidates.append(item)
+    return {"ok": True, "candidates": candidates}
 
 
 @router.get("/loaded-identities")
@@ -898,6 +913,10 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
         "pubmed_count": sum(1 for c in candidates if c["source_type"] == "pubmed"),
+        "pubmed_fulltext_count": sum(
+            1 for c in candidates
+            if c.get("source_type") == "pubmed" and (c.get("has_full_text") or str(c.get("pmcid") or ""))
+        ),
         "candidates": candidates,
         "review_required": True,
     }

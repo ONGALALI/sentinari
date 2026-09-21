@@ -417,6 +417,9 @@
     .sourcing-result.approved { border-color: #9fd6a9; background: #f2fbf4; }
     .sourcing-result.rejected { border-color: #e8b0b8; background: #fdf4f5; opacity: 0.75; }
     .sourcing-result.ingested { border-color: #7fc391; background: #eef8f1; }
+    .pmc-pill { display: inline-block; margin-left: 7px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; vertical-align: middle; }
+    .pmc-pill.full { background: #e6f6ea; border: 1px solid #9fd6a9; color: #22743a; }
+    .pmc-pill.abs { background: #fff7e0; border: 1px solid #f0dfae; color: #8a6d1a; }
 
     /* Button color states (selection feedback) */
     .sourcing-result .actions button.approve-picked { background: #2f9e44; border-color: #2f9e44; color: #fff; }
@@ -2505,6 +2508,11 @@
         const label = SOURCE_LABELS[String(item.source_type || '').toLowerCase()] || String(item.source_type || 'Dataset');
         const isLoaded = sentinelIsAlreadyLoaded(item);
         const badges = [];
+        const pmcPill = String(item.source_type || '') === 'pubmed'
+          ? (String(item.pmcid || '')
+            ? '<span class="pmc-pill full">PMC full text ✓</span>'
+            : '<span class="pmc-pill abs">Abstract only</span>')
+          : '';
         if (item.source_type === 'github' && Number(item.stars || 0) > 0) badges.push(`★ ${formatInt(item.stars)}`);
         if (item.source_type === 'huggingface' && Number(item.downloads || 0) > 0) badges.push(`${formatInt(item.downloads)} downloads`);
         if (item.source_type === 'openalex') {
@@ -2516,7 +2524,7 @@
         const href = String(item.landing_page_url || item.source_url || (item.doi ? `https://doi.org/${item.doi}` : '') || '');
         return `
         <div class="sourcing-result${isLoaded ? ' already-loaded' : ''}" data-candidate-id="${cid}">
-          <strong>${escapeHtml(item.title || 'Untitled work')}${isLoaded ? loadedBadgeHtml() : ''}</strong>
+          <strong>${escapeHtml(item.title || 'Untitled work')}${pmcPill}${isLoaded ? loadedBadgeHtml() : ''}</strong>
           <div class="hint">${escapeHtml(label)}${item.authors ? ' · ' + escapeHtml(String(item.authors)) : ''}${isOa}${badges.length ? ' · ' + badges.map(escapeHtml).join(' · ') : ''}</div>
           <div class="hint">${escapeHtml(detail)}</div>
           ${href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer">${escapeHtml(href)}</a>` : ''}
@@ -2567,7 +2575,7 @@
           const dupNote = Number(data.duplicates_skipped || 0) > 0
             ? ` — <span class="dup-note">${formatInt(data.duplicates_skipped)} duplicate(s) skipped</span>`
             : '';
-          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
+          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = `Dataset search failed: ${error.message || error}`;
@@ -3222,9 +3230,14 @@
         const label = SOURCE_LABELS[String(item.source_type || '').toLowerCase()] || String(item.source_type || 'Dataset');
         const isLoaded = sentinelIsAlreadyLoaded(item);
         const detail = String(item.description || 'No description available.').slice(0, 700);
+        const pmcPill = String(item.source_type || '') === 'pubmed'
+          ? (String(item.pmcid || '')
+            ? '<span class="pmc-pill full">PMC full text ✓</span>'
+            : '<span class="pmc-pill abs">Abstract only</span>')
+          : '';
         return `
         <div class="sourcing-result${isLoaded ? ' already-loaded' : ''}" data-candidate-id="${cid}">
-          <strong>${escapeHtml(item.title || 'Untitled work')}${isLoaded ? loadedBadgeHtml() : ''}</strong>
+          <strong>${escapeHtml(item.title || 'Untitled work')}${pmcPill}${isLoaded ? loadedBadgeHtml() : ''}</strong>
           <div class="hint">${escapeHtml(label)} | ${escapeHtml(item.scientific_field || 'Unclassified')} | ${escapeHtml(item.license || 'License not reported')}</div>
           <div class="hint">${escapeHtml(detail)}</div>
           <a href="${escapeAttr(item.source_url || '')}" target="_blank" rel="noreferrer">${escapeHtml(item.source_url || '')}</a>

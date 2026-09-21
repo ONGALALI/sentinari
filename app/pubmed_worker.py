@@ -147,7 +147,12 @@ def _esummary_to_candidate(uid: str, doc: dict[str, Any], field_text: str) -> tu
         "journal": journal,
         "pubdate": pubdate,
         "authors": author_line,
-    }, {"pmid": uid, "pmcid": pmcid, "doi": doi, "journal": journal, "pubdate": pubdate}
+        # Top-level ids: identity resolution and the load lane read them here.
+        "pmid": uid,
+        "pmcid": pmcid,
+        "doi": doi,
+        "has_full_text": bool(pmcid),
+    }
 
 
 def search_pubmed_papers(
@@ -166,15 +171,18 @@ def search_pubmed_papers(
         term = f"{term} AND {int(from_year)}:3000[dp]"
 
     try:
+        # Fetch a wider pool so open-access (PMC full-text) papers can be
+        # promoted to the top of the lineup before trimming to the limit.
+        pool_size = max(int(limit or 12) * 3, 15)
         search_resp = _eget(
             f"{EUTILS_BASE}/esearch.fcgi",
-            {"db": "pubmed", "term": term, "retmode": "json", "retmax": max(1, min(25, int(limit or 12)))},
+            {"db": "pubmed", "term": term, "retmode": "json", "retmax": min(75, pool_size)},
         )
         search_resp.raise_for_status()
         esearch = (search_resp.json() or {}).get("esearchresult") or {}
         pmids = [str(p) for p in (esearch.get("idlist") or []) if str(p).strip()]
         if not pmids:
-            return {"ok": True, "candidates": [], "count": 0, "total_available": int(esearch.get("count") or 0)}
+            return {"ok": True, "candidates": [], "count": 0, "total_available": int(esearch.get("count") or 0), "full_text_count": 0}
 
         summary_resp = _eget(
             f"{EUTILS_BASE}/esummary.fcgi",
@@ -187,16 +195,26 @@ def search_pubmed_papers(
             doc = result.get(uid)
             if not isinstance(doc, dict):
                 continue
-            built = _esummary_to_candidate(uid, doc, field_text)
-            if built is None:
-                continue
-            candidate, meta = built
-            # Enrich with full abstract when cheaply available (esummary has none).
-            candidate["_metadata"] = meta
-            candidates.append(candidate)
-        return {"ok": True, "candidates": candidates, "count": len(candidates), "total_available": int(esearch.get("count") or 0)}
+            candidate = _esummary_to_candidate(uid, doc, field_text)
+            if candidate is not None:
+                candidates.append(candidate)
+
+        # Prefer open-access papers: stable sort keeps NCBI relevance/date order
+        # within each group, but papers with PMC full text lead the lineup.
+        candidates.sort(key=lambda c: 0 if c.get("has_full_text") else 1)
+
+        full_text_count = sum(1 for c in candidates if c.get("has_full_text"))
+        candidates = candidates[: max(1, min(25, int(limit or 12)))]
+        return {
+            "ok": True,
+            "candidates": candidates,
+            "count": len(candidates),
+            "total_available": int(esearch.get("count") or 0),
+            "full_text_count": sum(1 for c in candidates if c.get("has_full_text")),
+            "full_text_available": full_text_count,
+        }
     except Exception as ex:
-        return {"ok": False, "candidates": [], "count": 0, "note": f"PubMed search failed: {str(ex)[:140]}"}
+        return {"ok": False, "candidates": [], "count": 0, "note": f"PubMed search failed: {str(ex)[:140]}", "full_text_count": 0}
 
 
 def fetch_pubmed_abstract(pmid: str) -> str:
