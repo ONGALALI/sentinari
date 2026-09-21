@@ -628,3 +628,31 @@ SAFE by design — verified against the code:
    - New `_polish_pdf_text()` quality pass on ALL pdf text: de-hyphenation across line breaks, soft-wrap joins (paragraph breaks preserved), whitespace collapse, page-artifact line removal. Verified on a real 73K-char PDF (engine label `poppler`).
 3. **Download formats — investigated, decision recorded:** OpenAlex/PMC scholarly download reality: PDFs where publishers provide them, HTML full text otherwise (already Sentinel's preference — cleaner text, no PDF parsing), metadata JSON as final fallback. CSV is only offered for OpenAlex's *bulk dataset exports* (full-database snapshots, GBs — a bulk-loading lane for the new rig, NOT per-paper downloads); XML is PubMed's internal format already handled by `_pmc_full_text`. Conclusion: keep the current PDF→HTML→JSON cascade; it already chooses the cleanest available format per work.
 4. **UI:** hints on both panels now state "OpenAlex is the primary R&D source — 2020–current, most-cited first".
+
+---
+
+## §23 — THE OLLAMA CORD-CUT: fully staged, one-flag flip (2026-09-21)
+
+**Owner directive (recorded as policy): the Ollama cord must be cut ASAP, completely.**
+
+### Audit findings
+- `llm_gateway.py` (built earlier) already had ollama/gemini/openai_compatible providers with fallbacks — but only pattern extraction used it. Chat + ALL embeddings still flowed through the direct `OllamaClient` (ingestion, conversation, playground, session_memory, main).
+- Firewall paradox: `enforce_ollama_provider: true` + default blocked substrings `["gemini","google","palm"]` actively FORBADE the destination we're moving to.
+- Live Gemini verification against the owner's AQ…-format key surfaced three era-shifts: (1) the legacy `?key=` auth 503s — header auth (`x-goog-api-key`) is now canonical; (2) all dated models are RETIRED (gemini-2.0/2.5-flash 404) — rolling aliases (`gemini-flash-latest`, `gemini-flash-lite-latest`) are the durable names, and lite aliases reject `thinkingConfig` (400 → adaptive retry added); (3) `text-embedding-004` is gone → `gemini-embedding-001`, which accepts `outputDimensionality: 768` (Matryoshka truncation) — EXACTLY the library's nomic-embed vector schema.
+- Library reality: 186,744 chunks, of which **152,839 have NO embedding** (CPU-era gap) — the migration is both a re-space and a completion.
+
+### What was built
+1. **Gateway hardening**: header auth, chat fallback aliases per-provider, adaptive thinkingConfig retry, `gemini-embedding-001 @ 768 dims` (verified live: chat 'CORD CUT OK', embed 768).
+2. **`GatewayBackedClient`** — drop-in replacement for OllamaClient (chat/embed/is_available/list_models/get_runtime_diagnostics), so ALL modules move providers with zero call-site changes.
+3. **The switch**: `runtime_llm.client_backend: ollama_client | gateway` read by `build_ollama_client()` (name kept for import stability); main.py's two direct constructions now route through it.
+4. **Firewall modernized**: new `allowed_runtime_providers: [ollama, gemini]` (gemini pre-authorized so the flip needs no firewall edit); legacy enforce-flag defers to the allow-list; Ollama model policing (blocked substrings, SMI4 allow-lists) now applies only when provider == ollama.
+5. **`scripts/reembed_gemini.py`** — resumable (reembed_done table), dry-run-by-default migration: scopes old/missing/all, probes 768-dims before writing a single row, batched commits + ETA. Verified dry-run: 186,760 candidates found, zero writes.
+
+### THE FLIP (new rig, ~5 minutes)
+1. `config/settings.yaml`: `llm.provider: gemini` + `runtime_llm.client_backend: gateway`
+2. `.env` carries GEMINI_API_KEY (already verified live)
+3. Restart → every chat and every NEW embedding flows Gemini (no Ollama needed, at all)
+4. `python scripts/reembed_gemini.py --scope all --apply` (budget ~9-17h one-time; resume anytime)
+5. Optional decommission afterwards: stop relying on Ollama entirely — the app no longer references it for any LLM traffic.
+
+Current state on THIS laptop: UNCHANGED (staged, verified both firewall states PASS, server boots, status endpoint green).

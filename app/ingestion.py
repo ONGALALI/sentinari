@@ -39,9 +39,22 @@ METADATA_COLUMNS = (
 )
 
 
-def build_ollama_client() -> OllamaClient:
+def build_ollama_client():
+    """Build the app-wide LLM client from settings.
+
+    The name is historical — every module imports it. The backend is chosen
+    by ``runtime_llm.client_backend``: ``ollama_client`` (the legacy direct
+    Ollama client, current default until the cord-cut is flipped) or
+    ``gateway`` (GatewayBackedClient — any provider, no Ollama dependency).
+    Both expose the same surface, so callers never change.
+    """
     settings = get_settings()
     assert_runtime_llm_policy(settings)
+    backend = str((settings.get("runtime_llm") or {}).get("client_backend") or "ollama_client").strip().lower()
+    if backend == "gateway":
+        from .llm_gateway import GatewayBackedClient
+
+        return GatewayBackedClient()
     llm = settings.get("llm", {})
     temperature = clamp_temperature(llm.get("temperature"), settings=settings)
     return OllamaClient(

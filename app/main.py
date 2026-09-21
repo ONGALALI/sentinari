@@ -618,12 +618,9 @@ def health() -> dict[str, Any]:
     llm_policy = evaluate_runtime_llm_policy(settings)
     llm = settings.get("llm", {}) if isinstance(settings.get("llm"), dict) else {}
     parsed_temperature = clamp_temperature(llm.get("temperature"), settings=settings)
-    client = OllamaClient(
-        base_url=str(llm.get("base_url") or "http://127.0.0.1:11434"),
-        chat_model=str(llm.get("chat_model") or ""),
-        embedding_model=str(llm.get("embedding_model") or ""),
-        temperature=parsed_temperature,
-    )
+    # Cord-cut aware: identical surface for the legacy Ollama client and the
+    # gateway-backed client (any provider) — chosen by runtime_llm.client_backend.
+    client = build_ollama_client()
     llm_runtime = _apply_ollama_boundary_status(
         build_ollama_boundary_runtime(client.base_url, client.chat_model, client.embedding_model)
         if is_ollama_runtime_probe_disabled()
@@ -2552,12 +2549,9 @@ def api_diagnostics_architecture(_: None = Depends(_admin_auth_dependency)) -> d
 
     llm = settings.get("llm", {}) if isinstance(settings.get("llm"), dict) else {}
     parsed_temperature = clamp_temperature(llm.get("temperature"), settings=settings)
-    client = OllamaClient(
-        base_url=str(llm.get("base_url") or "http://127.0.0.1:11434"),
-        chat_model=str(llm.get("chat_model") or ""),
-        embedding_model=str(llm.get("embedding_model") or ""),
-        temperature=parsed_temperature,
-    )
+    # Cord-cut aware: build_ollama_client() returns the gateway-backed client
+    # when runtime_llm.client_backend = gateway, else the legacy Ollama client.
+    client = build_ollama_client()
     if is_ollama_runtime_probe_disabled():
         llm_runtime = _apply_ollama_boundary_status(
             build_ollama_boundary_runtime(client.base_url, client.chat_model, client.embedding_model)
