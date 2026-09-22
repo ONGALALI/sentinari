@@ -448,6 +448,24 @@
     .loaded-item .li-actions { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
     .loaded-item .li-actions button { font-size: 11px; padding: 2px 8px; }
     .loaded-item .li-progress { margin-top: 4px; }
+    /* Load queue (owner directive: sequential loads, one at a time) */
+    .load-queue-panel { margin-top: 12px; border-top: 1px solid #e3eaf5; padding-top: 8px; }
+    .load-queue-panel .loaded-head { font-size: 12px; font-weight: 700; color: #2b3a55; margin-bottom: 6px; }
+    .queue-item { border: 1px solid #dce6f4; border-radius: 8px; background: #f6fafe; padding: 6px 10px; margin-top: 6px; }
+    .queue-item .qi-top { display: flex; align-items: center; gap: 8px; }
+    .queue-item .qi-title { font-size: 13px; font-weight: 600; color: #1f2d47; flex: 1; }
+    .queue-item .qi-state { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+    .queue-item .qi-state.st-queued { background: #fff5e0; color: #9a6a00; }
+    .queue-item .qi-state.st-running { background: #e7f1ff; color: #1c5fb0; }
+    .queue-item .qi-state.st-done { background: #e5f6e9; color: #1e7d32; }
+    .queue-item .qi-state.st-error { background: #fdeaea; color: #b23a48; }
+    .queue-item .qi-state.st-cancelled { background: #f0f0f0; color: #666; }
+    .queue-item .qi-meta { font-size: 11px; color: #5b6b85; margin-top: 3px; }
+    .queue-item button { font-size: 11px; padding: 2px 8px; margin-top: 4px; }
+    .queuebar { height: 6px; background: #e6edf7; border-radius: 4px; margin-top: 5px; overflow: hidden; }
+    .queuebar-fill { height: 100%; background: #2f6fb2; border-radius: 4px; transition: width 0.4s ease; }
+    .queuebar-fill.ok { background: #2f9e44; }
+    .queuebar-fill.err { background: #b23a48; }
 
     /* Preview modal */
     #datasetPreviewModal { position: fixed; inset: 0; background: rgba(15, 27, 48, 0.45); display: none; align-items: center; justify-content: center; z-index: 400; }
@@ -566,6 +584,7 @@
           </label>
           <div id="scientificCandidateStatus" class="hint" style="margin-top:8px;">No discovery run yet.</div>
           <div id="scientificCandidateList" class="list" style="margin-top:10px;"></div>
+          <div id="loadQueuePanel" class="load-queue-panel" hidden></div>
         </div>
 
         <div class="hero-grid">
@@ -2459,7 +2478,7 @@
     // One delegated listener for every dataset-workflow button on the page
     // (cards inside Sentinel fields and cards in the Discovery & Review panel).
     document.addEventListener('click', async (event) => {
-      const button = event.target.closest('button[data-role="sourcing-save"], button[data-role="sourcing-reject"], button[data-role="sourcing-test"], button[data-role="sourcing-preview"], button[data-role="sourcing-load"], button[data-role="loaded-preview"], button[data-role="loaded-download"], button[data-role="candidate-review"], button[data-role="candidate-load"]');
+      const button = event.target.closest('button[data-role="sourcing-save"], button[data-role="sourcing-reject"], button[data-role="sourcing-test"], button[data-role="sourcing-preview"], button[data-role="sourcing-load"], button[data-role="loaded-preview"], button[data-role="loaded-download"], button[data-role="candidate-review"], button[data-role="candidate-load"], button[data-role="queue-cancel"]');
       if (!button) return;
       const fieldWrap = button.closest('.sentinel-field');
       const fieldSlug = String(fieldWrap?.dataset.fieldSlug || button.dataset.field || '');
@@ -2486,6 +2505,18 @@
       } else if (role === 'loaded-download') {
         const docId = Number(button.closest('.loaded-item')?.dataset.documentId || 0);
         if (docId > 0) window.open(`/api/skill-review/documents/${docId}/download`, '_blank');
+      } else if (role === 'queue-cancel') {
+        const entryId = String(button.dataset.entry || '');
+        try {
+          const response = await fetch(`/api/skill-review/load-queue/${encodeURIComponent(entryId)}/cancel`, { method: 'POST' });
+          const outcome = await readApiJson(response);
+          if (!response.ok || outcome.ok === false) throw new Error(outcome.detail || outcome.error || 'Cancel failed.');
+          button.textContent = 'Cancelling…';
+          button.disabled = true;
+          scheduleQueuePanelRefresh();
+        } catch (error) {
+          window.alert(`Cancel failed: ${error.message || error}`);
+        }
       } else if (role === 'candidate-review' || role === 'candidate-load') {
         // Legacy roles (older cached page) map onto the new actions.
         const mapped = role === 'candidate-load' ? 'sourcing-load' : 'sourcing-save';
@@ -2737,10 +2768,50 @@
         const startData = await readApiJson(response);
         if (!response.ok || startData.ok === false) throw new Error(startData.detail || startData.error || 'Load failed.');
 
-        // Live progress: the backend runs the load as a background job and
-        // reports real download / digest / embed percentages.
+        // Live progress: the backend lines the load up in the sequential
+        // queue and reports real download / digest / embed percentages once
+        // the worker reaches it.
         let data = startData;
-        if (startData.async && startData.job_id) {
+        const entryId = String(startData.entry_id || '');
+        if (startData.async && entryId) {
+          let lastPercent = 2;
+          let consecutiveFailures = 0;
+          for (;;) {
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            let queue = null;
+            try {
+              const poll = await fetch('/api/skill-review/load-queue');
+              queue = await readApiJson(poll);
+              if (!poll.ok) throw new Error(queue.detail || 'Load queue not reachable.');
+              consecutiveFailures = 0;
+            } catch (pollError) {
+              consecutiveFailures += 1;
+              if (consecutiveFailures >= 6) throw pollError;
+              continue;
+            }
+            renderLoadQueue(queue);
+            const entry = (queue.entries || []).find((e) => String(e.entry_id) === entryId);
+            if (!entry) throw new Error('Load queue entry vanished.');
+            const prog = entry.progress || {};
+            if (entry.state === 'queued') {
+              lastPercent = 2;
+              showProgress(2, `Queued — position ${entry.position || '?'} (one load runs at a time)`);
+              if (statusEl) statusEl.textContent = `"${candidate.title || 'candidate'}" is queued for ${fieldSlug} — position ${entry.position || '?'}.`;
+              continue;
+            }
+            lastPercent = Math.max(lastPercent, clampNum(Number(prog.percent) || 0, 0, 100));
+            showProgress(lastPercent, `${STAGE_LABELS[prog.stage] || 'Working'} — ${prog.message || ''}`);
+            if (statusEl) statusEl.textContent = `Loading "${candidate.title || 'candidate'}" into ${fieldSlug}: ${prog.message || entry.state}`;
+            if (entry.state === 'done') {
+              data = { ingested: entry.summary?.ingested ?? 0, failed: entry.summary?.failed ?? 0, document_id: entry.summary?.document_id };
+              break;
+            }
+            if (entry.state === 'error') throw new Error(entry.error || 'Load failed.');
+            if (entry.state === 'cancelled') throw new Error('Load cancelled by owner.');
+          }
+          scheduleQueuePanelRefresh();
+        } else if (startData.async && startData.job_id) {
+          // Legacy path (older cached pages): poll the job directly.
           const jobId = String(startData.job_id);
           let lastPercent = 2;
           let consecutiveFailures = 0;
@@ -2779,6 +2850,67 @@
         if (statusEl) statusEl.textContent = `Load failed: ${error.message || error}`;
       }
     };
+
+    // ---------- Load queue panel (sequential loads, one at a time) ----------
+    let queuePanelTimer = null;
+    let queueWatch = true; // the poller parks itself when the queue is idle
+    const scheduleQueuePanelRefresh = () => {
+      queueWatch = true;
+      if (queuePanelTimer) clearTimeout(queuePanelTimer);
+      queuePanelTimer = setTimeout(async () => {
+        try {
+          const response = await fetch('/api/skill-review/load-queue');
+          const data = await readApiJson(response);
+          if (response.ok && data.ok !== false) renderLoadQueue(data);
+        } catch (_) { /* panel is best-effort */ }
+      }, 1200);
+    };
+    const renderLoadQueue = (queue) => {
+      const panel = byId('loadQueuePanel');
+      if (!panel) return;
+      const entries = queue?.entries || [];
+      const nowSec = Date.now() / 1000;
+      const anyActive = entries.some((e) => e.state === 'queued' || e.state === 'running');
+      const freshFinished = entries.some((e) => ['done', 'error', 'cancelled'].includes(e.state) && nowSec - Number(e.finished_at || 0) < 600);
+      if (!entries.length || (!anyActive && !freshFinished)) { panel.hidden = true; return; }
+      panel.hidden = false;
+      const recent = entries.slice(-8).reverse();
+      panel.innerHTML = `
+        <div class="loaded-head">Load queue — one dataset loads at a time (${Number(queue.queued || 0)} waiting${Number(queue.running || 0) ? ', 1 running' : ''})</div>
+        ${recent.map((e) => {
+          const prog = e.progress || {};
+          const pct = e.state === 'done' ? 100 : (e.state === 'queued' ? 2 : clampNum(Number(prog.percent) || 0, 0, 100));
+          const stateLabel = e.state === 'queued' ? `Queued #${e.position || '?'}` : e.state === 'running' ? 'Running' : e.state === 'done' ? 'Loaded ✓' : e.state === 'cancelled' ? 'Cancelled' : 'Failed';
+          const detail = e.state === 'running'
+            ? (prog.message || 'Working...')
+            : e.state === 'error' ? (e.error || 'Load failed.')
+            : e.state === 'cancelled' ? (e.error || 'Cancelled by owner.')
+            : e.state === 'done' ? `Ingested ${Number(e.summary?.ingested ?? 0)} document(s).`
+            : 'Waiting for the current load to finish.';
+          return `
+          <div class="queue-item">
+            <div class="qi-top">
+              <span class="qi-title">${escapeHtml(e.title || `Candidate ${e.candidate_id}`)}</span>
+              <span class="qi-state st-${escapeHtml(e.state)}">${stateLabel}</span>
+              ${(e.state === 'queued' || e.state === 'running') ? `<button type="button" data-role="queue-cancel" data-entry="${escapeAttr(e.entry_id)}">Cancel</button>` : ''}
+            </div>
+            <div class="qi-meta">${escapeHtml(String(e.field || ''))}${e.source_type ? ' · ' + escapeHtml(String(e.source_type)) : ''} · ${escapeHtml(detail)}</div>
+            <div class="queuebar"><div class="queuebar-fill ${e.state === 'done' ? 'ok' : (e.state === 'error' || e.state === 'cancelled') ? 'err' : ''}" style="width:${pct}%"></div></div>
+          </div>`;
+        }).join('')}`;
+    };
+    const pollLoadQueue = async () => {
+      if (!queueWatch) return;
+      try {
+        const response = await fetch('/api/skill-review/load-queue');
+        const data = await readApiJson(response);
+        if (response.ok && data.ok !== false) {
+          renderLoadQueue(data);
+          queueWatch = (data.entries || []).some((e) => e.state === 'queued' || e.state === 'running');
+        }
+      } catch (_) { /* keep watching; transient errors are fine */ }
+    };
+    window.setInterval(pollLoadQueue, 3000);
 
     // ---------- Permanently loaded datasets per field ----------
     const loadSentinelLoadedDatasets = async (fieldSlug) => {

@@ -280,6 +280,8 @@ def _upsert_document_with_chunks(
         load_progress.emit(message=f"Embedding {len(chunks)} chunk(s)...")
         _failed_embeds = 0
         for idx, chunk in enumerate(chunks):
+            if load_progress.cancel_requested():
+                raise load_progress.LoadCancelled("Load cancelled by owner at chunk boundary.")
             if _time.monotonic() > _deadline:
                 load_progress.emit(
                     message=f"Embed budget ({_budget}s) exhausted after {idx}/{len(chunks)} chunks — continuing without vectors (the re-embed migration can fill them)."
@@ -554,6 +556,9 @@ def _ingest_files_locked(
                 try:
                     if not path.exists() or not path.is_file():
                         raise FileNotFoundError(f"Path not found: {path}")
+
+                    if load_progress.cancel_requested():
+                        raise load_progress.LoadCancelled("Load cancelled by owner before digest.")
 
                     if path.suffix.lower() in unsupported_exts:
                         raise ValueError(f"File {path.name} is an image. This model does not support image input.")

@@ -356,6 +356,8 @@ def load_pubmed_papers_into_field(
     for index, paper in enumerate(papers, start=1):
         pmid = str(paper.get("pmid") or "").strip()
         title = str(paper.get("title") or f"PubMed paper {pmid or index}")
+        if load_progress.cancel_requested():
+            raise load_progress.LoadCancelled("Load cancelled by owner before the next download.")
         load_progress.stage("download", f"Fetching paper {index}/{len(papers)}: {title[:60]}...")
         base = f"{slugify(title)[:60]}-pm{slugify(pmid or str(index))}"
         stored = False

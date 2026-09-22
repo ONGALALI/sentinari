@@ -273,6 +273,7 @@ app = FastAPI(
 )
 _STARTUP_STATE: dict[str, Any] = {"ready": False, "error": ""}
 app.include_router(skill_review_router)
+from .load_queue import get_load_queue as _get_load_queue  # noqa: E402
 from .pattern_api import router as pattern_router  # noqa: E402
 
 app.include_router(pattern_router)
@@ -589,6 +590,9 @@ def startup_event() -> None:
             _auto_ingest_service.stop()
         else:
             _auto_ingest_service.start()
+        # Sequential load queue (owner directive): one load at a time, with
+        # live per-job status in the UI.
+        _get_load_queue().start()
         _warmup_llm_async(settings)
         _STARTUP_STATE.update({"ready": True, "error": ""})
     except Exception as _startup_ex:
@@ -609,6 +613,7 @@ def startup_event() -> None:
 
 @app.on_event("shutdown")
 def shutdown_event() -> None:
+    _get_load_queue().stop()
     _auto_ingest_service.stop()
 
 

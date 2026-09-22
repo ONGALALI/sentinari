@@ -24,6 +24,15 @@ _LOCK = threading.Lock()
 _JOBS: dict[str, dict[str, Any]] = {}
 _LOCAL = threading.local()
 
+
+class LoadCancelled(BaseException):
+    """Raised inside deep ingestion when the owner cancels a queued/running load.
+
+    Deliberately a ``BaseException``: the download lanes' broad ``except
+    Exception`` blocks must not swallow it, so a cancel stops the whole load
+    immediately instead of falling through to the next download attempt.
+    """
+
 BANDS: dict[str, tuple[float, float]] = {
     "download": (2.0, 50.0),
     "digest": (50.0, 78.0),
@@ -97,6 +106,9 @@ def start_job(
     source_type: str,
     title: str = "",
     candidate_id: int | None = None,
+    *,
+    initial_state: str = "running",
+    initial_message: str = "Preparing load...",
 ) -> tuple[str, ProgressReporter]:
     job_id = uuid.uuid4().hex[:12]
     job: dict[str, Any] = {
@@ -106,12 +118,12 @@ def start_job(
         "field": str(field),
         "source_type": str(source_type),
         "title": str(title)[:200],
-        "state": "running",  # running | done | error
+        "state": initial_state,  # queued | running | done | error
         "stage": "download",
         "percent": 1.0,
         "stage_start": 0.0,
         "stage_end": BANDS["download"][0],
-        "message": "Preparing load...",
+        "message": str(initial_message)[:300],
         "result": None,
         "error": None,
         "created_at": time.time(),
@@ -258,6 +270,27 @@ def cancel_job(job_id: str, message: str = "Cancelled by owner.") -> bool:
         job["cancel_requested"] = True
         job["message"] = str(message)[:280]
         return True
+
+
+def mark_job_running(job_id: str) -> None:
+    """Flip a pre-created queued job to running when its worker picks it up."""
+    with _LOCK:
+        job = _JOBS.get(job_id)
+        if job is not None and job.get("state") == "queued":
+            job["state"] = "running"
+            job["started_at"] = time.time()
+            job["updated_at"] = time.time()
+
+
+def cancel_requested() -> bool:
+    """True when the job bound to the *current thread* was asked to cancel.
+
+    Deep workers (embed loop, per-work download loops) call this at their
+    natural boundaries so a queued/running load can be stopped cleanly."""
+    rep = current()
+    if rep is None:
+        return False
+    return is_cancel_requested(rep.job_id)
 
 
 def is_cancel_requested(job_id: str) -> bool:

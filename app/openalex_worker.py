@@ -487,6 +487,8 @@ def load_openalex_works_into_field(
     for index, work in enumerate(works, start=1):
         openalex_id = str(work.get("openalex_id") or "")
         title = str(work.get("title") or "Untitled work")
+        if load_progress.cancel_requested():
+            raise load_progress.LoadCancelled("Load cancelled by owner before the next download.")
         load_progress.stage("download", f"Fetching work {index}/{len(works)}: {title[:60]}...")
         base = f"{slugify(title)[:60]}-{_safe_filename(openalex_id.split('/')[-1] or str(index))}"
         stored = False

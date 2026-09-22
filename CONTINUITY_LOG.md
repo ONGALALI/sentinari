@@ -713,3 +713,53 @@ verified live: scan returns 0 field files (17 legacy strays remain, matching the
 - Overview: 5,555 datasets / 184,363 chunks across 5 domains + Other.
 
 One action: restart `run_smi.py` + hard refresh. §23's staged Gemini flip remains ready.
+
+---
+
+## §25 — Sequential load queue (owner directive, 2026-09-22)
+
+"Add a background queue so multiple candidate loads can be lined up and processed one at a
+time automatically, with per-job status in the UI."
+
+### app/load_queue.py — the queue
+- **Single worker thread** ⇒ two loads can never overlap (the §24 freeze can not recur).
+- Each entry pre-creates its live progress job at enqueue time (queued → running), so UI cards
+  show "Queued — position N" instantly and keep polling the same job once running.
+- `_MAX_QUEUE = 25` waiting; finished entries trimmed to 60. Duplicate enqueue of the same
+  candidate returns the existing entry (`already_queued: true`) instead of double-loading.
+- Cancel: queued entries stop instantly (job closed); a running load is stopped cooperatively
+  at the next chunk/download boundary.
+- **Recovery on failure**: an errored load goes through §24's purge + permanent-reject path
+  unchanged (the queue calls the same `_ingest_candidate_impl`), so a failed queue entry leaves
+  the field clean and the dataset never returns.
+
+### Cooperative cancellation plumbing
+- `load_progress.LoadCancelled(BaseException)` — deliberately BaseException so the lanes'
+  broad `except Exception` blocks cannot swallow a cancel.
+- `load_progress.cancel_requested()` — true when the job bound to the current thread was asked
+  to cancel; checked in the ingest embed loop (chunk boundary), the ingest file loop, and both
+  workers' download loops.
+- `load_progress.start_job(..., initial_state=, initial_message=)` for pre-created queued jobs;
+  `mark_job_running()` flips state when the worker picks an entry up.
+
+### API (skill_review router)
+- `POST /api/skill-review/candidates/{id}/ingest` now **enqueues** (returns entry_id + position;
+  409 when the queue is full). `?wait=1` unchanged for tooling.
+- `GET  /api/skill-review/load-queue` — full snapshot with live progress per entry.
+- `POST /api/skill-review/load-queue/{entry_id}/cancel` — queued instant / running cooperative.
+
+### UI (playground_console.html)
+- **Load queue panel** under the Discovery & Review lineup: per-job title, field, source,
+  state pill (Queued #N / Running / Loaded ✓ / Failed / Cancelled), live % bar, Cancel button.
+  Shows itself while jobs are active or recently finished; parks its 3s poller when idle.
+- The Load flow on every card now tracks its **queue entry** (not just one job): shows
+  "Queued — position N" while waiting, then live download/digest/embed %, then done — and
+  multiple queued cards all keep updating from the same snapshot.
+
+### Live proof (port 8077)
+- Queue q1+q2 (Astrophysics): progress trail `q1:download → q1:digest → q2:download → ...`,
+  **zero concurrency violations**, both papers ingested (1 doc each).
+- Cancel of a running load: stopped "before the next download", final state `cancelled`,
+  nothing ingested.
+
+One action: restart `run_smi.py` + hard refresh (Ctrl+F5).

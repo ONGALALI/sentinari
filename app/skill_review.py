@@ -1057,21 +1057,22 @@ def ingest_candidate(candidate_id: int, wait: int = Query(default=0, ge=0, le=1)
     candidate = dict(row)
 
     if not wait:
-        job_id, _rep = load_progress.start_job(
-            label=f"Load candidate {candidate_id}",
-            field=str(candidate.get("scientific_field") or ""),
-            source_type=str(candidate.get("source_type") or ""),
-            title=str(candidate.get("title") or ""),
-            candidate_id=candidate_id,
-        )
-        worker = threading.Thread(
-            target=_ingest_candidate_worker,
-            args=(candidate_id, job_id),
-            name=f"load-{job_id}",
-            daemon=True,
-        )
-        worker.start()
-        return {"ok": True, "job_id": job_id, "async": True}
+        # Owner directive: loads run through the sequential background queue —
+        # one at a time, never overlapping, each with live per-job progress.
+        from .load_queue import get_load_queue
+
+        try:
+            entry = get_load_queue().enqueue(candidate)
+        except ValueError as ex:
+            raise HTTPException(status_code=409, detail=str(ex))
+        return {
+            "ok": True,
+            "queued": True,
+            "async": True,
+            "entry_id": entry.get("entry_id"),
+            "position": entry.get("position"),
+            "already_queued": bool(entry.get("already_queued")),
+        }
     return _ingest_candidate_impl(candidate_id, None)
 
 
@@ -1082,6 +1083,8 @@ def _ingest_candidate_worker(candidate_id: int, job_id: str) -> None:
         with load_progress.bind(_rep):
             result = _ingest_candidate_impl(candidate_id, _rep)
         load_progress.finish_job(job_id, result)
+    except load_progress.LoadCancelled as ex:
+        load_progress.error_job(job_id, str(ex) or "Cancelled by owner.")
     except HTTPException as ex:
         load_progress.error_job(job_id, str(ex.detail or ex))
     except Exception as ex:
@@ -1304,6 +1307,25 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
     result["document_id"] = document_ids[0] if document_ids else None
     result["loaded_title"] = document_titles[0] if document_titles else ""
     return result
+
+
+@router.get("/load-queue")
+def load_queue_status() -> dict[str, Any]:
+    """Live status of the sequential background load queue (owner directive)."""
+    from .load_queue import get_load_queue
+
+    return get_load_queue().snapshot()
+
+
+@router.post("/load-queue/{entry_id}/cancel")
+def load_queue_cancel(entry_id: str) -> dict[str, Any]:
+    """Cancel a queued entry instantly or request a running load to stop."""
+    from .load_queue import get_load_queue
+
+    outcome = get_load_queue().cancel(entry_id)
+    if not outcome.get("ok"):
+        raise HTTPException(status_code=404, detail=str(outcome.get("error") or "Unknown queue entry."))
+    return outcome
 
 
 @router.get("/progress/{job_id}")
