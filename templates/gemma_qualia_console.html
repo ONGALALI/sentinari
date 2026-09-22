@@ -441,14 +441,14 @@
   <header>
     <div>
       <h1>SMI Qualia Lab</h1>
-      <div class="hint">SMI direct bridge wrapped in the same pseudodynamic vector lab used by SMi.</div>
+      <div class="hint">SMI direct bridge wrapped in the same pseudodynamic vector lab.</div>
     </div>
     <div class="row">
       <button class="secondary" id="refreshStatus">Refresh Status</button>
       <a href="/ui/start">Start</a>
       <a href="/ui/a1-logs">A1 Logs</a>
       <a href="/ui/SMI-direct">Direct Chat</a>
-      <a href="/ui/playground">Old SMi Lab</a>
+      <a href="/ui/playground">Old Sentinari Lab</a>
     </div>
   </header>
 
@@ -1493,7 +1493,7 @@
         $("statusGrid").innerHTML = [
           statusPill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "err"),
           statusPill("Model", data.model || "not set", data.model ? "ok" : "err"),
-          statusPill("Old SMi boundary", data.boundary_disabled_in_normal_playground ? "blocks old chat" : "open", data.boundary_disabled_in_normal_playground ? "err" : "ok"),
+          statusPill("Old Sentinari boundary", data.boundary_disabled_in_normal_playground ? "blocks old chat" : "open", data.boundary_disabled_in_normal_playground ? "err" : "ok"),
           statusPill("SMI Qualia logs", String(data.SMI_qualia_chat_count || 0), "ok")
         ].join("");
         const currentModel = $("model").value || data.model;

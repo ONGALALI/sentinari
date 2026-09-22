@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Inpirari Start</title>
+  <title>Sentinari Start</title>
   <style>
     :root {
       --bg: #f5f6f8;
@@ -130,12 +130,12 @@
 <body>
   <header>
     <div>
-      <h1>Inpirari Start</h1>
-      <div class="meta">One browser page for Gemma, Qualia, SMi, and model comparison.</div>
+      <h1>Sentinari Start</h1>
+      <div class="meta">One browser page for Sentinel, Qualia, and model comparison.</div>
     </div>
     <div class="toolbar">
       <button id="refresh">Refresh Status</button>
-      <button class="secondary" id="startGemma">Start Gemma</button>
+      <button class="secondary" id="startGemma">Start Sentinel</button>
     </div>
   </header>
 
@@ -144,8 +144,8 @@
 
     <section class="grid">
       <div class="card feature">
-        <h2>Scientific Fields + Gemma Test Run</h2>
-        <p>Start here when you want Gemma to learn from a new scientific field. Open the Sentinel domain grid first, discover and load datasets into the field, then use the Qualia lab to test whether Gemma can answer from that new knowledge.</p>
+        <h2>Scientific Fields + Sentinel Test Run</h2>
+        <p>Start here when you want Sentinel to learn from a new scientific field. Open the Sentinel domain grid first, discover and load datasets into the field, then use the Qualia lab to test whether Sentinel can answer from that new knowledge.</p>
         <div class="actions">
           <a class="button" href="/ui/playground">Open Sentinel Domains</a>
           <a class="button secondary" href="/ui/document-layouts">Document Layouts</a>
@@ -155,16 +155,16 @@
       </div>
 
       <div class="card">
-        <h2>Gemma Direct Chat</h2>
-        <p>Plain local Gemma discussion with minimal wrapping and response logging. Use this when you want to talk to her without the SMi knowledge pipeline.</p>
+        <h2>Sentinel Direct Chat</h2>
+        <p>Plain local Sentinel discussion with minimal wrapping and response logging. Use this when you want to talk to her without the Sentinari knowledge pipeline.</p>
         <div class="actions">
           <a class="button" href="/ui/gemma-direct">Open Chat</a>
         </div>
       </div>
 
       <div class="card">
-        <h2>Gemma Qualia Lab</h2>
-        <p>Gemma linked to the Qualia state model. Use this when you want response logs plus the Qualia parameters and history entry.</p>
+        <h2>Sentinel Qualia Lab</h2>
+        <p>Sentinel linked to the Qualia state model. Use this when you want response logs plus the Qualia parameters and history entry.</p>
         <div class="actions">
           <a class="button" href="/ui/gemma-qualia">Open Qualia</a>
         </div>
@@ -172,17 +172,17 @@
 
       <div class="card">
         <h2>Model Deviation Lab</h2>
-        <p>Compare Gemma against Gemini, Grok, Claude, DeepSeek, and pasted model answers using the same prompt and scoring sheet.</p>
+        <p>Compare Sentinel against Gemini, Grok, Claude, DeepSeek, and pasted model answers using the same prompt and scoring sheet.</p>
         <div class="actions">
           <a class="button" href="/ui/model-lab">Open Lab</a>
         </div>
       </div>
 
       <div class="card">
-        <h2>SMi Playground</h2>
-        <p>The original SMi playground and training controls. Dedicated to Gemma 4:12B with scientific fields, tutor runs, and Qualia metrics.</p>
+        <h2>Sentinari Playground</h2>
+        <p>The Sentinari Playground and training controls. Dedicated to Sentinari with scientific fields, tutor runs, and Qualia metrics.</p>
         <div class="actions">
-          <a class="button secondary" href="/ui/playground">Open SMi</a>
+          <a class="button secondary" href="/ui/playground">Open Sentinari</a>
         </div>
       </div>
 
@@ -230,11 +230,11 @@
         const personaInfo = data.persona || {};
 
         $("status").innerHTML = [
-          pill("Active Engine", "Gemma 4:12B (Science)", "ok"),
+          pill("Active Engine", "Sentinari (Science)", "ok"),
           pill("Active Library", "library_gemma.db", "ok"),
           pill("Isolation Guard", "Strict On (No Mismatch)", "ok"),
-          pill("SMi Web Host", data.smi_reachable ? "running" : "offline", data.smi_reachable ? "ok" : "bad"),
-          pill("Ollama / Gemma", (data.gemma_reachable || data.SMI_reachable) ? "running" : "offline", (data.gemma_reachable || data.SMI_reachable) ? "ok" : "bad"),
+          pill("Sentinari Web Host", data.smi_reachable ? "running" : "offline", data.smi_reachable ? "ok" : "bad"),
+          pill("Ollama / Sentinel", (data.gemma_reachable || data.SMI_reachable) ? "running" : "offline", (data.gemma_reachable || data.SMI_reachable) ? "ok" : "bad"),
           pill("Active Model", personaInfo.active_model || data.gemma_model || "not found", "ok"),
           pill("Base URL", data.gemma_base_url || data.SMI_base_url || "", (data.gemma_base_url || data.SMI_base_url) ? "ok" : "bad")
         ].join("");
@@ -252,7 +252,7 @@
         setTimeout(refreshStatus, 3500);
       } finally {
         $("startGemma").disabled = false;
-        $("startGemma").textContent = "Start Gemma";
+        $("startGemma").textContent = "Start Sentinel";
       }
     }
 

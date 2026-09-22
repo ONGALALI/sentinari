@@ -54,11 +54,11 @@
   <header>
     <div>
       <h1>A1 Logs</h1>
-      <div class="hint">Audit history for Gemma Qualia prompts, simulations, recommendations, and continuity metrics.</div>
+      <div class="hint">Audit history for Sentinel Qualia prompts, simulations, recommendations, and continuity metrics.</div>
     </div>
     <div class="row">
       <button id="refreshAll">Refresh All</button>
-      <a href="/ui/gemma-qualia">Gemma Qualia Lab</a>
+      <a href="/ui/gemma-qualia">Sentinel Qualia Lab</a>
       <a href="/ui/start">Start</a>
     </div>
   </header>
@@ -161,7 +161,7 @@
             <div class="meta">${escapeHtml(short(item.answer || item.error, 420))}</div>
             <div class="meta">stability ${fmt(item.qualia?.stability_index, 4)} | influence ${fmt(item.qualia?.influence, 3)} | gamma ${fmt(item.qualia?.gamma_effective, 3)} | ${escapeHtml(item.elapsed_ms || "")} ms</div>
           </div>
-        `).join("") || '<p class="hint">No recent Gemma Qualia logs yet.</p>';
+        `).join("") || '<p class="hint">No recent Sentinel Qualia logs yet.</p>';
         setStatus("recentStatus", `Loaded ${logs.length} recent exchange logs.`, true);
       } catch (err) {
         setStatus("recentStatus", err.message || String(err), false);

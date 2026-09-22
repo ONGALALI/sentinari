@@ -118,8 +118,8 @@
     <h1>Model Deviation Lab</h1>
     <div class="row">
       <button class="secondary" id="refresh">Refresh Status</button>
-      <a href="/ui/gemma-direct">Gemma Direct</a>
-      <a href="/ui/gemma-qualia">Gemma Qualia</a>
+      <a href="/ui/gemma-direct">Sentinel Direct</a>
+      <a href="/ui/gemma-qualia">Sentinel Qualia</a>
     </div>
   </header>
 
@@ -132,7 +132,7 @@
       <label for="runLabel">Run label</label>
       <input id="runLabel" value="baseline-deviation">
 
-      <label for="model">Local Gemma model</label>
+      <label for="model">Local Sentinel model</label>
       <input id="model" value="gemma4:26b">
 
       <label for="prompt">Shared test prompt</label>
@@ -143,7 +143,7 @@
         <button class="secondary" id="science">Science prompt</button>
       </div>
 
-      <p class="meta">Paste Gemini, Grok, Claude, DeepSeek, or other model answers below. The same prompt and scoring sheet will be logged with Gemma's local answer.</p>
+      <p class="meta">Paste Gemini, Grok, Claude, DeepSeek, or other model answers below. The same prompt and scoring sheet will be logged with Sentinel's local answer.</p>
     </aside>
 
     <section>
@@ -304,7 +304,7 @@
           <div class="value">${escapeHtml(leader.label)} · ${(leader.score * 100).toFixed(1)}%</div>
         </div>
         <div class="score-card local">
-          <div class="label">Local Gemma</div>
+          <div class="label">Local Sentinel</div>
           <div class="value">${local ? `${(local.score * 100).toFixed(1)}%` : "Not included"}</div>
         </div>
         <div class="score-card">
