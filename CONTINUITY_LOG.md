@@ -802,3 +802,46 @@ gracefully (lexical-only retrieval for null-vector chunks; §24 budgets keep loa
 
 Resumability: `reembed_done` table records progress; any interrupted run continues where it
 stopped. Dry-run remains the default; `--apply` required to write.
+
+---
+
+## §27 — Legacy un-embedded purge executed after review (2026-09-22)
+
+Owner directive: "purge the 108k legacy chunks outside the field containers that were never
+embedded and are not part of Sentinel's sciences — after listing them for review."
+
+### The review changed the plan (this is why we list first)
+The 108,006 outside-container never-embedded chunks are NOT all junk:
+- **104,784 are `computer-and-information-sciences`** — the Qwen-era coding corpus
+  (repo files + German FastAPI docs), sitting outside containers only because it predates
+  the layout. A Sentinel science on paper → NOT auto-purged; owner decision pending
+  (note: the German docs also violate the English-only directive).
+- **3,220 belong to field-labeled documents** (incl. SENTINEL-v2, the Constitution, concept
+  papers) → kept, untouched.
+- **The true junk: 2,922 chunks / 28 blank-field documents** — duplicate uploads
+  (Quantum_Doctrine ×5, Organisation_Design ×8, qualia-lab ×2, all content preserved in
+  archived originals or better-labeled siblings) + stale `instructions_*` session notes.
+
+### Executed
+`scripts/purge_legacy_unembedded.py` (dry-run default, `--apply` executed):
+- gzip backup first: `data/exports/purge-backup-legacy-unembedded.json.gz` (830 KB, every
+  document row + full chunk text) + manifest in `Logs/`.
+- **Resurrection guard**: `file_ingest_state` 'ok' rows (main DB) for all 16 unique source
+  paths, so auto-ingest cannot re-digest the purged files.
+- Atomic delete of chunks + chunk_fts + documents.
+
+### Verified after purge
+- 0 doomed docs/chunks remain; documents 5,588 → **5,560**; chunks 187,855 → **184,933**;
+  never-embedded backlog 153,660 → **150,738** (re-embed dry-run numbers shift accordingly:
+  scope=all ≈ 184,933).
+- Owner's papers intact (SENTINEL-v2 ×2, Constitution ×2, Quantum_Doctrine #3 under
+  "Quantum Physics"); all field containers intact (CS&AI 105,104 chunks; Biology,
+  chemistry, Psychology, Physics, materials-science …).
+- Two script bugs caught live (guard table lives in the main DB; sys.path for app imports)
+  — fixed before any deletion occurred; the transaction had aborted cleanly both times.
+
+### Open decision for the owner
+The Qwen-era coding corpus (104,784 CS&AI chunks outside containers, largely German + code):
+keep (it is a Sentinel science and may feed future CS fine-tuning), purge as Qwen traces per
+the lean-Sentinel directive, or migrate it into the CS&AI container properly. A separate
+review listing can be produced anytime.
