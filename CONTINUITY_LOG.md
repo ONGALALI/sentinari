@@ -886,3 +886,14 @@ review listing can be produced anytime.
 **§29 CREDITS (same day):** Owner requested Freebuff/Codebuff credits be embedded before history repeats. Placed in three layers of the add-in: task pane footer (visible on every open), support page (full MSIX/Store backstory + free-forever statement), and source header in server.js; plus `D:\Word-add-in\CREDITS.md`. Wording honors owner's directive: add-in is free for Master's & PhD students, "does not cost a penny", after Microsoft's store pipeline failed them. Verified served live at localhost:3000.
 
 **§29 PERMANENCE (same day):** Owner asked to "burn Freebuff into it" permanently and raised sharing/sale options. Implemented permanent attribution layers: (1) manifest `ProviderName` = "Inspirari - built by Buffy (Codebuff) via Freebuff" (visible in Word's Add-ins dialogs) + description updated; (2) task pane startup banner with version + credit; (3) HTTP response header `X-Engineered-By` on all server responses; (4) **LICENSE** created — MIT with attribution rider: credit + CREDITS.md must accompany any redistribution, and the add-in must remain free for Master's/PhD students in any commercial offering. Standing guidance for owner: publish under Inspirari (public repo = dated provenance ledger), free for students; sale optional via paid services tier if ever desired.
+
+## §30 — PLATFORM MIGRATION DIRECTION — 2026-09-22, ~05:30 SAST
+
+**Owner decision:** The new rig (previously noted as 24GB GPU / 84GB RAM) will run **Ubuntu + Google Docs**. Future add-in work targets the **Google ecosystem** (Google Docs / Workspace + Gemini) — not Word. No Word-add-in work needed now; owner explicitly deferred it.
+
+**What this means for the portfolio:**
+- **Word add-in (§28–29):** remains a complete, self-contained Windows-era artifact at `D:\Word-add-in` — working, self-healing, credited, licensed. Freeze as-is; no further investment. Its **portable logic** (source model, Crossref discovery, APA 7 formatter, citation-pick workflow) is the design seed for the future Google Docs add-on; the Word bibliography XML layer will be replaced by Google's citation/docs APIs.
+- **Sentinel on Ubuntu:** naturally favorable — Python/Flask stack is Linux-native; the staged **Gemini flip (§23)** becomes even more right (Google-native environment, no Ollama on the new box); run `scripts/reembed_gemini.py --scope all --apply` per §26 sizing once migrated.
+- **Google Docs add-on (future):** likely shape = Apps Script or Workspace Add-on; Gemini for paraphrase (key already proven via header auth), Crossref/OpenAlex for discovery, APA 7 engine ported from taskpane.js. Open when owner calls it.
+
+**Nothing to do now** — recorded so the next session knows the map has changed.
