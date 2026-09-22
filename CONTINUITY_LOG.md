@@ -880,3 +880,5 @@ review listing can be produced anytime.
 - Source discovery remains **Crossref** (cited-works quality, per owner's source policy).
 
 **Owner next actions:** restart Word / reopen the task pane to load the new HTML+JS (Office caches the pane); select Paraphrase Provider = Google Gemini; the key auto-fills.
+
+**§29 OWNER CONTEXT (same day):** The add-in was originally developed fully online and compiled as **MSIX for the Microsoft Store**; after a long wait it was never listed, and a platform change broke the deployed add-in with it. That experience drove the owner's decision to **bypass Microsoft's store/catalog pipeline entirely** — hence the local-server + local-registration architecture now in place (owner-hosted, self-healing, platform-change-proof). Standing design principle going forward: keep the add-in fully local-first; no dependency on Microsoft approval cycles or store infrastructure.
