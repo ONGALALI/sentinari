@@ -909,3 +909,17 @@ review listing can be produced anytime.
 **Server left running** on 8099 under the new name — owner can hard-refresh (Ctrl+F5) to meet Sentinari.
 
 **§31 GEMMA REBRAND (same day):** Owner asked if removing "Gemma 4:12" labels for Sentinari is lawful/ethical. Answer delivered: YES with two bright lines. (1) Lawful: renaming AWAY from Google's trademark is the compliant direction; Gemma terms attach branding obligations only to redistributing weights, not to running the model under your own product name. (2) Ethical: provenance honesty — added footer line: "Sentinel currently runs on Google's Gemma-family open models, transitioning to Gemini — lineage stated honestly, identity her own." Technical bright line: lowercase `gemma` plumbing (library_gemma, /api/gemma-lab, gemma4:26b model tags, gemma_reachable keys, startGemma handlers) deliberately preserved — renaming those crashes code and honors nothing. Display sweep executed across remaining consoles missed by the first SMi pass (inpirari_start, gemma_direct, a1_logs, admin_login, gemma_qualia, model_deviation_lab, playground_workbench): all user-visible "Gemma"/version tags → Sentinel/Sentinari. Verified: zero display-Gemma remaining; Start/Direct pages live under new names; all plumbing green.
+
+## §32 — FOLDER RENAMED: D:\inpirari\SMI_Core → D:\inpirari\Sentinari — 2026-09-22, ~07:00 SAST
+
+**Why:** Owner faces a mandatory GitHub upload (Devpost requirement) and asked whether the SMI_Core folder name affects the repo. Audit showed a rename was fully safe: code resolves the project root dynamically (Path(__file__).parents[1]); all settings paths are relative; git travels with the folder (.git intact, all 109 tracked files + history preserved). Full rename executed with owner approval.
+
+**What changed:**
+- Folder: D:\inpirari\SMI_Core → **D:\inpirari\Sentinari** (git history untouched — verified .git present, branch main).
+- `config/adapter_registry.yaml` workspace_root: the ONLY hardcoded absolute path in tracked files → now relative "./".
+- `.venv` recreated (its pyvenv.cfg pinned the old absolute path); requirements reinstalled clean.
+- Servers stopped before the move (uvicorn 8099 + venv python); Word add-in server on :3000 lives in D:\Word-add-in and was untouched.
+
+**Verified live from new root:** playground/search/start all 200; "Sentinari by Inspirari" renders; zero boot errors; parent D:\inpirari\.env (Gemini key for the add-in) unaffected.
+
+**Standing notes:** the misspelled parent folder D:\inpirari remains by design (displays everywhere say Inspirari; the parent holds launcher scripts for the separate ETDP/Qwen-era tools — untouched). GitHub repo should be named **Sentinari**. On Ubuntu, the home can be ~/Sentinari — nothing is path-pinned anymore.
