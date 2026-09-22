@@ -845,3 +845,38 @@ The Qwen-era coding corpus (104,784 CS&AI chunks outside containers, largely Ger
 keep (it is a Sentinel science and may feed future CS fine-tuning), purge as Qwen traces per
 the lean-Sentinel directive, or migrate it into the CS&AI container properly. A separate
 review listing can be produced anytime.
+
+## §28 — Word Add-in persistent sideload (ETDP APA 7 Research Assistant) — 2026-09-22, ~04:15 SAST
+
+**Problem:** Owner's Word citation add-in (`manifest.xml` + `server.js` + `web/`) vanished from Word after every Office update. Prior attempts used `office-addin-dev-settings register` / `npm run sideload` (session-scoped developer registrations that Word tooling removes) and Word-on-the-web upload (per-session).
+
+**Root cause identified:** No Trusted Catalog existed (`HKCU\...\WEF\TrustedCatalogs` was empty). Dev-style sideloads are ephemeral by design; the persistent mechanism is a Trust Center **trusted folder catalog**, which Word re-enumerates at every startup and Office updates never remove.
+
+**What was done:**
+- Project copied from `C:\Users\m3isd\personal\ETDP\word-addin-apa-assistant` to **`D:\Word-add-in`** (owner's intended location — the LIVE copy; edits belong here now).
+- Dev cert CA installed/trusted (`office-addin-dev-certs install`, user Root store).
+- **Trusted Catalog registered** (HKCU, Flags=1): `HKCU\Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{E7A1F3C2-5B9D-4E6A-8F4C-1D2B3A4C5D6E}` → `D:\Word-add-in\`.
+- Server hardened: `PORT=0` sandbox-env bug guarded (falls back to 3000); runs as `run-server.cmd` (hidden via `start-hidden.vbs`), logs to `server.log`; live on `https://localhost:3000` (127.0.0.1 + ::1).
+- Logon autostart via HKCU Run key `ETDP-Word-APA-Server` (schtasks needed admin; Run key doesn't).
+- **One-click repair tool:** `D:\Word-add-in\repair-word-apa-sideload.cmd` — re-trusts certs, re-registers catalog, re-arms autostart, restarts server. Run whenever the add-in ever disappears.
+- Manifest passes official `office-addin-manifest validate`.
+
+**Owner steps (once):** close ALL Word windows → reopen → Insert > My Add-ins > **SHARED FOLDER** tab → "ETDP APA 7 Research Assistant" → Add. Ribbon button lands in Home > "ETDP Research Tools".
+
+**Word is left running untouched** (owner's documents open); catalog is read at Word start, hence the restart.
+
+**§28 CORRECTION (same day, ~04:35):** Drive-letter catalog URLs (`D:\Word-add-in\`) are silently ignored by current Word builds — the trusted-folder catalog REQUIRES an SMB share and a UNC Url (`\localhost\WordAddin`), per MS docs "Sideload Office Add-ins on Windows from a network share" (learn.microsoft.com, 2026-06-11). Fixed: created SMB share `WordAddin` → `D:\Word-add-in` (elevated, owner-approved), rewrote catalog Url to `\localhost\WordAddin` + `Id` value (via Python winreg to avoid shell backslash mangling), repair script updated to match. Word cycled fresh after the change. Lesson: Word's Shared Folder enumeration wants UNC; HKCU reg writes through Git Bash need winreg/PowerShell-single-quoted to preserve double backslashes.
+
+## §29 — Word Add-in: sideload WIN + OpenAI purged → Google Gemini — 2026-09-22, ~05:10 SAST
+
+**The add-in now loads in Word.** Working mechanism (after the folder-catalog path was suppressed on this consumer build O365HomePremRetail 16.0.20326): the **developer sideload registration** (`HKCU\...\WEF\Developer\{add-in GUID}` → manifest path) via `office-addin-dev-settings register`. Owner confirmed the add-in appears and opens.
+
+**Self-healing against Office updates (the original complaint):** `D:\Word-add-in\rearm-sideload.ps1` runs at every logon (via `start-hidden.vbs` → HKCU Run key `ETDP-Word-APA-Server`): re-writes the dev-sideload key, re-ensures the trusted-catalog entry, and starts the HTTPS server if down. After any Office update clears the registration, the next logon restores it before Word launches. `repair-word-apa-sideload.cmd` = manual one-click version. Logs to `rearm.log`.
+
+**OpenAI → Google Gemini (owner directive, portfolio consistency):**
+- `taskpane.html/js`: provider dropdown OpenAI→Google Gemini (recommended), model default `gemini-flash-latest`, key field; all OpenAI fetch/localStorage/UI refs replaced.
+- Gemini call uses **header auth** (`x-goog-api-key` — §23 lesson: `?key=` is deprecated) against `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`; manifest AppDomain updated.
+- Key auto-fill: server endpoint `/api/local-config` reads the Gemini key from `D:\inpirari\.env` (parent dir — NOT SMI_Core) and the task pane pre-fills it at load (loopback-only; key never stored in the shared folder).
+- Source discovery remains **Crossref** (cited-works quality, per owner's source policy).
+
+**Owner next actions:** restart Word / reopen the task pane to load the new HTML+JS (Office caches the pane); select Paraphrase Provider = Google Gemini; the key auto-fills.
