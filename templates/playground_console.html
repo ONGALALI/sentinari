@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SMi Autonomous Playground</title>
+  <title>Sentinari by Inspirari</title>
   <style>
     :root {
       --bg: #eef3f8;
@@ -488,7 +488,7 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand">SMi</div>
+      <div class="brand">Sentinel</div>
       <div class="sidecopy">Landing dashboard for the main playground workflow.</div>
       <nav class="nav">
         <a href="/ui/playground" class="active">Dashboard Home<small>Main landing page.</small></a>
@@ -499,7 +499,7 @@
         <a href="#sentinel-grid">Sentinel Domains<small>Scientific fields feeding the main LLM.</small></a>
         <a href="/ui/patterns">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
         <a href="/ui/search">Search Library<small>Datasets ingested per scientific field.</small></a>
-        <a href="/ui/model-lab">Model Deviation Lab<small>Score SMi against Gemini, Grok, Claude, and manual answers.</small></a>
+        <a href="/ui/model-lab">Model Deviation Lab<small>Score Sentinel against Gemini, Grok, Claude, and manual answers.</small></a>
         <a href="#tutor-mode">Exploratory Composite Indices<small>Constructed display, audit log, and sandbox proposals.</small></a>
         <a href="/ui/playground/wan">Workflow 2 CPU Video<small>Script, scenes, image stitch, and MP4 export.</small></a>
         <a href="/ui/playground/workbench-a">Workbench A<small>Blank task sandbox.</small></a>
@@ -510,7 +510,7 @@
 
     <main class="page-shell">
       <div class="wrap">
-        <h1>SMi Autonomous Playground</h1>
+        <h1>Sentinari by Inspirari</h1>
         <div class="hint">Main landing page for workflow 1. Chat, qualia controls, and phenomenodynamic analysis stay here; CPU video runs on its own page.</div>
         <div id="llmRuntimeAlert" class="alert-panel"></div>
         <div id="resonanceMatrixAlert" class="alert-panel"></div>
@@ -611,7 +611,7 @@
 
         <div class="layout" id="chat-lab">
       <div class="card">
-        <h2>SMi Chat Lab</h2>
+        <h2>Sentinel Chat Lab</h2>
         <div class="row">
           <div class="field" style="flex:0 1 170px;">
             <label for="chatMode">Chat Mode</label>
@@ -622,7 +622,7 @@
           </div>
           <div class="field" style="flex:1 1 180px;">
             <label for="personaName">Persona Name</label>
-            <input id="personaName" type="text" placeholder="SMi">
+            <input id="personaName" type="text" placeholder="Sentinel">
           </div>
           <div class="field" style="flex:2 1 260px;">
             <label for="personaTone">Persona Tone</label>
@@ -649,10 +649,10 @@
 
         <div class="chat-box" id="chatBox"></div>
         <div class="row" style="margin-top:10px;">
-          <textarea id="chatInput" placeholder="Ask SMi anything, or upload files below to teach her..."></textarea>
+          <textarea id="chatInput" placeholder="Ask Sentinel anything, or upload files below to teach her..."></textarea>
         </div>
         <div class="soft-panel" style="margin-top:10px;">
-            <strong>Give SMi files in this chat</strong>
+            <strong>Give Sentinel files in this chat</strong>
             <div class="hint">Files are stored, digested into the knowledge library, and referenced in this conversation.</div>
             <div class="row" style="margin-top:8px;">
               <div class="field" style="flex:2 1 360px;">
@@ -695,8 +695,8 @@
     <div class="card" id="skills-manager" style="margin-top:14px;">
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
-              <h2>Skills Manager &mdash; Upload Skills SMi Can Fall Back On</h2>
-              <div class="hint">Upload code, snippets, and reference files as named skills. When a chat task matches a skill name, SMi automatically uses it as coding fallback context. Use a &quot;Name / Description&quot; first line in each file to describe the skill.</div>
+              <h2>Skills Manager &mdash; Upload Skills Sentinel Can Fall Back On</h2>
+              <div class="hint">Upload code, snippets, and reference files as named skills. When a chat task matches a skill name, Sentinel automatically uses it as coding fallback context. Use a &quot;Name / Description&quot; first line in each file to describe the skill.</div>
             </div>
             <div class="mono">data/skills</div>
           </div>
@@ -742,7 +742,7 @@
         <div class="card" id="learning-check" style="margin-top:14px;">
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
-              <h2>Learning Check &mdash; Is SMi Actually Learning?</h2>
+              <h2>Learning Check &mdash; Is Sentinel Actually Learning?</h2>
               <div class="hint">Runs the same question with the knowledge library switched on and off. If the library-on answer is grounded in your uploaded datasets, it will differ from the bare-model answer and cite them.</div>
             </div>
             <div class="mono">A/B probe</div>
@@ -1052,7 +1052,7 @@
     const escapeHtml = (value) => String(value || '').replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
     const currentPersonaLabel = () => {
       const raw = String(byId('personaName')?.value || '').trim();
-      return raw || 'SMi';
+      return raw || 'Sentinel';
     };
     const setStatus = (id, text, ok) => {
       const el = byId(id);
@@ -1069,7 +1069,7 @@
         statusEl.textContent = state.serverOnline ? 'ON' : 'OFF';
       }
       if (detailEl) {
-        detailEl.textContent = detail || (state.serverOnline ? 'SMi is reachable.' : 'SMi is offline or not responding.');
+        detailEl.textContent = detail || (state.serverOnline ? 'Sentinel is reachable.' : 'Sentinel is offline or not responding.');
       }
     };
 
@@ -3501,8 +3501,8 @@
     // other sciences stay stored but leave this lane until cleared or re-queried.
     loadScientificCandidates().catch(() => {});
 
-    const SMi_WELCOME_TEXT = 'Welcome to SMi. I am your grounded research companion: 21 Sentinel scientific fields feed what I know, every answer leans on that library, and you can teach me directly — upload PDFs or point me at a GitHub dataset in the Knowledge Grid above. Ask, teach, verify. Where shall we begin?';
-    const appendWelcomeMessage = () => appendMessage('ai', SMi_WELCOME_TEXT, `${currentPersonaLabel()} · welcome`);
+    const Sentinel_WELCOME_TEXT = 'Welcome to Sentinel. I am your grounded research companion: 21 Sentinel scientific fields feed what I know, every answer leans on that library, and you can teach me directly — upload PDFs or point me at a GitHub dataset in the Knowledge Grid above. Ask, teach, verify. Where shall we begin?';
+    const appendWelcomeMessage = () => appendMessage('ai', Sentinel_WELCOME_TEXT, `${currentPersonaLabel()} · welcome`);
     const restoreHistory = async () => {
       if (state.historyLoaded) return;
       if (!state.sessionId) {
@@ -3578,7 +3578,7 @@
       } else if (transport === 'unsupported') {
         lines.push('The configured chat model does not expose a usable text generation capability.');
       } else if (transport === 'error') {
-        lines.push('SMi could not inspect the local Ollama runtime cleanly.');
+        lines.push('Sentinel could not inspect the local Ollama runtime cleanly.');
       }
       warnings.forEach((warning) => lines.push(String(warning)));
 
@@ -3593,7 +3593,7 @@
       const hasResonance = sources.some((item) => String(item || '').toLowerCase().includes('resonance matrix'));
       const body = hasResonance
         ? 'RESONANCE MATRIX is loaded. Open the left menu → Qualia Lab, then look for "Qualia Sources Loaded".'
-        : 'RESONANCE MATRIX is NOT loaded. This usually means you are running a different SMi folder than the one you edited, or config/settings.yaml does not include it.';
+        : 'RESONANCE MATRIX is NOT loaded. This usually means you are running a different Sentinel folder than the one you edited, or config/settings.yaml does not include it.';
       el.innerHTML = `<strong>Resonance Matrix Status</strong>${String(body).replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]))}`;
       el.style.display = 'block';
       el.style.borderColor = hasResonance ? '#b8e2c6' : '#e2c28f';
@@ -3658,7 +3658,7 @@
       const data = await readApiJson(res);
       if (!res.ok || !data.ok) throw new Error(data.detail || data.error || 'Failed to load config.');
 
-      byId('personaName').value = String(data.defaults?.persona_name || 'SMi');
+      byId('personaName').value = String(data.defaults?.persona_name || 'Sentinel');
       byId('personaTone').value = String(data.defaults?.persona_tone || '');
       byId('variant').value = String(data.defaults?.behavior_variant ?? 0.1);
       byId('reasoningProfile').value = 'normal';
@@ -3903,7 +3903,7 @@
         lines.length
           ? `Indexed for this conversation:\n${lines.join('\n')}\n\nYou can now ask me about this material.`
           : 'Upload received, but indexing did not succeed. Check the status line.',
-        'SMi (files)'
+        'Sentinel (files)'
       );
       setStatus('chatUploadStatus', `Uploaded ${files.length}, indexed ${okCount}.`, okCount > 0);
       byId('chatUploadSummary').textContent = `Latest upload: ${names}`;
@@ -3942,7 +3942,7 @@
       if (!silent) {
         setStatus('skillsStatus', `Skills ready: ${data.skill_count} skill(s), ${data.chunk_count} indexed chunks.`, true);
         byId('skillsSummary').textContent = data.skill_count
-          ? 'Skills are available to SMi as coding fallback context.'
+          ? 'Skills are available to Sentinel as coding fallback context.'
           : 'No skills yet. Upload code or reference files above.';
       }
     };
@@ -4112,7 +4112,7 @@
   </script>
 
   <footer class="app-credits" style="margin:26px auto 34px; text-align:center; font-size:12.5px; color:var(--muted); max-width:900px; line-height:1.55;">
-    SMi Autonomous Playground — engineered with <strong>Codebuff</strong> by <strong>Buffy</strong>, the Codebuff coding agent.<br>
+    Sentinari by Inspirari — engineered with <strong>Codebuff</strong> by <strong>Buffy</strong>, the Codebuff coding agent.<br>
     Scientific field Guardians · tri-source dataset discovery &amp; review (GitHub · Hugging Face · OpenAlex) · ingestion gateway &amp; firewall ·
     provider-agnostic LLM gateway · Sentinel Pattern-Recognition MVP · 2026.
   </footer>

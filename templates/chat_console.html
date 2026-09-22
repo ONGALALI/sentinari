@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SMi Chat Console</title>
+  <title>Sentinel Chat Console</title>
   <style>
     :root {
       --bg: #eef3f8;
@@ -59,7 +59,7 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>SMi Chat Console</h1>
+      <h1>Sentinel Chat Console</h1>
       <div class="hint">Default mode is normal chat. Reasoning mode supports assessment analytics (variance + optimization) and architecture diagnostics.</div>
 
       <div class="row">
@@ -89,13 +89,13 @@
         </div>
         <div class="field" style="flex:1 1 220px;">
           <label for="personaName">Persona Name</label>
-          <input id="personaName" type="text" value="SMi">
+          <input id="personaName" type="text" value="Sentinel">
         </div>
       </div>
 
       <div class="chat-box" id="chatBox"></div>
       <div class="row" style="margin-top:10px;">
-        <textarea id="chatInput" placeholder="Type your message to SMi..."></textarea>
+        <textarea id="chatInput" placeholder="Type your message to Sentinel..."></textarea>
       </div>
       <div class="row" style="margin-top:10px;">
         <div class="field" style="flex:1 1 320px;">
@@ -106,7 +106,7 @@
             multiple
             accept=".pdf,.docx,.txt,.md,.html,.htm,.csv,.json,.xml,.yaml,.yml,.log,.py,.cs,.js,.jsx,.ts,.tsx,.ps1,.sql"
           >
-          <div class="upload-hint">Uploaded files are indexed into SMi immediately, then you can ask questions about them in this chat.</div>
+          <div class="upload-hint">Uploaded files are indexed into Sentinel immediately, then you can ask questions about them in this chat.</div>
         </div>
       </div>
       <div id="uploadList" class="upload-list">No documents selected.</div>
@@ -144,7 +144,7 @@
     };
     const currentPersonaLabel = () => {
       const raw = String(byId('personaName')?.value || '').trim();
-      return raw || 'SMi';
+      return raw || 'Sentinel';
     };
     const setStatus = (text, ok) => {
       const el = byId('chatStatus');
@@ -263,7 +263,7 @@
         if (!res.ok || data.ok === false) {
           const err = data.detail || data.error || 'Document upload failed.';
           setStatus(err, false);
-          appendMessage('ai', err, 'SMi Upload');
+          appendMessage('ai', err, 'Sentinel Upload');
           return;
         }
 
@@ -278,7 +278,7 @@
           ? `Indexed ${ingested} document(s): ${uploadedNames.join(', ')}.`
           : `Indexed ${ingested} document(s).`;
 
-        appendMessage('ai', summary, 'SMi Upload');
+        appendMessage('ai', summary, 'Sentinel Upload');
         setStatus(
           failed > 0
             ? `Upload complete. Ingested ${ingested} document(s), ${failed} failed.`
@@ -413,7 +413,7 @@
       e.returnValue = '';
     });
 
-    setStatus('SMi Chat Console ready. Chat mode selected by default. Reasoning profile lock: Normal; variant range 0.1 to 25.0.', true);
+    setStatus('Sentinel Chat Console ready. Chat mode selected by default. Reasoning profile lock: Normal; variant range 0.1 to 25.0.', true);
     renderSelectedFiles();
     restoreHistory().catch((err) => setStatus(err.message || String(err), false));
   </script>

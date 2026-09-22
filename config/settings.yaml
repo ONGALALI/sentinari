@@ -154,3 +154,7 @@ ingestion:
   # ingest write-lock is held. Chunks that miss the budget are stored
   # without vectors (scripts/reembed_gemini.py can fill them later).
   embed_budget_seconds: 300
+  # §31 (owner, lean-Sentinel): the Qwen-era coding-corpus sync swept
+  # Sentinel's own source (app/scripts/templates/config) into the knowledge
+  # library on every startup. Sentinel's code is engineering, not knowledge.
+  auto_sync_coding_corpus: false

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SMi Operator Console</title>
+  <title>Sentinel Operator Console</title>
   <style>
     :root {
       --bg: #eff4f8;
@@ -278,7 +278,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>SMi Operator Console</h1>
+    <h1>Sentinel Operator Console</h1>
     <div class="small">Persistent control surface for profile, guardrails, learning-field seeding, and task assignment.</div>
     <div class="toolbar-links">
       <a class="link-button" href="/ui/playground">Return to Playground</a>
@@ -345,7 +345,7 @@
       <div class="grid" style="margin-top:10px;">
         <div class="field">
           <label for="name">Name</label>
-          <input id="name" type="text" maxlength="80" placeholder="SMi">
+          <input id="name" type="text" maxlength="80" placeholder="Sentinel">
         </div>
         <div class="field">
           <label for="tone">Tone</label>
@@ -363,17 +363,17 @@
 
       <div class="field wide" style="margin-top:10px;">
         <label for="purpose">Purpose</label>
-        <textarea id="purpose" placeholder="Stable purpose statement for SMi."></textarea>
+        <textarea id="purpose" placeholder="Stable purpose statement for Sentinel."></textarea>
       </div>
 
       <div class="field wide" style="margin-top:10px;">
         <label for="domainFocus">Scope / Domain Focus</label>
-        <textarea id="domainFocus" placeholder="What domains SMi should focus on."></textarea>
+        <textarea id="domainFocus" placeholder="What domains Sentinel should focus on."></textarea>
       </div>
 
       <div class="field wide" style="margin-top:10px;">
         <label for="scopePolicy">Out-of-Scope Policy</label>
-        <textarea id="scopePolicy" placeholder="What SMi should decline, redirect, or ask before acting on."></textarea>
+        <textarea id="scopePolicy" placeholder="What Sentinel should decline, redirect, or ask before acting on."></textarea>
       </div>
 
       <div class="field wide" style="margin-top:10px;">
@@ -383,7 +383,7 @@
 
       <div class="field wide" style="margin-top:10px;">
         <label for="generalAddendum">General Addendum</label>
-        <textarea id="generalAddendum" placeholder="Persistent general addendum applied to SMi behavior."></textarea>
+        <textarea id="generalAddendum" placeholder="Persistent general addendum applied to Sentinel behavior."></textarea>
       </div>
 
       <div class="field wide" style="margin-top:10px;">
@@ -519,14 +519,14 @@ Environmental Science</textarea>
       <div class="row spread">
         <div>
           <h2>Task Board</h2>
-          <div class="small">Assign short structured tasks to SMi, save them permanently, and capture her feedback plus your evaluation.</div>
+          <div class="small">Assign short structured tasks to Sentinel, save them permanently, and capture her feedback plus your evaluation.</div>
         </div>
         <div class="row">
           <span id="currentTaskPill" class="pill">Task: new</span>
           <button id="btnTaskCreate">Create Task</button>
           <button id="btnTaskUpdate" class="secondary">Update Task</button>
           <button id="btnTaskUpload" class="secondary">Upload Documents</button>
-          <button id="btnTaskAsk" class="ghost">Ask SMi</button>
+          <button id="btnTaskAsk" class="ghost">Ask Sentinel</button>
           <button id="btnTaskClear" class="secondary">Clear Form</button>
           <button id="btnTaskRefresh" class="ghost">Refresh Tasks</button>
         </div>
@@ -552,7 +552,7 @@ Environmental Science</textarea>
 
       <div class="field task-field" style="margin-top:10px;">
         <label for="taskToPerform">Task to perform</label>
-        <textarea id="taskToPerform" placeholder="Describe the task you want SMi to complete."></textarea>
+        <textarea id="taskToPerform" placeholder="Describe the task you want Sentinel to complete."></textarea>
       </div>
 
       <div class="field task-field" style="margin-top:10px;">
@@ -562,7 +562,7 @@ Environmental Science</textarea>
 
       <div class="field task-field" style="margin-top:10px;">
         <label for="taskKnowledgeLibrary">Knowledge Library Applicable</label>
-        <textarea id="taskKnowledgeLibrary" placeholder="Point SMi to the relevant knowledge library, document area, or subject scope."></textarea>
+        <textarea id="taskKnowledgeLibrary" placeholder="Point Sentinel to the relevant knowledge library, document area, or subject scope."></textarea>
       </div>
 
       <div class="field task-field" style="margin-top:10px;">
@@ -573,7 +573,7 @@ Environmental Science</textarea>
           multiple
           accept=".pdf,.docx,.txt,.md,.html,.htm,.csv,.json,.xml,.yaml,.yml,.log,.py,.cs,.js,.jsx,.ts,.tsx,.ps1,.sql"
         >
-        <div class="upload-hint">Upload source documents for the selected task. SMi ingests them immediately and keeps them listed on the task record.</div>
+        <div class="upload-hint">Upload source documents for the selected task. Sentinel ingests them immediately and keeps them listed on the task record.</div>
       </div>
 
       <div id="taskUploadSelection" class="upload-list">No task documents selected.</div>
@@ -581,7 +581,7 @@ Environmental Science</textarea>
 
       <div class="field task-field" style="margin-top:10px;">
         <label for="taskFeedback">Feedback column by her</label>
-        <textarea id="taskFeedback" placeholder="SMi feedback is stored here after Ask SMi or manual editing."></textarea>
+        <textarea id="taskFeedback" placeholder="Sentinel feedback is stored here after Ask Sentinel or manual editing."></textarea>
       </div>
 
       <div class="field task-field" style="margin-top:10px;">
@@ -623,7 +623,7 @@ Environmental Science</textarea>
 
   <script>
     const exampleAddendum = [
-      "Keep SMi aligned to stable evidence-first reasoning, pattern recognition, and grounded knowledge work.",
+      "Keep Sentinel aligned to stable evidence-first reasoning, pattern recognition, and grounded knowledge work.",
       "Prefer concise action over long framing; show risks and blockers explicitly.",
       "When context is missing, ask the smallest necessary clarification instead of guessing.",
       "Use indexed sources and retained session memory before broadening scope.",
@@ -710,7 +710,7 @@ Environmental Science</textarea>
           ...options,
         });
       } catch (error) {
-        throw new Error(`${fallback} Could not reach the local SMi service. Confirm 127.0.0.1:8099 is running, then press Refresh.`);
+        throw new Error(`${fallback} Could not reach the local Sentinel service. Confirm 127.0.0.1:8099 is running, then press Refresh.`);
       }
     };
 
@@ -797,7 +797,7 @@ Environmental Science</textarea>
           `<td class="clip">${escapeHtml(shortText(task.smi_feedback, 220))}</td>`,
           `<td class="clip">${escapeHtml(shortText(task.evaluation, 220))}</td>`,
           `<td class="compact">${escapeHtml(task.updated_at || '')}</td>`,
-          `<td class="compact"><div class="actions"><button class="ghost" data-action="select" data-task-id="${escapeHtml(task.id)}">Select</button><button class="secondary" data-action="ask" data-task-id="${escapeHtml(task.id)}">Ask SMi</button></div></td>`
+          `<td class="compact"><div class="actions"><button class="ghost" data-action="select" data-task-id="${escapeHtml(task.id)}">Select</button><button class="secondary" data-action="ask" data-task-id="${escapeHtml(task.id)}">Ask Sentinel</button></div></td>`
         ].join('');
         body.appendChild(tr);
       });
@@ -1128,20 +1128,20 @@ Environmental Science</textarea>
       if (!resolvedId) {
         const task = await persistTask();
         if (!task || !task.id) {
-          throw new Error('Task could not be created before asking SMi.');
+          throw new Error('Task could not be created before asking Sentinel.');
         }
         return askSmiForTask(task.id);
       }
-      setMessage('taskMessage', `Sending task ${resolvedId} to SMi...`, true);
-      const res = await apiFetch(`/api/admin/tasks/${encodeURIComponent(resolvedId)}/ask-smi`, { method: 'POST' }, 'SMi task run failed.');
+      setMessage('taskMessage', `Sending task ${resolvedId} to Sentinel...`, true);
+      const res = await apiFetch(`/api/admin/tasks/${encodeURIComponent(resolvedId)}/ask-smi`, { method: 'POST' }, 'Sentinel task run failed.');
       if (redirectIfUnauthorized(res)) return;
-      const data = await readApiJson(res, 'SMi task run failed.');
+      const data = await readApiJson(res, 'Sentinel task run failed.');
       if (!res.ok || !data.ok) {
-        throw new Error((data && (data.detail || data.error)) || 'SMi task run failed.');
+        throw new Error((data && (data.detail || data.error)) || 'Sentinel task run failed.');
       }
       fillTaskForm(data.task || {});
       await loadTasks();
-      setMessage('taskMessage', `SMi feedback saved for task ${resolvedId}.`, true);
+      setMessage('taskMessage', `Sentinel feedback saved for task ${resolvedId}.`, true);
     };
 
     const callIngestEndpoint = async (path, doneMessage) => {

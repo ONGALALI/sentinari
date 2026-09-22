@@ -187,6 +187,20 @@ class AutoIngestService:
                 # lanes, and a no-embedding re-digest would wipe fresh vectors.
                 if "scientific_fields" in path.parts:
                     continue
+                # §31 (owner): Sentinel's own code is not knowledge. Never
+                # auto-digest files under the project's own templates/app/
+                # scripts/config directories. Dataset repos elsewhere (e.g.
+                # github checkouts inside containers with their own scripts/
+                # folders) are knowledge and stay eligible.
+                _project_root = Path(__file__).resolve().parents[1]
+                try:
+                    _relative = path.resolve().relative_to(_project_root)
+                except ValueError:
+                    _relative = None
+                if _relative is not None and _relative.parts and _relative.parts[0] in {
+                    "templates", "app", "scripts", "config"
+                }:
+                    continue
                 if self._is_discussion_memory_file(path, settings):
                     continue
                 if is_protected_path(path, settings=settings) and not self._is_allowed_protected_ingest(path, settings):

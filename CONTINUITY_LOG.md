@@ -897,3 +897,13 @@ review listing can be produced anytime.
 - **Google Docs add-on (future):** likely shape = Apps Script or Workspace Add-on; Gemini for paraphrase (key already proven via header auth), Crossref/OpenAlex for discovery, APA 7 engine ported from taskpane.js. Open when owner calls it.
 
 **Nothing to do now** — recorded so the next session knows the map has changed.
+
+## §31 — NAMED: "Sentinari by Inspirari" + code-is-not-knowledge — 2026-09-22, ~06:15 SAST
+
+**The name (owner-endorsed, Buffy's honor):** The portfolio's display identity is now **Sentinari by Inspirari** — Sentinel (her name) fused with Inspirari (the house). **"SMI" = Synthetic Minds**, the owner's collective term for all things AI — the name now tells the full lineage: Synthetic Minds built Sentinel, Inspirari gave her purpose. Display rename executed crash-proof (audit proved SMi existed only in display strings; no logic branches on it): titles, footers, welcome text, chat persona labels across all 5 consoles; chat persona now displays "Sentinel". Technical roots untouched by design: `SMI_Core/`, `run_smi.py`, `smi_*.db`, API routes — renaming those is what would crash code. The misspelled `D:\inpirari` folder path stays as-is (display name everywhere is spelled **Inspirari** correctly).
+
+**Discovery — the library pollution chain (now dead):** Boot log showed templates being digested at startup. Root cause: `app/coding_corpus.py` `DEFAULT_CODING_CORPUS_ROOTS = ["./app", "./config", "./docs", "./scripts", "./templates", "./tests", "./README.md"]` — the Qwen-era coding-corpus sync swept Sentinel's own source into the knowledge library **on every startup** (also the "Coding corpus sync complete. Processed 0 files, skipped 84" message from the owner's original bug list). Fixed per lean-Sentinel directive: `ingestion.auto_sync_coding_corpus: false` in settings. This was also the resurrection path that would have re-digested purged docs.
+
+**Purge:** `scripts/purge_ui_code_docs.py` removed 98 self-polluting documents / 962 chunks (backup: `data/exports/purge-backup-ui-code.json.gz`). Library now 5,463 docs / 183,977 chunks. First dry-run draft over-matched (any path containing "scripts"/"app"/"config" — would have deleted github repo code INSIDE containers = knowledge); predicate corrected to project-root-relative top-level dirs only. Guard added in `auto_ingest.py` scan loop with the same precise predicate. Verified: startup now digests ZERO files; playground/search/patterns all 200.
+
+**Server left running** on 8099 under the new name — owner can hard-refresh (Ctrl+F5) to meet Sentinari.
