@@ -763,3 +763,42 @@ time automatically, with per-job status in the UI."
   nothing ingested.
 
 One action: restart `run_smi.py` + hard refresh (Ctrl+F5).
+
+---
+
+## §26 — Re-embed migration dry-run: backfill sized (2026-09-22)
+
+Dry-run (`scripts/reembed_gemini.py`, zero writes) + victim breakdown + measured rate:
+
+### The backlog
+- **scope=old**: 34,195 chunks carrying nomic vectors (was 33,905 at §23 — +290 from new loads).
+  These MUST migrate at flip time; mixed vector spaces poison retrieval.
+- **scope=missing**: 153,660 chunks with no vector at all (was 152,839 — +821 net).
+- **scope=all**: **187,855 chunks** = the complete one-time migration.
+
+### Where the gaps live (the owner's question)
+- 108,006 chunks **outside** the field containers (legacy/curriculum-era uploads, raw roots)
+  — the CPU-era gap: never embedded at all.
+- 45,654 chunks **inside** field containers (GitHub/HF pulls + earlier uploads) — these are
+  the auto-ingest-stripped victims (§24 root cause; the guard now prevents new ones).
+- **0** in the openalex/pubmed containers specifically — every scholarly paper loaded through
+  the load lanes carries vectors.
+- Document view: **3,740 of 5,588 documents (67%) show "Vectors pending"** — two-thirds of the
+  library is only lexically searchable today. The backfill is the single biggest retrieval
+  upgrade available.
+
+### Measured rates (honest numbers)
+- **Local nomic-embed measured at 16.97/s on this laptop** (10/10 sample, Ollama healthy):
+  missing-only ≈ **2.5 h**; all ≈ **3.1 h** — far better than feared, WHEN Ollama is responsive.
+- Gemini (gemini-embedding-001 @ 768, §23-verified): expected ~2.5-4/s ⇒ ~13-21 h for all;
+  rough API cost order: ~$50-60 one-time at ~2k tokens/chunk (verify current pricing).
+
+### Strategic note for the flip decision
+Filling the 153,660 gaps **locally with nomic** is tempting (2.5 h, free) — but at the Gemini
+flip those become *old*-scope vectors that must be re-done anyway (missing → old grows from
+34,195 to 187,855). Recommendation stands: do **one** migration, on Gemini, on the new rig
+(`--scope all --apply`), after throwing the two-line flip. Until then the app degrades
+gracefully (lexical-only retrieval for null-vector chunks; §24 budgets keep loads healthy).
+
+Resumability: `reembed_done` table records progress; any interrupted run continues where it
+stopped. Dry-run remains the default; `--apply` required to write.
