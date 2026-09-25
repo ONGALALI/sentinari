@@ -145,6 +145,13 @@ def learning_enabled() -> bool:
     return _get_setting("learning_enabled", "on").lower() != "off"
 
 
+def calibration_enabled() -> bool:
+    """Calibration runs only when the owner explicitly enables it (§38):
+    default OFF until the new rig provides the power for it. The regular
+    learning sweep is unaffected — only the heavy cross-checking pauses."""
+    return _get_setting("calibration_enabled", "off").lower() == "on"
+
+
 # ---------------------------------------------------------------------------
 # Local grading — grounding with a verbatim penalty
 # ---------------------------------------------------------------------------
@@ -464,6 +471,7 @@ def learning_status() -> dict[str, Any]:
     return {
         "ok": True,
         "enabled": learning_enabled(),
+        "calibration_enabled": calibration_enabled(),
         "total": total_docs,
         "assessed": total_assessed,
         "percent": round(100.0 * total_assessed / total_docs, 1) if total_docs else 0.0,
@@ -841,8 +849,18 @@ def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
     """Start a Learning Index vs Qualia Lab calibration as a background job
     (each sample runs retrieval + one gateway call — minutes on the small
     machine — so the request returns immediately and /calibrate/status
-    reports results)."""
+    reports results).
+
+    Owner directive (§38): gated behind the manual calibration toggle —
+    paused by default until the new rig provides the power. The learning
+    sweep itself continues unaffected.
+    """
     global _calibration_thread
+    if not calibration_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Calibration is paused (manual toggle, §38). Enable it via POST /api/learning/calibration-toggle or the dashboard button when there is power to spare.",
+        )
     if not _calibration_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="A calibration run is already in progress — check /api/learning/calibrate/status.")
     _calibration_lock.release()
@@ -871,6 +889,13 @@ def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
     _calibration_thread = threading.Thread(target=_job, name="learning-calibration", daemon=True)
     _calibration_thread.start()
     return {"ok": True, "started": True, "samples": int(payload.samples), "status_endpoint": "/api/learning/calibrate/status"}
+
+
+@router.post("/calibration-toggle")
+def api_learning_calibration_toggle(payload: ToggleRequest) -> dict[str, Any]:
+    """Manual calibration switch (§38): OFF until the new rig. Persisted."""
+    _set_setting("calibration_enabled", "on" if payload.enabled else "off")
+    return {"ok": True, "calibration_enabled": payload.enabled}
 
 
 @router.get("/calibrate/status")

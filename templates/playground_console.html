@@ -621,6 +621,7 @@
             <div class="row" style="margin-top:10px;">
               <button id="btnLearningProbe" type="button">Examine one now</button>
               <button id="btnLearningToggle" type="button" class="ghost">Pause</button>
+              <button id="btnLearningCalToggle" type="button" class="ghost">Calibration: Off</button>
             </div>
             <div id="learningProbeStatus" class="hint" style="margin-top:6px;"></div>
           </div>
@@ -2966,6 +2967,8 @@
       const toggleBtn = byId('btnLearningToggle');
       if (toggleBtn) toggleBtn.textContent = data.enabled ? 'Pause' : 'Resume';
       learningEnabledState.on = Boolean(data.enabled);
+      const calBtn = byId('btnLearningCalToggle');
+      if (calBtn) calBtn.textContent = data.calibration_enabled ? 'Calibration: On' : 'Calibration: Off';
     };
     const pollLearning = async () => {
       try {
@@ -3011,8 +3014,27 @@
       }
       if (btn) btn.disabled = false;
     };
+    const toggleCalibration = async () => {
+      const btn = byId('btnLearningCalToggle');
+      const next = !(btn?.textContent || '').includes('On');
+      if (btn) btn.disabled = true;
+      try {
+        const response = await fetch('/api/learning/calibration-toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: next })
+        });
+        const data = await readApiJson(response);
+        if (!response.ok || data.ok === false) throw new Error(data.detail || 'Toggle failed.');
+        if (btn) btn.textContent = next ? 'Calibration: On' : 'Calibration: Off';
+      } catch (error) {
+        setStatus('learningProbeStatus', `Calibration toggle failed: ${error.message || error}`, false);
+      }
+      if (btn) btn.disabled = false;
+    };
     byId('btnLearningProbe')?.addEventListener('click', probeLearning);
     byId('btnLearningToggle')?.addEventListener('click', toggleLearning);
+    byId('btnLearningCalToggle')?.addEventListener('click', toggleCalibration);
     pollLearning();
     window.setInterval(pollLearning, 20000);
 
