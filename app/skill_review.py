@@ -29,6 +29,7 @@ class FindRequest(BaseModel):
     min_citations: int = Field(default=0, ge=0, le=100000)
     from_year: int | None = Field(default=None, ge=1500, le=2100)
     pubmed_full_text_only: bool = Field(default=False)
+    fresh_only: bool = Field(default=False)
 
 
 def _root() -> Path:
@@ -697,6 +698,41 @@ def discover_candidates(payload: DiscoveryRequest) -> dict[str, Any]:
     return {"ok": True, "discovered": len(candidates), "duplicates_skipped": duplicates, "review_required": True}
 
 
+def _novelty_rank(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Owner directive (§35): rank candidates by novelty against the whole
+    library — most-cited first, recency breaking ties, open access / PMC
+    full text as a light bonus. Candidates arriving here are already free
+    of loaded / rejected / duplicate identities (the §34 sweep), so what
+    remains IS the fresh set; this orders it for discovery value."""
+    from datetime import datetime, timezone
+
+    try:
+        current_year = datetime.now(timezone.utc).year
+    except Exception:
+        current_year = 2026
+
+    def _score(c: dict[str, Any]) -> float:
+        try:
+            citations = int(c.get("cited_by_count") or 0)
+        except Exception:
+            citations = 0
+        year = 0
+        for key in ("year", "publication_year"):
+            try:
+                if c.get(key):
+                    year = int(c[key])
+                    break
+            except Exception:
+                pass
+        # The §22 window (last ~7 years) earns a full recency bonus ordered
+        # newest-first; older works decay to a floor of zero.
+        recency = max(0, (year - (current_year - 7)) * 5) if year else 0
+        oa_bonus = 2.0 if (c.get("is_oa") or c.get("has_full_text")) else 0.0
+        return float(citations) + float(recency) + oa_bonus
+
+    return sorted(candidates, key=_score, reverse=True)
+
+
 @router.post("/find")
 def find_candidates(payload: FindRequest) -> dict[str, Any]:
     """Search GitHub, Hugging Face, and OpenAlex at the same time.
@@ -987,10 +1023,17 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         visible.append(item)
     candidates = visible
 
+    if payload.fresh_only:
+        # Owner directive (§35): Fresh-discoveries mode. Nothing here is
+        # already ingested (§34 sweep above); rank what remains by novelty —
+        # most-cited first, recency breaking ties.
+        candidates = _novelty_rank(candidates)
+
     return {
         "ok": True,
         "query": query,
         "field": field_text,
+        "fresh_only": bool(payload.fresh_only),
         "count": len(candidates),
         "duplicates_skipped": duplicate_count,
         "loaded_skipped": loaded_skipped,

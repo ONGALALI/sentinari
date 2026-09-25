@@ -579,6 +579,10 @@
             <button id="btnClearScientificCandidates" type="button" class="ghost">Clear Candidates</button>
           </div>
           <label class="hint oa-toggle" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;">
+            <input id="freshOnlyMode" type="checkbox" checked>
+            Fresh discoveries only (nothing already ingested, best first)
+          </label>
+          <label class="hint oa-toggle" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;">
             <input id="pubmedFullTextOnly" type="checkbox">
             PubMed full text only (skip abstract-only papers)
           </label>
@@ -2154,6 +2158,10 @@
                 <input type="checkbox" data-role="sourcing-fulltext-only">
                 Full text only
               </label>
+              <label class="hint oa-toggle" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
+                <input type="checkbox" data-role="sourcing-fresh-only" checked>
+                Fresh only
+              </label>
               <button class="ghost" type="button" data-role="sourcing-find" data-field="${fieldSlug}">Find datasets</button>
               <button class="ghost" type="button" data-role="sourcing-clear" data-field="${fieldSlug}">Clear</button>
             </div>
@@ -2606,6 +2614,7 @@
       if (statusEl) statusEl.textContent = 'Sourcing worker searching GitHub, Hugging Face, OpenAlex, and PubMed (medical fields) at the same time... nothing is ingested yet.';
       try {
         const fullTextOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fulltext-only"]')?.checked);
+        const freshOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fresh-only"]')?.checked);
         const response = await fetch('/api/skill-review/find', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2614,6 +2623,7 @@
             scientific_field: fieldSlug,
             limit: Math.max(1, Math.min(25, Number(limitInput?.value || 10))),
             pubmed_full_text_only: fullTextOnly,
+            fresh_only: freshOnly,
           }),
         });
         const data = await readApiJson(response);
@@ -3454,7 +3464,8 @@
             query,
             scientific_field: String(byId('scientificCandidateField')?.value || '').trim(),
             limit: 10,
-            pubmed_full_text_only: pubmedFullTextOnlyActive()
+            pubmed_full_text_only: pubmedFullTextOnlyActive(),
+            fresh_only: Boolean(byId('freshOnlyMode')?.checked)
           })
         });
         const data = await readApiJson(response);

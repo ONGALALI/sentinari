@@ -953,3 +953,17 @@ review listing can be produced anytime.
 **Design notes:** approved/test-status datasets still appear (not yet ingested — reviewable by design); rejected datasets were already hidden from earlier work (§ owner directive); loaded datasets remain permanently listed in their field container via `/loaded`. The `Already loaded ✓` badge still exists for the persisted-lineup edge (candidate row stored before its identity was loaded), but fresh searches no longer produce such cards.
 
 **Verified:** server restarted (port 8099), playground 200, live search test passed as above. Library at time of fix: 540 loaded datasets.
+
+## §35 — "FRESH DISCOVERIES ONLY" SEARCH MODE — 2026-09-25
+
+**Owner directive:** a search mode that ranks candidates by novelty against the whole library — nothing already ingested, newest and most-cited first.
+
+**Implementation (mirrors the §33 PubMed full-text toggle pattern end-to-end):**
+- `FindRequest.fresh_only: bool = False` in `app/skill_review.py`.
+- `_novelty_rank()` — score = citations + recency bonus (§22 window 2020→now, 5 pts/year, newer higher) + small OA/PMC bonus; stable sort. Ordered AFTER the §34 sweep, so the ranked set is guaranteed free of loaded/rejected/duplicate identities (the skill-candidates registry is the canonical ingested-works registry — verified: library document rows carry no DOI/URL metadata, 540 loaded datasets tracked there).
+- Response reports `fresh_only` for UI confirmation.
+- UI: global panel toggle `freshOnlyMode` (default ON) beside the PubMed full-text toggle; per-field sourcing toggle `sourcing-fresh-only` (default ON) beside "Full text only"; both wired into their `/find` payloads.
+
+**Live verification (query "physics", field physics, fresh_only=true):** count 12 — 4 OpenAlex + 4 GitHub + 4 HF (PubMed correctly gated off for non-medical fields); 6 loaded hidden; zero `already_loaded` cards; scores strictly non-increasing (top: 2726 cites/2022 OpenAlex work). Toggle OFF restores the sources' native order (OpenAlex citation sort, GitHub relevance, HF downloads).
+
+**Interaction with §34:** §34 hides loaded datasets from fresh searches (on by default as data hygiene); §35 adds the explicit user-facing mode + novelty ranking on top. Both compose: fresh_only guarantees absence + orders by discovery value.
