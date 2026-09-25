@@ -1007,3 +1007,14 @@ review listing can be produced anytime.
 5. Minor: global-declaration ordering fix; /calibrate returns 409 while genuinely running.
 
 **Status at close:** threshold calibrated and persisted; examiner resumed (23/12,733 docs examined, 0.2%); worker continues with the calibrated bar. Library had grown to 12,733 documents during the session (auto-ingest still feeding her).
+
+## §38 — CALIBRATION MANUAL TOGGLE + D: DRIVE ACCESS HARDENING — 2026-09-25
+
+**Owner directive (1):** switch calibration OFF by default (manual toggle) until the new rig; learning sweep continues. DONE: `calibration_enabled` setting (default off), POST /api/learning/calibrate returns 403 while off, POST /api/learning/calibration-toggle persists the switch, dashboard button "Calibration: Off/On" beside Pause. Verified live: 403 while off → toggle on → toggle off; learning percent unaffected.
+
+**Owner directive (2):** restrict D: drive access to owner (m3isd) + system. Buffy's audit + verdict (read-only, evidence-based):
+- Threat model is LOCAL ACCOUNTS + NETWORK SHARES, not the internet (app is loopback-bound; firewalled). Nobody can "reach D:" remotely unless via SMB or a compromised local session.
+- Findings: D: root ACL granted Authenticated Users Modify and Users Read across the tree; SMB share "WordAddin" (D:\Word-add-in) exposed Everyone:Read; Guest account ENABLED (PasswordRequired=False, last logon 2026-09-18); unknown enabled accounts roden/wepen/"PC Wepener"/DevToolsUser/CodexSandbox*; D: NOT BitLocker-encrypted (Get-BitLockerVolume empty).
+- ACTION TAKEN (non-elevated, owner-approved): full ACL backup saved (D:\inpirari-acl-backup.txt, 163 MB SDDL, restore via `icacls D:\ /restore D:\inpirari-acl-backup.txt`); detached background hardening running (scripts/harden-acl.ps1 → grant 1I6\m3isd:(OI)(CI)F recursive, then remove S-1-5-11 AU + S-1-5-32-545 BU; progress in scripts/harden-acl.log, DONE marker file on completion). Root ACE verified mid-flight: m3isd FullControl with OI/CI inheritance present; grant frontier confirmed deep in the tree (Sentinari containers + VocationalLLM already carry the ACE). System/Administrators untouched (Sentinari's runtime needs).
+- PENDING ELEVATION (UAC timed out; re-run when owner is at the keyboard, or manually): (1) `Revoke-SmbShareAccess -Name 'WordAddin' -AccountName 'Everyone' -Force` (add-in unaffected — its server reads files locally); (2) `Disable-LocalUser -Name 'Guest'`; (3) recommend owner review accounts roden/wepen/PC Wepener/DevToolsUser/CodexSandbox* and disable unused; (4) recommend enabling BitLocker on D: (owner's own action, needs Recovery Key saved).
+- Buffy's verdict delivered: restricting the TREE to m3isd+SYSTEM+Admins is safe and correct (Sentinari runs as m3isd; python reads via her user token). Restricting the WHOLE DRIVE (C:\Python etc.) is NOT needed — Python lives on C: and D:-ACLs cannot affect it; leave system roots alone.
