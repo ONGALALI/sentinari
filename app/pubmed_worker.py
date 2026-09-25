@@ -362,12 +362,16 @@ def load_pubmed_papers_into_field(
         base = f"{slugify(title)[:60]}-pm{slugify(pmid or str(index))}"
         stored = False
         load_started = _time.monotonic()
+        # §39: same per-attempt discipline as the OpenAlex lane — one slow
+        # PMC response must not consume the budget needed by the abstract
+        # fallback below.
+        per_attempt = max(30.0, _LOAD_WALL_BUDGET_SECONDS / 3.0)
 
         # Attempt 1: PMC Open Access full text.
         pmcid = str(paper.get("pmcid") or "").strip()
         if pmcid and pmcid.upper().startswith("PMC"):
             try:
-                full_text = _pmc_full_text(pmcid, deadline=load_started + _LOAD_WALL_BUDGET_SECONDS)
+                full_text = _pmc_full_text(pmcid, deadline=load_started + per_attempt)
                 if len(full_text) > 500:
                     text_path = target_root / f"{base}.txt"
                     header = f"{title}\nPubMed https://pubmed.ncbi.nlm.nih.gov/{pmid}/  PMC{pmcid.replace('PMC', '')}\n\n"

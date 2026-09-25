@@ -1,0 +1,77 @@
+    <div class="card synthetic-card" id="tutor-mode" style="margin-top:14px;">
+      <div class="row" style="align-items:flex-start; justify-content:space-between;">
+        <div>
+          <h2>Exploratory Composite Indices</h2>
+          <div class="hint">Prompt-linked composite indices derived from the state-vector simulation, response features, and audit history. These labels are hypotheses only until validated against independent ratings or outcomes.</div>
+        </div>
+        <div id="phenodynamicsBadge" class="state-badge">Awaiting live field capture</div>
+      </div>
+
+      <div class="synthetic-summary">
+        <div class="synthetic-pill pill-pastel-blue">Semantic Continuity: <span id="phenodynamicsContinuity" class="mono">0%</span></div>
+        <div class="synthetic-pill pill-pastel-green">Display Center: <span id="phenodynamicsAttractorLabel" class="mono">Damping/Stability Composite</span></div>
+        <div class="synthetic-pill pill-pastel-amber">Reinforcement Sigma: <span id="phenodynamicsSigma" class="mono">1.00</span></div>
+        <div class="synthetic-pill pill-pastel-lavender">History Rows: <span id="phenodynamicsHistoryCount" class="mono">0</span></div>
+      </div>
+
+      <div class="split" style="margin-top:12px;">
+        <div class="plot-panel">
+          <h3>Composite Dependency Display</h3>
+          <div class="hint">The smooth curve visualizes constructed indices; it is not a probability distribution or evidence of a latent psychological field.</div>
+          <svg id="phenodynamicsBellPlot" class="plot" viewBox="0 0 640 230" preserveAspectRatio="none"></svg>
+          <div class="plot-legend">
+            <span><span class="dot" style="background:#1d6fd8;"></span>Constructed display curve</span>
+            <span><span class="dot" style="background:#0f7f5f;"></span>Observed dependency trace</span>
+            <span><span class="dot" style="background:#c84d43;"></span>Instability and drift indicators</span>
+          </div>
+        </div>
+
+        <div class="plot-panel">
+          <div class="row" style="align-items:center; justify-content:space-between;">
+            <div>
+              <h3>Suggested Simulation Parameters</h3>
+              <div class="hint">Damped sandbox proposals requiring human review. They do not validate the indices that generated them.</div>
+            </div>
+            <button id="btnApplyPhenodynamicsVector" class="ghost" type="button">Manually Accept in Sandbox</button>
+          </div>
+          <div id="phenodynamicsVectorGrid" class="vector-grid"></div>
+          <div id="phenodynamicsRecommendationText" class="soft-panel">Waiting for the first semantic capture before generating vector guidance.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <h3>Exploratory Index Set</h3>
+        <div class="hint">Nine constructed, statistically dependent indices derived from the active prompt trace and recent history window.</div>
+        <div id="phenodynamicsMetrics" class="metric-grid"></div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="row" style="align-items:center; justify-content:space-between;">
+          <strong>Exploratory Index Audit Log</strong>
+          <button id="btnRefreshPhenodynamicsLog" class="ghost" type="button">Refresh Log</button>
+        </div>
+        <div class="hint">Recent simulation rows translated into heuristic indices for comparison and later external validation.</div>
+        <div class="table-wrap">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Run</th>
+                <th>Continuity</th>
+                <th>Reasoning Composite</th>
+                <th>Simulated Stability</th>
+                <th>Simulated Bounded Drift</th>
+                <th>Instability/Uncertainty</th>
+                <th>Response Consistency</th>
+                <th>Coupling/Coherence</th>
+                <th>Sandbox Proposal</th>
+              </tr>
+            </thead>
+            <tbody id="phenodynamicsLogBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="phenodynamicsStatus" class="status"></div>
+    </div>
+
+      </div>

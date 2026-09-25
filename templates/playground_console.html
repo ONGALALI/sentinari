@@ -491,16 +491,16 @@
       <div class="brand">Sentinel</div>
       <div class="sidecopy">Landing dashboard for the main playground workflow.</div>
       <nav class="nav">
-        <a href="/ui/playground" class="active">Dashboard Home<small>Main landing page.</small></a>
-        <a href="#chat-lab">Workflow 1 Chat<small>Conversation and architecture work.</small></a>
-        <a href="#qualia-lab">Qualia Lab<small>Variant, benchmark, and history controls.</small></a>
-        <a href="#skills-manager">Skills Manager<small>Upload fallback skills for coding tasks.</small></a>
-        <a href="#learning-check">Learning Check<small>Verify learning from uploaded datasets.</small></a>
+        <a href="/ui/playground" class="active">Dashboard Home<small>Summary, domains, and downloads.</small></a>
+        <a href="/ui/gemma-direct">Chat Lab<small>Dedicated conversation workspace.</small></a>
+        <a href="/ui/gemma-qualia">Qualia Lab<small>Dedicated qualia workspace.</small></a>
+        <a href="/ui/learning">Learning Index<small>% Learned, exams, and calibration.</small></a>
+        <a href="/ui/admin">Skills Manager<small>Skills moved to the Admin Console.</small></a>
         <a href="#sentinel-grid">Sentinel Domains<small>Scientific fields feeding the main LLM.</small></a>
         <a href="/ui/patterns">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
         <a href="/ui/search">Search Library<small>Datasets ingested per scientific field.</small></a>
         <a href="/ui/model-lab">Model Deviation Lab<small>Score Sentinel against Gemini, Grok, Claude, and manual answers.</small></a>
-        <a href="#tutor-mode">Exploratory Composite Indices<small>Constructed display, audit log, and sandbox proposals.</small></a>
+        <a href="/ui/search">Exploratory Indices<small>Constructed display and audit log in the Search workspace.</small></a>
         <a href="/ui/playground/wan">Workflow 2 CPU Video<small>Script, scenes, image stitch, and MP4 export.</small></a>
         <a href="/ui/playground/workbench-a">Workbench A<small>Blank task sandbox.</small></a>
         <a href="/ui/playground/workbench-b">Workbench B<small>Second blank task sandbox.</small></a>
@@ -511,7 +511,7 @@
     <main class="page-shell">
       <div class="wrap">
         <h1>Sentinari by Inspirari</h1>
-        <div class="hint">Main landing page for workflow 1. Chat, qualia controls, and phenomenodynamic analysis stay here; CPU video runs on its own page.</div>
+        <div class="hint">Main landing page for workflow 1 — the library summary, the scientific domains, and the download workflow. Chat, Qualia, and Learning live in their own workspaces in the left menu.</div>
         <div id="llmRuntimeAlert" class="alert-panel"></div>
         <div id="resonanceMatrixAlert" class="alert-panel"></div>
         <div class="card" style="margin-top:12px;">
@@ -599,7 +599,7 @@
               <a class="action-link" href="#chat-lab">Open Chat Lab</a>
               <a class="action-link" href="#qualia-lab">Open Qualia Lab</a>
               <a class="action-link" href="/ui/model-lab">Open Model Deviation Lab</a>
-              <a class="action-link" href="#tutor-mode">Open Exploratory Indices</a>
+              <a class="action-link" href="/ui/search">Open Exploratory Indices</a>
               <a class="action-link" href="/ui/playground/wan">Open Workflow 2</a>
             </div>
           </div>
@@ -611,438 +611,8 @@
               <a class="action-link" href="/ui/playground/workbench-b">Workbench B</a>
             </div>
           </div>
-          <div class="card">
-            <h2>Sentinel Learning Index</h2>
-            <div class="hint">A gentle background examiner: for each ingested document, Sentinel writes one exam question from it and answers in her own words. Grounding is graded locally — applying the knowledge scores; reciting it does not.</div>
-            <div class="progress-track" style="margin-top:10px;"><div class="progress-fill" id="learningOverallFill" style="width:0%"></div></div>
-            <div class="hint" id="learningOverallLabel" style="margin-top:4px;">Learning Index: gathering first results…</div>
-            <div id="learningFields" class="hint" style="margin-top:8px;"></div>
-            <div id="learningLatest" class="hint" style="margin-top:6px;color:#5b6b83;"></div>
-            <div class="row" style="margin-top:10px;">
-              <button id="btnLearningProbe" type="button">Examine one now</button>
-              <button id="btnLearningToggle" type="button" class="ghost">Pause</button>
-              <button id="btnLearningCalToggle" type="button" class="ghost">Calibration: Off</button>
-            </div>
-            <div id="learningProbeStatus" class="hint" style="margin-top:6px;"></div>
-          </div>
         </div>
 
-        <div class="layout" id="chat-lab">
-      <div class="card">
-        <h2>Sentinel Chat Lab</h2>
-        <div class="row">
-          <div class="field" style="flex:0 1 170px;">
-            <label for="chatMode">Chat Mode</label>
-            <select id="chatMode">
-              <option value="chat">Chat (Default)</option>
-              <option value="reasoning">Reasoning</option>
-            </select>
-          </div>
-          <div class="field" style="flex:1 1 180px;">
-            <label for="personaName">Persona Name</label>
-            <input id="personaName" type="text" placeholder="Sentinel">
-          </div>
-          <div class="field" style="flex:2 1 260px;">
-            <label for="personaTone">Persona Tone</label>
-            <input id="personaTone" type="text" placeholder="Friendly, warm, lightly humorous, evidence-first">
-          </div>
-          <div class="field" style="flex:0 1 170px;">
-            <label for="variant">Behavior Variant</label>
-            <input id="variant" type="number" min="0.1" max="25" step="0.1" value="0.1">
-          </div>
-          <div class="field" style="flex:0 1 210px;">
-            <label for="reasoningProfile">Reasoning Profile</label>
-            <select id="reasoningProfile" disabled>
-              <option value="normal" selected>Normal Discussion</option>
-              <option value="auto">Auto (Normal Discussion)</option>
-              <option value="assessment">Assessment</option>
-              <option value="architecture">Architecture</option>
-            </select>
-          </div>
-          <div class="field" style="flex:0 1 120px;">
-            <label for="topK">Top K</label>
-            <input id="topK" type="number" min="0" max="20" step="1" value="6">
-          </div>
-        </div>
-
-        <div class="chat-box" id="chatBox"></div>
-        <div class="row" style="margin-top:10px;">
-          <textarea id="chatInput" placeholder="Ask Sentinel anything, or upload files below to teach her..."></textarea>
-        </div>
-        <div class="soft-panel" style="margin-top:10px;">
-            <strong>Give Sentinel files in this chat</strong>
-            <div class="hint">Files are stored, digested into the knowledge library, and referenced in this conversation.</div>
-            <div class="row" style="margin-top:8px;">
-              <div class="field" style="flex:2 1 360px;">
-                <label for="chatUploadFiles">Files (PDF, docs, markdown, code, CSV, JSON)</label>
-                <input id="chatUploadFiles" type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.jsonl,.html,.htm,.py,.js,.ts,.tsx,.cs,.ps1,.yaml,.yml">
-              </div>
-              <button id="btnChatUpload" type="button">Upload to Chat</button>
-            </div>
-            <div id="chatUploadStatus" class="status"></div>
-            <div id="chatUploadSummary" class="hint">Nothing uploaded in this session yet.</div>
-          </div>
-          <div class="row" style="margin-top:8px;">
-          <button id="btnSend">Send</button>
-          <button id="btnClear" class="secondary" type="button">Clear Chat</button>
-        </div>
-        <div id="chatStatus" class="status"></div>
-        <div class="library-progress">
-          <div class="row" style="align-items:center; justify-content:space-between;">
-            <strong>Learning Library Digestion</strong>
-            <div class="row" style="gap:8px;">
-              <button id="btnRefreshLibraryProgress" class="ghost" type="button">Refresh Progress</button>
-              <button id="btnSyncCodingCorpus" class="ghost" type="button">Sync Coding Corpus</button>
-            </div>
-          </div>
-          <div class="progress-track">
-            <div id="libraryProgressFill" class="progress-fill"></div>
-          </div>
-          <div class="progress-meta">
-            <span id="libraryProgressLabel">0.0% digested</span>
-            <span id="libraryProgressMeta">0/0 files</span>
-          </div>
-          <div id="libraryProgressHint" class="hint">Waiting for ingestion progress data...</div>
-          <div id="codingCorpusHint" class="hint">Coding corpus status not loaded yet.</div>
-          <div id="libraryProgressStatus" class="status"></div>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="card" id="skills-manager" style="margin-top:14px;">
-          <div class="row" style="align-items:flex-start; justify-content:space-between;">
-            <div>
-              <h2>Skills Manager &mdash; Upload Skills Sentinel Can Fall Back On</h2>
-              <div class="hint">Upload code, snippets, and reference files as named skills. When a chat task matches a skill name, Sentinel automatically uses it as coding fallback context. Use a &quot;Name / Description&quot; first line in each file to describe the skill.</div>
-            </div>
-            <div class="mono">data/skills</div>
-          </div>
-          <div class="pipeline-steps">
-            <div class="pipeline-step">Skills<strong id="skillsCount">0</strong></div>
-            <div class="pipeline-step">Chunks<strong id="skillsChunks">0</strong></div>
-            <div class="pipeline-step">Last Skill<strong id="skillsLast">&mdash;</strong></div>
-            <div class="pipeline-step">Fallback<strong id="skillsFallbackState">Auto</strong></div>
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <div class="field" style="flex:1 1 220px;">
-              <label for="skillName">Skill Name</label>
-              <input id="skillName" type="text" placeholder="e.g. fastapi-router-fixes">
-            </div>
-            <div class="field" style="flex:2 1 360px;">
-              <label for="skillFiles">Skill files (.py, .js, .ts, .cs, .ps1, .md, .txt, ...)</label>
-              <input id="skillFiles" type="file" multiple accept=".py,.js,.ts,.tsx,.cs,.ps1,.bat,.sh,.md,.txt,.json,.yaml,.yml,.csv,.html,.htm">
-            </div>
-            <button id="btnSkillUpload" type="button">Upload Skill</button>
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <button id="btnSkillsRefresh" class="ghost" type="button">Refresh Skills</button>
-            <button id="btnSkillsSync" class="ghost" type="button">Sync Skills Into Knowledge</button>
-            <button id="btnSkillsFallback" class="ghost" type="button">Toggle Auto-Fallback</button>
-          </div>
-          <div id="skillsStatus" class="status"></div>
-          <div id="skillsSummary" class="hint">No skills uploaded yet.</div>
-          <div class="soft-panel" style="margin-top:10px;">
-            <strong>Installed Skills</strong>
-            <table style="width:100%; margin-top:8px; border-collapse:collapse; font-size:13px;">
-              <thead>
-                <tr>
-                  <th style="text-align:left; padding:4px 8px; border-bottom:1px solid #d8dee8;">Skill</th>
-                  <th style="text-align:left; padding:4px 8px; border-bottom:1px solid #d8dee8;">Files</th>
-                  <th style="text-align:left; padding:4px 8px; border-bottom:1px solid #d8dee8;">Updated</th>
-                </tr>
-              </thead>
-              <tbody id="skillsTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card" id="learning-check" style="margin-top:14px;">
-          <div class="row" style="align-items:flex-start; justify-content:space-between;">
-            <div>
-              <h2>Learning Check &mdash; Is Sentinel Actually Learning?</h2>
-              <div class="hint">Runs the same question with the knowledge library switched on and off. If the library-on answer is grounded in your uploaded datasets, it will differ from the bare-model answer and cite them.</div>
-            </div>
-            <div class="mono">A/B probe</div>
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <div class="field" style="flex:2 1 420px;">
-              <label for="learningCheckQuery">Question to test (something your uploaded datasets cover)</label>
-              <textarea id="learningCheckQuery" placeholder="e.g. How do I define a FastAPI router with a dependency?"></textarea>
-            </div>
-            <button id="btnLearningCheck" type="button">Run Learning Check</button>
-          </div>
-          <div id="learningCheckStatus" class="status"></div>
-          <div id="learningCheckVerdict" class="soft-panel">No learning check has run yet.</div>
-          <div class="split" style="margin-top:10px;">
-            <div class="soft-panel">
-              <strong>Answer A &mdash; With Datasets</strong>
-              <div id="learningCheckWith" class="hint" style="white-space:pre-wrap;">&mdash;</div>
-            </div>
-            <div class="soft-panel">
-              <strong>Answer B &mdash; Bare Model</strong>
-              <div id="learningCheckWithout" class="hint" style="white-space:pre-wrap;">&mdash;</div>
-            </div>
-          </div>
-          <div id="learningCheckDetail" class="hint"></div>
-        </div>
-
-        <div class="card" id="qualia-lab" style="margin-top:14px;">
-      <h2>Coupled State-Vector Sandbox</h2>
-      <div class="hint">Bounded dynamical visualization for exploring parameter interactions. Its states are simulated variables, not measurements of qualia, consciousness, personality, or anxiety.</div>
-      <div class="row" style="margin-top:8px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#3c536b;">
-          <input id="qualiaEnabled" type="checkbox" checked>
-          Enable state-vector simulation
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#3c536b;">
-          <input id="qualiaApplyToChat" type="checkbox">
-          Apply simulated controls to chat experiment (opt-in)
-        </label>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaAlpha">alpha</label>
-          <input id="qualiaAlpha" type="number" min="0" max="1" step="0.01" value="0.5">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaBeta">beta</label>
-          <input id="qualiaBeta" type="number" min="0" max="1" step="0.01" value="0.3">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaGamma">gamma</label>
-          <input id="qualiaGamma" type="number" min="0" max="1" step="0.01" value="0.2">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaGammaCap">gamma cap</label>
-          <input id="qualiaGammaCap" type="number" min="0" max="0.25" step="0.01" value="0.25">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaSteps">steps</label>
-          <input id="qualiaSteps" type="number" min="1" max="240" step="1" value="20">
-        </div>
-        <div class="field" style="flex:0 1 150px;">
-          <label for="qualiaStabilityBias">stability bias</label>
-          <input id="qualiaStabilityBias" type="number" min="0" max="1" step="0.01" value="0.65">
-        </div>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaQ0Z">Q0 z</label>
-          <input id="qualiaQ0Z" type="number" min="-1" max="1" step="0.01" value="1">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaA0X">A0 x</label>
-          <input id="qualiaA0X" type="number" min="-1" max="1" step="0.01" value="1">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaA0Z">A0 z</label>
-          <input id="qualiaA0Z" type="number" min="-1" max="1" step="0.01" value="0">
-        </div>
-        <div class="field" style="flex:0 1 120px;">
-          <label for="qualiaSZ">S z</label>
-          <input id="qualiaSZ" type="number" min="-1" max="1" step="0.01" value="0">
-        </div>
-        <div class="field" style="flex:0 1 140px;">
-          <label for="qualiaBellMu">bell mu</label>
-          <input id="qualiaBellMu" type="number" min="0" max="1" step="0.01" value="0.5">
-        </div>
-        <div class="field" style="flex:0 1 140px;">
-          <label for="qualiaBellSigma">bell sigma</label>
-          <input id="qualiaBellSigma" type="number" min="0.02" max="0.5" step="0.01" value="0.18">
-        </div>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <button id="btnQualiaSimulate" class="ghost" type="button">Run State-Vector Simulation</button>
-      </div>
-      <div id="qualiaStatus" class="status"></div>
-      <div class="row" style="margin-top:8px;">
-        <span class="mono">Influence: <span id="qualiaInfluence">0.000</span></span>
-        <span class="mono">Stability Gate: <span id="qualiaStabilityGate">1.000</span></span>
-        <span class="mono">Base Ratio: <span id="qualiaBaseRatio">0.000</span></span>
-        <span class="mono">Effective Ratio: <span id="qualiaEffectiveRatio">0.000</span></span>
-      </div>
-      <div class="plot-panel" id="resonance-matrix-math" style="margin-top:10px;">
-        <div class="row" style="align-items:flex-start; justify-content:space-between;">
-          <div>
-            <h3 style="margin:0;">Resonance Matrix</h3>
-            <div class="hint">RI = (Coherence × Novelty) / S₍c₎ · Resonance% = (RI / RIₘₐₓ) × 100</div>
-          </div>
-          <div class="state-badge live">Math</div>
-        </div>
-        <div class="synthetic-summary" style="margin-top:10px;">
-          <div class="synthetic-pill">Coherence: <span id="rmCoherence" class="mono">-</span></div>
-          <div class="synthetic-pill">Novelty: <span id="rmNovelty" class="mono">-</span></div>
-          <div class="synthetic-pill">S₍c₎: <span id="rmStabilityCost" class="mono">-</span></div>
-          <div class="synthetic-pill">RI: <span id="rmRI" class="mono">-</span></div>
-          <div class="synthetic-pill">Resonance: <span id="rmResonancePct" class="mono">-</span></div>
-        </div>
-        <div class="row" style="margin-top:10px; align-items:flex-end;">
-          <div class="field" style="flex:0 1 140px;">
-            <label for="rmRImax">RI max</label>
-            <input id="rmRImax" type="number" min="0.1" step="0.1" value="5.0">
-          </div>
-          <div class="hint" style="flex:1;">Scaling for Resonance%. Example: set RI max = 5.0 → RI 2.5 reads as 50%.</div>
-        </div>
-      </div>
-      <div class="split" style="margin-top:10px;">
-        <div>
-          <h3>Simulated State Trajectory</h3>
-          <svg id="qualiaTrajectoryPlot" class="plot" viewBox="0 0 640 210" preserveAspectRatio="none"></svg>
-          <div class="plot-legend">
-            <span><span class="dot" style="background:#1d6fd8;"></span>State q<sub>z</sub></span>
-            <span><span class="dot" style="background:#e37a2f;"></span>State a<sub>z</sub></span>
-          </div>
-        </div>
-        <div>
-          <h3>Bell Curve Weight</h3>
-          <svg id="qualiaBellPlot" class="plot" viewBox="0 0 640 210" preserveAspectRatio="none"></svg>
-          <div class="plot-legend">
-            <span><span class="dot" style="background:#197d52;"></span>Bell weight vs behavior variant</span>
-          </div>
-        </div>
-      </div>
-      <pre id="qualiaSummary" style="white-space: pre-wrap; background:#f5f8fc; border:1px solid #d8e1eb; border-radius:8px; padding:10px; margin-top:8px;"></pre>
-      <div class="soft-panel" style="margin-top:8px;">
-        <strong>Simulation Sources Loaded</strong>
-        <ul id="qualiaSourcesList" class="list"></ul>
-      </div>
-      <div class="qualia-recommend">
-        <div class="row" style="align-items:center; justify-content:space-between;">
-          <strong>Response-Based Sandbox Proposal</strong>
-          <button id="btnApplyQualiaRecommendation" class="ghost" type="button">Manually Accept Proposal</button>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#3c536b;">
-            <input id="qualiaAutoApplyRecommendation" type="checkbox" disabled>
-            Auto-apply disabled: independent human/external review is required
-          </label>
-          <button id="btnRunQualiaBenchmark" class="ghost" type="button">Run Benchmark + Set Baseline</button>
-        </div>
-        <div class="progress-meta">
-          <span class="mono">Variant: <span id="qualiaRecVariant">0.10</span></span>
-          <span class="mono">Gamma: <span id="qualiaRecGamma">0.20</span></span>
-          <span class="mono">Stability Bias: <span id="qualiaRecStabilityBias">0.65</span></span>
-          <span class="mono">Confidence: <span id="qualiaRecConfidence">0%</span></span>
-        </div>
-        <div class="progress-meta">
-          <span class="mono">Gamma Focus: <span id="qualiaRecGammaFocus">0%</span></span>
-          <span class="mono">Attention: <span id="qualiaRecAttention">0%</span></span>
-          <span class="mono">Reasoning: <span id="qualiaRecReasoning">0%</span></span>
-          <span class="mono">Logic: <span id="qualiaRecLogic">0%</span></span>
-          <span class="mono">Instability/uncertainty: <span id="qualiaRecAnxiety">0%</span></span>
-        </div>
-        <div id="qualiaRecReason" class="hint">Deterministic text-feature proposal (qr-v2): transparent, reproducible, auditable. Constructed indices, not a psychological assessment; independent validation is required before interpretation or use.</div>
-        <div id="qualiaRecommendationStatus" class="status"></div>
-        <div id="qualiaBenchmarkStatus" class="status"></div>
-        <pre id="qualiaBenchmarkSummary" style="display:none; white-space: pre-wrap; background:#f5f8fc; border:1px solid #d8e1eb; border-radius:8px; padding:10px; margin-top:8px;"></pre>
-        <div style="margin-top:10px;">
-          <div class="row" style="align-items:center; justify-content:space-between;">
-            <strong>Simulation and Proposal History</strong>
-            <button id="btnRefreshQualiaHistory" class="ghost" type="button">Refresh History</button>
-          </div>
-          <div class="hint">Tracks simulations, heuristic proposals, and benchmark before/after states in SQLite for auditability.</div>
-          <div class="table-wrap">
-            <table class="mini-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Run</th>
-                  <th>Variant</th>
-                  <th>Gamma</th>
-                  <th>Stability</th>
-                  <th>Attention</th>
-                  <th>Reasoning</th>
-                  <th>Logic</th>
-                  <th>Confidence</th>
-                  <th>Note</th>
-                </tr>
-              </thead>
-              <tbody id="qualiaHistoryBody"></tbody>
-            </table>
-          </div>
-          <div id="qualiaHistoryStatus" class="status"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card synthetic-card" id="tutor-mode" style="margin-top:14px;">
-      <div class="row" style="align-items:flex-start; justify-content:space-between;">
-        <div>
-          <h2>Exploratory Composite Indices</h2>
-          <div class="hint">Prompt-linked composite indices derived from the state-vector simulation, response features, and audit history. These labels are hypotheses only until validated against independent ratings or outcomes.</div>
-        </div>
-        <div id="phenodynamicsBadge" class="state-badge">Awaiting live field capture</div>
-      </div>
-
-      <div class="synthetic-summary">
-        <div class="synthetic-pill pill-pastel-blue">Semantic Continuity: <span id="phenodynamicsContinuity" class="mono">0%</span></div>
-        <div class="synthetic-pill pill-pastel-green">Display Center: <span id="phenodynamicsAttractorLabel" class="mono">Damping/Stability Composite</span></div>
-        <div class="synthetic-pill pill-pastel-amber">Reinforcement Sigma: <span id="phenodynamicsSigma" class="mono">1.00</span></div>
-        <div class="synthetic-pill pill-pastel-lavender">History Rows: <span id="phenodynamicsHistoryCount" class="mono">0</span></div>
-      </div>
-
-      <div class="split" style="margin-top:12px;">
-        <div class="plot-panel">
-          <h3>Composite Dependency Display</h3>
-          <div class="hint">The smooth curve visualizes constructed indices; it is not a probability distribution or evidence of a latent psychological field.</div>
-          <svg id="phenodynamicsBellPlot" class="plot" viewBox="0 0 640 230" preserveAspectRatio="none"></svg>
-          <div class="plot-legend">
-            <span><span class="dot" style="background:#1d6fd8;"></span>Constructed display curve</span>
-            <span><span class="dot" style="background:#0f7f5f;"></span>Observed dependency trace</span>
-            <span><span class="dot" style="background:#c84d43;"></span>Instability and drift indicators</span>
-          </div>
-        </div>
-
-        <div class="plot-panel">
-          <div class="row" style="align-items:center; justify-content:space-between;">
-            <div>
-              <h3>Suggested Simulation Parameters</h3>
-              <div class="hint">Damped sandbox proposals requiring human review. They do not validate the indices that generated them.</div>
-            </div>
-            <button id="btnApplyPhenodynamicsVector" class="ghost" type="button">Manually Accept in Sandbox</button>
-          </div>
-          <div id="phenodynamicsVectorGrid" class="vector-grid"></div>
-          <div id="phenodynamicsRecommendationText" class="soft-panel">Waiting for the first semantic capture before generating vector guidance.</div>
-        </div>
-      </div>
-
-      <div style="margin-top:12px;">
-        <h3>Exploratory Index Set</h3>
-        <div class="hint">Nine constructed, statistically dependent indices derived from the active prompt trace and recent history window.</div>
-        <div id="phenodynamicsMetrics" class="metric-grid"></div>
-      </div>
-
-      <div style="margin-top:12px;">
-        <div class="row" style="align-items:center; justify-content:space-between;">
-          <strong>Exploratory Index Audit Log</strong>
-          <button id="btnRefreshPhenodynamicsLog" class="ghost" type="button">Refresh Log</button>
-        </div>
-        <div class="hint">Recent simulation rows translated into heuristic indices for comparison and later external validation.</div>
-        <div class="table-wrap">
-          <table class="mini-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Run</th>
-                <th>Continuity</th>
-                <th>Reasoning Composite</th>
-                <th>Simulated Stability</th>
-                <th>Simulated Bounded Drift</th>
-                <th>Instability/Uncertainty</th>
-                <th>Response Consistency</th>
-                <th>Coupling/Coherence</th>
-                <th>Sandbox Proposal</th>
-              </tr>
-            </thead>
-            <tbody id="phenodynamicsLogBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div id="phenodynamicsStatus" class="status"></div>
-    </div>
-
-      </div>
     </main>
   </div>
 
@@ -1066,7 +636,22 @@
       historyLoaded: false
     };
 
-    const byId = (id) => document.getElementById(id);
+    // §39: the dashboard keeps only summary/domains/downloads; sections that
+    // moved to their own workspaces left some helper references behind.
+    // Absorbing proxy: any property access on a missing element is an inert
+    // no-op (and console-logged) instead of a TypeError that aborts the
+    // whole startup sequence. Live elements are returned untouched.
+    const byId = (id) => {
+      const el = document.getElementById(id);
+      if (el) return el;
+      console.debug(`[dashboard] element #${id} not present (section moved to its own workspace) — ignoring.`);
+      return new Proxy(function () {}, {
+        get: () => byId.__noop,
+        set: () => true,
+        apply: () => byId.__noop,
+      });
+    };
+    byId.__noop = () => {};
     const escapeHtml = (value) => String(value || '').replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
     const currentPersonaLabel = () => {
       const raw = String(byId('personaName')?.value || '').trim();

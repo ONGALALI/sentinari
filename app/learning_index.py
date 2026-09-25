@@ -32,7 +32,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .db import get_connection, library_connection
@@ -896,6 +896,21 @@ def api_learning_calibration_toggle(payload: ToggleRequest) -> dict[str, Any]:
     """Manual calibration switch (§38): OFF until the new rig. Persisted."""
     _set_setting("calibration_enabled", "on" if payload.enabled else "off")
     return {"ok": True, "calibration_enabled": payload.enabled}
+
+
+@router.get("/exams")
+def api_learning_exams(
+    limit: int = Query(default=25, ge=1, le=100),
+) -> dict[str, Any]:
+    """Recent graded exams for the Learning workspace's log table."""
+    _ensure_schema()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT verdict, title, question, mastery, assessed_at FROM learning_assessments"
+            " WHERE verdict != 'skipped' ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return {"ok": True, "exams": [dict(r) for r in rows]}
 
 
 @router.get("/calibrate/status")

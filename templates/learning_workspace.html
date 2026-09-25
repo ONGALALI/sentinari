@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Index — Sentinari by Inspirari</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #f4f7fc; color: #1d2b3a; }
+  .layout { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .sidebar { background: linear-gradient(180deg, #10233d, #1c3b63); color: #e8f0fb; padding: 18px 14px; }
+  .brand { font-size: 20px; font-weight: 700; letter-spacing: .4px; }
+  .sidecopy { font-size: 11px; opacity: .75; margin: 6px 0 14px; }
+  .nav a { display: block; padding: 8px 10px; border-radius: 8px; color: #d7e5f7; text-decoration: none; font-size: 13px; margin-bottom: 4px; }
+  .nav a small { display: block; opacity: .7; font-size: 10.5px; }
+  .nav a.active, .nav a:hover { background: rgba(255,255,255,.14); }
+  main { padding: 26px 30px 60px; max-width: 1080px; }
+  h1 { margin: 0 0 6px; font-size: 24px; }
+  .hint { color: #52657e; font-size: 12.5px; }
+  .card { background: #fff; border: 1px solid #dfe7f2; border-radius: 12px; padding: 18px 20px; margin-top: 16px; box-shadow: 0 1px 3px rgba(16,35,61,.06); }
+  .card h2 { margin: 0 0 8px; font-size: 16px; }
+  .progress-track { height: 14px; border-radius: 7px; background: #e3eaf5; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; border-radius: 7px; background: linear-gradient(90deg,#4dabf7,#1c7ed6); transition: width .4s ease; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button { border: 0; border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; background: #1c7ed6; color: #fff; }
+  button.ghost { background: #eef3fa; color: #1c4d80; border: 1px solid #d5e1f0; }
+  button:disabled { opacity: .55; cursor: default; }
+  .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #e7f0fb; color: #1c4d80; font-size: 12px; }
+  textarea { width: 100%; min-height: 74px; border: 1px solid #cdd9ea; border-radius: 8px; padding: 9px; font: inherit; font-size: 13px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .soft-panel { background: #f7fafd; border: 1px solid #e2eaf4; border-radius: 10px; padding: 12px; font-size: 12.5px; white-space: pre-wrap; }
+  .status { font-size: 12.5px; margin-top: 8px; color: #3b5b7d; min-height: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: #52657e; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #e2eaf4; }
+  td { padding: 6px 8px; border-bottom: 1px solid #eef2f8; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Sentinel</div>
+    <div class="sidecopy">Learning Index workspace — proof that ingested knowledge is applied.</div>
+    <nav class="nav">
+      <a href="/ui/playground">Dashboard Home<small>Summary, domains, downloads.</small></a>
+      <a href="/ui/gemma-direct">Chat Lab<small>Dedicated conversation workspace.</small></a>
+      <a href="/ui/gemma-qualia">Qualia Lab<small>Dedicated qualia workspace.</small></a>
+      <a href="/ui/learning" class="active">Learning Index<small>% Learned, exams, calibration.</small></a>
+      <a href="/ui/patterns">New Patterns<small>Scientific Patterns Discovery.</small></a>
+      <a href="/ui/search">Search Library<small>Datasets per scientific field.</small></a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Sentinel Learning Index</h1>
+    <div class="hint">A gentle background examiner: for each ingested document, Sentinel writes one exam question from it and answers in her own words. Grounding is graded locally — applying the knowledge scores; reciting it does not. Calibration against the Qualia Lab is <strong>paused by default</strong> until you switch it on from the Qualia Lab (or here) when there is power to spare.</div>
+
+    <div class="card">
+      <h2>% Learned</h2>
+      <div class="progress-track"><div class="progress-fill" id="liFill"></div></div>
+      <div class="hint" id="liLabel" style="margin-top:6px;">Gathering status…</div>
+      <div id="liFields" style="margin-top:10px;"></div>
+      <div id="liLatest" class="hint" style="margin-top:8px;"></div>
+      <div class="row" style="margin-top:12px;">
+        <button id="liProbeBtn">Examine one now</button>
+        <button id="liToggleBtn" class="ghost">Pause</button>
+        <button id="liCalBtn" class="ghost" title="Pauses/resumes Qualia-Lab cross-checking (heavy)">Calibration: …</button>
+      </div>
+      <div id="liProbeStatus" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Learning Check — is Sentinel actually learning?</h2>
+      <div class="hint">Runs the same question with the knowledge library on and off. A grounded answer differs from the bare model and cites your datasets.</div>
+      <div style="margin-top:10px;">
+        <textarea id="learningCheckQuery" placeholder="e.g. What does the ingested literature say about X?"></textarea>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnLearningCheck">Run Learning Check</button>
+        <span id="learningCheckStatus" class="status" style="margin:0;"></span>
+      </div>
+      <div id="learningCheckVerdict" class="soft-panel" style="margin-top:10px;">No learning check has run yet.</div>
+      <div class="split" style="margin-top:10px;">
+        <div class="soft-panel"><strong>Answer A — With Datasets</strong><div id="learningCheckWith">—</div></div>
+        <div class="soft-panel"><strong>Answer B — Bare Model</strong><div id="learningCheckWithout">—</div></div>
+      </div>
+      <div id="learningCheckDetail" class="hint" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Exam Log</h2>
+      <div class="hint">The most recent exams, as graded.</div>
+      <table style="margin-top:8px;">
+        <thead><tr><th>Verdict</th><th>Document</th><th>Question</th><th>Mastery</th><th>When</th></tr></thead>
+        <tbody id="liExamRows"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+<script>
+(() => {
+  const byId = (id) => document.getElementById(id);
+  const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let calOn = false;
+  let learnOn = true;
+
+  const render = (d) => {
+    const pct = Number(d.percent || 0);
+    byId('liFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
+    byId('liLabel').innerHTML = `<strong>% Learned: ${pct}%</strong> — ${fmt(d.assessed)} of ${fmt(d.total)} ingested documents examined.`;
+    byId('liFields').innerHTML = (d.fields || []).slice(0, 10).map((f) =>
+      `<div>• ${esc(f.field)}: <strong>${Number(f.percent || 0).toFixed(1)}%</strong> (${fmt(f.assessed)}/${fmt(f.total)})</div>`).join('');
+    byId('liLatest').innerHTML = (d.latest || []).slice(0, 3).map((l) =>
+      `<div>• [${esc(l.verdict)}] ${esc(String(l.title || '').slice(0, 70))}</div>`).join('');
+    learnOn = Boolean(d.enabled);
+    byId('liToggleBtn').textContent = learnOn ? 'Pause' : 'Resume';
+    calOn = Boolean(d.calibration_enabled);
+    byId('liCalBtn').textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
+  };
+
+  const poll = async () => {
+    try {
+      const res = await fetch('/api/learning/status');
+      const d = await res.json();
+      if (res.ok && d.ok !== false) render(d);
+    } catch (_) {}
+  };
+
+  byId('liProbeBtn').addEventListener('click', async () => {
+    const st = byId('liProbeStatus');
+    st.textContent = 'Examining one document now…';
+    try {
+      const res = await fetch('/api/learning/probe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Probe failed.');
+      const r = d.result || {};
+      st.innerHTML = `Verdict: <strong>${esc(r.verdict)}</strong> — grounding ${(100 * Number(r.mastery || 0)).toFixed(0)}% · “${esc(String(r.question || '').slice(0, 120))}”`;
+    } catch (e) { st.textContent = 'Probe failed: ' + (e.message || e); }
+    poll();
+  });
+
+  byId('liToggleBtn').addEventListener('click', async () => {
+    const btn = byId('liToggleBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/learning/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !learnOn }) });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Toggle failed.');
+      learnOn = !learnOn;
+      btn.textContent = learnOn ? 'Pause' : 'Resume';
+    } catch (e) { byId('liProbeStatus').textContent = 'Toggle failed: ' + (e.message || e); }
+    btn.disabled = false;
+  });
+
+  byId('liCalBtn').addEventListener('click', async () => {
+    const btn = byId('liCalBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/learning/calibration-toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !calOn }) });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Toggle failed.');
+      calOn = !calOn;
+      btn.textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
+    } catch (e) { byId('liProbeStatus').textContent = 'Calibration toggle failed: ' + (e.message || e); }
+    btn.disabled = false;
+  });
+
+  byId('btnLearningCheck').addEventListener('click', async () => {
+    const q = String(byId('learningCheckQuery').value || '').trim();
+    const st = byId('learningCheckStatus');
+    if (!q) { st.textContent = 'Enter a question first.'; return; }
+    st.textContent = 'Running A/B check (asks the model twice)…';
+    try {
+      const res = await fetch('/api/playground/learning-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, top_k: 6 }) });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Learning check failed.');
+      byId('learningCheckWith').textContent = d.with_library_answer || '(empty)';
+      byId('learningCheckWithout').textContent = d.without_library_answer || '(empty)';
+      byId('learningCheckVerdict').textContent = d.learning_detected
+        ? 'LEARNING DETECTED — the dataset-grounded answer differs from the bare model and cites your sources.'
+        : 'NO CLEAR LEARNING SIGNAL — answers look alike or no indexed evidence matched.';
+      st.textContent = `Check complete. A: ${fmt(d.with_library_chars)} chars, B: ${fmt(d.without_library_chars)} chars.`;
+      byId('learningCheckDetail').textContent = `Citations (A): ${(d.citations || []).join(', ') || 'none'} | Chunks used: ${fmt(d.retrieved_chunks)}`;
+    } catch (e) { st.textContent = 'Failed: ' + (e.message || e); }
+  });
+
+  const loadExams = async () => {
+    try {
+      const res = await fetch('/api/learning/exams?limit=25');
+      const d = await res.json();
+      const rows = (d.exams || []).map((e) =>
+        `<tr><td>${esc(e.verdict)}</td><td>${esc(String(e.title || '').slice(0, 46))}</td><td>${esc(String(e.question || '').slice(0, 70))}</td><td>${Number(e.mastery || 0).toFixed(2)}</td><td>${esc(String(e.assessed_at || '').slice(0, 16).replace('T', ' '))}</td></tr>`).join('');
+      byId('liExamRows').innerHTML = rows || '<tr><td colspan="5" class="hint">No exams recorded yet.</td></tr>';
+    } catch (_) { byId('liExamRows').innerHTML = '<tr><td colspan="5" class="hint">Exam log unavailable.</td></tr>'; }
+  };
+
+  poll();
+  loadExams();
+  window.setInterval(poll, 20000);
+})();
+</script>
+</body>
+</html>

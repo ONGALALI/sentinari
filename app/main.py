@@ -746,6 +746,19 @@ def ui_search(request: Request) -> HTMLResponse:
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
+@app.get("/ui/learning", response_class=HTMLResponse)
+def ui_learning(request: Request) -> HTMLResponse:
+    """Learning Index workspace: % Learned, exams, and calibration controls."""
+    auth = get_admin_auth_settings(get_settings())
+    if auth["enabled"] and not _is_admin_authenticated(request):
+        return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/learning"})
+
+    page = get_project_root() / "templates" / "learning_workspace.html"
+    if not page.exists():
+        raise HTTPException(status_code=500, detail="learning_workspace.html template not found.")
+    return HTMLResponse(page.read_text(encoding="utf-8"))
+
+
 @app.get("/ui/patterns", response_class=HTMLResponse)
 def ui_patterns(request: Request) -> HTMLResponse:
     auth = get_admin_auth_settings(get_settings())

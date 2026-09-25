@@ -623,6 +623,16 @@
       </section>
 
       <section>
+        <h2>Learning Index Calibration</h2>
+        <div class="hint">Cross-checks the Learning Index's examiner against this lab's retrieval-backed pipeline (same questions, one grader). <strong>Paused by default</strong> — enable only when there is power to spare (it pauses the background examiner while a run executes).</div>
+        <div class="row" style="margin-top:8px;">
+          <label class="row" style="gap:6px"><input id="liCalibrationToggle" type="checkbox" style="width:auto"> Calibration enabled</label>
+          <span class="pill" id="liCalState">checking…</span>
+        </div>
+        <div id="liCalStatus" class="status"></div>
+      </section>
+
+      <section>
         <h2>Model Vector Assessment</h2>
         <p class="hint">The graphs compare the same prompt across selected models. Run Model 1, then Model 2, and read the recommendation below the table.</p>
         <div class="comparison-plots">
@@ -1738,6 +1748,36 @@
     refreshStatus();
     simulateOnly().catch(() => {});
     loadContinuityLog();
+
+    // §39: Learning Index calibration switch, surfaced here per the owner's
+    // request (default OFF; also reachable from the Learning workspace).
+    const liCal = document.getElementById("liCalibrationToggle");
+    const liCalState = document.getElementById("liCalState");
+    const liCalStatus = document.getElementById("liCalStatus");
+    const renderLiCal = (on) => {
+      liCal.checked = !!on;
+      liCalState.textContent = on ? "Calibration: On" : "Calibration: Off";
+    };
+    fetch("/api/learning/status").then((r) => r.json()).then((d) => {
+      if (d && typeof d.calibration_enabled === "boolean") renderLiCal(d.calibration_enabled);
+      else liCalState.textContent = "unknown";
+    }).catch(() => { liCalState.textContent = "unreachable"; });
+    liCal.addEventListener("change", async () => {
+      try {
+        const res = await fetch("/api/learning/calibration-toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: liCal.checked }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.ok === false) throw new Error(d.detail || "Toggle failed.");
+        renderLiCal(!!d.calibration_enabled);
+        liCalStatus.textContent = d.calibration_enabled ? "Calibration enabled." : "Calibration paused.";
+      } catch (err) {
+        liCalStatus.textContent = "Toggle failed: " + (err.message || err);
+        liCal.checked = !liCal.checked;
+      }
+    });
   </script>
 </body>
 </html>

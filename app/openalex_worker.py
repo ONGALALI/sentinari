@@ -493,12 +493,18 @@ def load_openalex_works_into_field(
         base = f"{slugify(title)[:60]}-{_safe_filename(openalex_id.split('/')[-1] or str(index))}"
         stored = False
         load_started = time.monotonic()
+        # §39: per-attempt budget — previously all three attempts shared the
+        # whole 150s wall, so one stalling PDF host consumed it and the work
+        # died before the reliable fallbacks ever ran (the owner's 4–8
+        # reloads). Now each attempt gets its own slice and the always-
+        # reachable metadata record is almost never starved.
+        per_attempt = max(30.0, _LOAD_WALL_BUDGET_SECONDS / 3.0)
 
         # Attempt 1: direct open-access PDF.
         pdf_url = str(work.get("pdf_url") or "")
         if pdf_url:
             try:
-                _content_type, blob, _final = _download(pdf_url, deadline=load_started + _LOAD_WALL_BUDGET_SECONDS)
+                _content_type, blob, _final = _download(pdf_url, deadline=time.monotonic() + per_attempt)
                 if _looks_like_pdf(blob):
                     pdf_path = target_root / f"{base}.pdf"
                     pdf_path.write_bytes(blob)
@@ -514,20 +520,35 @@ def load_openalex_works_into_field(
         landing_url = str(work.get("landing_page_url") or "")
         if not stored and landing_url and not landing_url.lower().startswith("https://doi.org/"):
             try:
-                content_type, blob, _final = _download(landing_url, deadline=load_started + _LOAD_WALL_BUDGET_SECONDS)
+                content_type, blob, _final = _download(landing_url, deadline=time.monotonic() + per_attempt)
                 lowered = (content_type or "").lower()
                 is_html = (
                     "html" in lowered
                     or blob[:512].lstrip().lower().startswith((b"<!doctype", b"<html"))
                     or b"<html" in blob[:2048].lower()
                 )
-                if is_html and len(blob) > 2000:
+                # §39: HTML quality gate — publisher landing pages are often
+                # JavaScript shells / cookie-walls that parse to menus and
+                # boilerplate. They used to be stored as "success", then
+                # digest to junk (or below minimum size -> failed load ->
+                # owner retries). Measure the real text BEFORE accepting.
+                html_text_len = 0
+                if is_html:
+                    try:
+                        from .parsing import parse_document_from_html
+
+                        html_text_len = len(str(parse_document_from_html(blob.decode("utf-8", errors="ignore"), default_title=title).get("text") or ""))
+                    except Exception:
+                        html_text_len = 0
+                if is_html and len(blob) > 2000 and html_text_len >= 1200:
                     html_path = target_root / f"{base}.html"
                     html_path.write_bytes(blob)
                     stored_paths.append(str(html_path))
                     total_bytes += len(blob)
                     items.append({"ok": True, "title": title, "kind": "html", "bytes": len(blob), "path": str(html_path)})
                     stored = True
+                elif is_html:
+                    items.append({"ok": False, "title": title, "note": f"Landing page rejected (only {html_text_len} chars of real text — JS shell/menu wall); using the OpenAlex record instead."})
             except Exception as ex:
                 items.append({"ok": False, "title": title, "note": f"Landing page fetch failed ({str(ex)[:120]}); using the OpenAlex record instead."})
 

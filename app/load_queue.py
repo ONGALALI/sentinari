@@ -164,8 +164,22 @@ class LoadQueue:
 
             try:
                 rep = load_progress.job_reporter(job_id)
-                with load_progress.bind(rep):
-                    result = _ingest_candidate_impl(candidate_id, rep)
+                # §39: the Learning Index's background exams must not compete
+                # with a load for the LLM and the database on the small
+                # machine (lock storms during loads were part of the owner's
+                # 4–8 reload problem). The examiner pauses for the load and
+                # is ALWAYS restored in finally.
+                from .learning_index import learning_enabled as _li_enabled, _set_setting as _li_set
+
+                _li_was_on = _li_enabled()
+                if _li_was_on:
+                    _li_set("learning_enabled", "off")
+                try:
+                    with load_progress.bind(rep):
+                        result = _ingest_candidate_impl(candidate_id, rep)
+                finally:
+                    if _li_was_on:
+                        _li_set("learning_enabled", "on")
                 load_progress.finish_job(job_id, result)
                 with self._lock:
                     entry["state"] = "done"
