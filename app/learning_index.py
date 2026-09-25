@@ -98,6 +98,21 @@ def _ensure_schema() -> None:
         conn.commit()
 
 
+def _db_write_retry(fn, *args, **kwargs):
+    """Tiny-write armor: the learning subsystem shares its DB with the load
+    queue, auto-ingest, and the pattern store. Its writes are one-row upserts,
+    so a short retry-with-backoff rides out transient 'database is locked'
+    storms instead of dropping an exam result (§37 lesson)."""
+    last_exc: Exception | None = None
+    for attempt in range(4):
+        try:
+            return fn(*args, **kwargs)
+        except sqlite3.OperationalError as exc:
+            last_exc = exc
+            time.sleep(1.5 * (attempt + 1))
+    raise last_exc if last_exc else RuntimeError("db write failed")
+
+
 def _get_setting(key: str, default: str) -> str:
     try:
         with get_connection() as conn:
@@ -110,17 +125,19 @@ def _get_setting(key: str, default: str) -> str:
 
 
 def _set_setting(key: str, value: str) -> None:
-    _ensure_schema()
-    with get_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO learning_settings (key, value, updated_at)
-            VALUES (?, ?, datetime('now'))
-            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-            """,
-            (key, value),
-        )
-        conn.commit()
+    def _write() -> None:
+        with get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO learning_settings (key, value, updated_at)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+                """,
+                (key, value),
+            )
+            conn.commit()
+
+    _db_write_retry(_write)
 
 
 def learning_enabled() -> bool:
@@ -147,6 +164,22 @@ def _tokenize(text: str) -> set[str]:
     return {t for t in tokens if t not in _STOPWORDS}
 
 
+def _grade_thresholds() -> tuple[float, float, float]:
+    """(applied, partial_floor, recited_verbatim) — tunable via learning_settings
+    so calibration (§37) can adjust verdicts without code edits."""
+    try:
+        applied = float(_get_setting("applied_threshold", "0.28"))
+        partial = float(_get_setting("partial_threshold", "0.08"))
+        recited = float(_get_setting("recited_verbatim", "0.6"))
+    except Exception:
+        return 0.28, 0.08, 0.6
+    return (
+        min(0.95, max(0.05, applied)),
+        min(0.5, max(0.01, partial)),
+        min(0.95, max(0.3, recited)),
+    )
+
+
 def _grade(answer: str, source_text: str) -> tuple[float, float, float, str]:
     """Return (grounding, verbatim, mastery, verdict).
 
@@ -156,21 +189,22 @@ def _grade(answer: str, source_text: str) -> tuple[float, float, float, str]:
     mastery   = grounding, penalized when the answer is mostly copied text —
                 reciting a passage is not the same as applying it.
     """
+    applied_t, partial_t, recited_t = _grade_thresholds()
     a_tokens = _tokenize(answer)
     s_tokens = _tokenize(source_text)
     if not a_tokens:
         return 0.0, 0.0, 0.0, "no-answer"
     grounding = len(a_tokens & s_tokens) / len(a_tokens)
     verbatim = (len(a_tokens & s_tokens) / len(s_tokens)) if s_tokens else 0.0
-    if verbatim > 0.6:
-        mastery = grounding * max(0.3, 1.0 - (verbatim - 0.6))
+    if verbatim > recited_t:
+        mastery = grounding * max(0.3, 1.0 - (verbatim - recited_t))
     else:
         mastery = grounding
-    if mastery >= 0.28:
+    if mastery >= applied_t:
         verdict = "applied"
-    elif verbatim > 0.6:
+    elif verbatim > recited_t:
         verdict = "recited"
-    elif grounding > 0.08:
+    elif grounding > partial_t:
         verdict = "partial"
     else:
         verdict = "not-learned"
@@ -263,38 +297,42 @@ def probe_document(document_id: int) -> dict[str, Any] | None:
 
 def _persist(record: dict[str, Any]) -> None:
     _ensure_schema()
-    with get_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO learning_assessments
-                (document_id, scientific_field, title, question, answer,
-                 grounding_score, verbatim_score, mastery, verdict, assessed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(document_id) DO UPDATE SET
-                scientific_field = excluded.scientific_field,
-                title = excluded.title,
-                question = excluded.question,
-                answer = excluded.answer,
-                grounding_score = excluded.grounding_score,
-                verbatim_score = excluded.verbatim_score,
-                mastery = excluded.mastery,
-                verdict = excluded.verdict,
-                assessed_at = excluded.assessed_at
-            """,
-            (
-                int(record["document_id"]),
-                record["scientific_field"],
-                record["title"],
-                record["question"],
-                record["answer"],
-                float(record["grounding_score"]),
-                float(record["verbatim_score"]),
-                float(record["mastery"]),
-                record["verdict"],
-                record["assessed_at"],
-            ),
-        )
-        conn.commit()
+
+    def _write() -> None:
+        with get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO learning_assessments
+                    (document_id, scientific_field, title, question, answer,
+                     grounding_score, verbatim_score, mastery, verdict, assessed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(document_id) DO UPDATE SET
+                    scientific_field = excluded.scientific_field,
+                    title = excluded.title,
+                    question = excluded.question,
+                    answer = excluded.answer,
+                    grounding_score = excluded.grounding_score,
+                    verbatim_score = excluded.verbatim_score,
+                    mastery = excluded.mastery,
+                    verdict = excluded.verdict,
+                    assessed_at = excluded.assessed_at
+                """,
+                (
+                    int(record["document_id"]),
+                    record["scientific_field"],
+                    record["title"],
+                    record["question"],
+                    record["answer"],
+                    float(record["grounding_score"]),
+                    float(record["verbatim_score"]),
+                    float(record["mastery"]),
+                    record["verdict"],
+                    record["assessed_at"],
+                ),
+            )
+            conn.commit()
+
+    _db_write_retry(_write)
 
 
 def _candidate_documents() -> list[int]:
@@ -351,13 +389,17 @@ def probe_next() -> dict[str, Any] | None:
         record = probe_document(document_id)
         if record is not None:
             return record
-        with get_connection() as conn:
-            conn.execute(
-                "INSERT OR IGNORE INTO learning_assessments (document_id, verdict, assessed_at)"
-                " VALUES (?, 'skipped', ?)",
-                (document_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
-            )
-            conn.commit()
+
+        def _mark_skipped() -> None:
+            with get_connection() as conn:
+                conn.execute(
+                    "INSERT OR IGNORE INTO learning_assessments (document_id, verdict, assessed_at)"
+                    " VALUES (?, 'skipped', ?)",
+                    (document_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                )
+                conn.commit()
+
+        _db_write_retry(_mark_skipped)
     return None
 
 
@@ -476,6 +518,12 @@ class ProbeRequest(BaseModel):
     document_id: int | None = Field(default=None, ge=1)
 
 
+class ThresholdRequest(BaseModel):
+    applied: float | None = Field(default=None, ge=0.05, le=0.95)
+    partial: float | None = Field(default=None, ge=0.01, le=0.5)
+    recited: float | None = Field(default=None, ge=0.3, le=0.95)
+
+
 @router.get("/status")
 def api_learning_status() -> dict[str, Any]:
     return learning_status()
@@ -502,3 +550,349 @@ def api_learning_probe(payload: ProbeRequest) -> dict[str, Any]:
     if record is None:
         raise HTTPException(status_code=404, detail=f"Document {document_id} could not be examined (missing or no readable text).")
     return {"ok": True, "result": record}
+
+
+def _regrade_all(applied_t: float, partial_t: float, recited_t: float) -> int:
+    """Re-apply the verdict function to every stored assessment (§37): the
+    thresholds DEFINE the verdicts, so calibrating them must re-grade the
+    existing exam records — the index reflects the calibrated examiner.
+    Returns the number of rows re-graded."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, grounding_score, verbatim_score, mastery, verdict"
+            " FROM learning_assessments"
+        ).fetchall()
+        changed = 0
+        for row in rows:
+            if str(row["verdict"]) == "skipped":
+                continue
+            grounding = float(row["grounding_score"] or 0.0)
+            verbatim = float(row["verbatim_score"] or 0.0)
+            mastery = grounding * max(0.3, 1.0 - (verbatim - recited_t)) if verbatim > recited_t else grounding
+            if mastery >= applied_t:
+                verdict = "applied"
+            elif verbatim > recited_t:
+                verdict = "recited"
+            elif grounding > partial_t:
+                verdict = "partial"
+            else:
+                verdict = "not-learned"
+            if verdict != str(row["verdict"]):
+                conn.execute(
+                    "UPDATE learning_assessments SET verdict = ?, mastery = ? WHERE id = ?",
+                    (verdict, round(mastery, 4), int(row["id"])),
+                )
+                changed += 1
+        conn.commit()
+    return changed
+
+
+@router.post("/thresholds")
+def api_learning_thresholds(payload: ThresholdRequest) -> dict[str, Any]:
+    """Persist calibration thresholds (§37) and re-grade every stored exam
+    with the new verdict function. Omitted values keep their current setting."""
+    before = _grade_thresholds()
+    if payload.applied is not None:
+        _set_setting("applied_threshold", str(min(0.95, max(0.05, float(payload.applied)))))
+    if payload.partial is not None:
+        _set_setting("partial_threshold", str(min(0.5, max(0.01, float(payload.partial)))))
+    if payload.recited is not None:
+        _set_setting("recited_verbatim", str(min(0.95, max(0.3, float(payload.recited)))))
+    applied_t, partial_t, recited_t = _grade_thresholds()
+    regraded = 0
+    if before != (applied_t, partial_t, recited_t):
+        regraded = _regrade_all(applied_t, partial_t, recited_t)
+    return {
+        "ok": True,
+        "applied": applied_t,
+        "partial": partial_t,
+        "recited": recited_t,
+        "regraded_records": regraded,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Calibration (§37) — Learning Index vs the Qualia Lab instrument
+# ---------------------------------------------------------------------------
+
+class CalibrationRequest(BaseModel):
+    samples: int = Field(default=6, ge=1, le=20)
+
+
+# One calibration at a time — full-RAG samples are heavy on the small machine.
+_calibration_lock = threading.Lock()
+_calibration_thread: threading.Thread | None = None
+
+
+def _rag_answer_light(question: str, scientific_field: str | None) -> dict[str, Any] | None:
+    """Path B of calibration, light instrument (§37 memory lesson).
+
+    The full run_autonomous_chat pipeline (session store, summaries, qualia
+    dynamics) pushed this machine past 5 GB and into swap. The Qualia Lab's
+    epistemology — retrieve from the library, answer grounded, score with
+    its own scorer — needs none of that ceremony: FTS retrieval + ONE
+    gateway call per sample. Same questions, same shared grader, honest
+    comparison, survivable footprint. The deep pipeline returns on the new rig.
+    """
+    from .retrieval import search_chunks
+
+    with get_connection() as conn:
+        rows = search_chunks(
+            conn,
+            query=question,
+            limit=4,
+            scientific_field=scientific_field or None,
+        )
+    context = "\n\n---\n\n".join(
+        str(r.get("content") or "")[:1500] for r in rows
+    ).strip()
+    if not context:
+        return None
+    citations = sorted(
+        {str(r.get("source_id") or "").strip() for r in rows if str(r.get("source_id") or "").strip()}
+    )
+    try:
+        answer = get_gateway().chat(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Sentinel answering an examination question. Use the "
+                        "provided library context, answer in your own words, be concise."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Library context:\n{context}\n\nQuestion: {question}",
+                },
+            ],
+            temperature=0.2,
+            max_tokens=600,
+        )
+    except Exception:
+        return None
+    return {"answer": answer, "citations": citations}
+
+
+def _run_calibration(samples: int) -> dict[str, Any]:
+    """Re-examine the most recent Learning-Index-assessed documents through
+    the Qualia Lab's own instrument (run_autonomous_chat + its scorer) using
+    the SAME exam questions, then compare both instruments on the same
+    documents and propose evidence-based threshold adjustments.
+
+    Two answer paths per document, one shared grader:
+      Path A (Learning Index, already stored): answer from her own knowledge.
+      Path B (Qualia pipeline, live): full RAG answer with library retrieval.
+
+    Small-machine discipline (§37): the regular examiner pauses while this
+    runs, garbage is collected between samples, and a live done/total tally
+    is written so the status endpoint shows progress.
+    """
+    # Lazy import: the Qualia scorer lives in playground.py (already loaded
+    # by main.py long before this router is ever hit).
+    from .playground import _score_playground_response
+
+    import gc
+
+    # One examiner at a time on a small machine: the background learning
+    # worker pauses its own exams for the duration (restored in `finally`).
+    _set_setting("learning_enabled", "off")
+
+    applied_t, partial_t, recited_t = _grade_thresholds()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT document_id, title, scientific_field, question, verdict,"
+            " grounding_score, verbatim_score, mastery"
+            " FROM learning_assessments WHERE verdict != 'skipped'"
+            " ORDER BY id DESC LIMIT ?",
+            (samples,),
+        ).fetchall()
+    if not rows:
+        _set_setting("learning_enabled", "on")
+        return {"ok": False, "error": "No assessed documents to calibrate against — run some probes first."}
+
+    def _progress(done: int, total: int) -> None:
+        try:
+            _set_setting("calibration_progress", json.dumps({"done": done, "total": total}))
+        except Exception:
+            pass
+
+    _progress(0, len(rows))
+    samples_out: list[dict[str, Any]] = []
+    for row in rows:
+        document_id = int(row["document_id"])
+        question = str(row["question"] or "")
+        material = _load_probe_material(document_id)
+        if material is None or not question:
+            continue
+        _title, _field, source = material
+        rag_grounding = rag_verbatim = None
+        rag_verdict = "error"
+        qualia_overall = None
+        try:
+            rag = _rag_answer_light(question, str(row["scientific_field"] or ""))
+            answer = str(rag.get("answer") or "") if rag else ""
+            citations = list(rag.get("citations") or []) if rag else []
+            if answer:
+                _g, _v, _m, rag_verdict = _grade(answer, source)
+                rag_grounding, rag_verbatim = _g, _v
+                scores = _score_playground_response(
+                    question=question, answer=answer, citations=citations, qualia={}
+                )
+                qualia_overall = round(float(scores.get("overall") or 0.0), 4)
+        except Exception as exc:
+            rag_verdict = f"error: {exc}"
+        samples_out.append(
+            {
+                "document_id": document_id,
+                "title": str(row["title"] or "")[:80],
+                "field": str(row["scientific_field"] or ""),
+                "li_verdict": str(row["verdict"]),
+                "li_mastery": float(row["mastery"] or 0.0),
+                "li_grounding": float(row["grounding_score"] or 0.0),
+                "li_verbatim": float(row["verbatim_score"] or 0.0),
+                "rag_verdict": rag_verdict,
+                "rag_grounding": rag_grounding,
+                "rag_verbatim": rag_verbatim,
+                "qualia_overall": qualia_overall,
+            }
+        )
+        _progress(len(samples_out), len(rows))
+        gc.collect()
+
+    graded = [s for s in samples_out if s["rag_grounding"] is not None]
+    agreement = sum(1 for s in graded if s["li_verdict"] == s["rag_verdict"])
+
+    report: dict[str, Any] = {
+        "ok": True,
+        "mode": "light-rag (deep full-pipeline deferred to the new rig — §37 memory lesson)",
+        "thresholds_current": {"applied": applied_t, "partial": partial_t, "recited": recited_t},
+        "samples_requested": samples,
+        "samples_graded": len(graded),
+        "verdict_agreement": agreement,
+        "agreement_rate": round(agreement / len(graded), 3) if graded else None,
+        "samples": samples_out,
+    }
+
+    if len(graded) >= 4:
+        mean_li = sum(s["li_mastery"] for s in graded) / len(graded)
+        mean_rag = sum(float(s["rag_grounding"]) for s in graded) / len(graded)
+        li_applied_rate = sum(1 for s in graded if s["li_verdict"] == "applied") / len(graded)
+        rag_support_rate = sum(1 for s in graded if float(s["rag_grounding"]) >= applied_t) / len(graded)
+        verbatims = sorted(float(s["li_verbatim"]) for s in graded)
+        median_verbatim = verbatims[len(verbatims) // 2]
+
+        # Quantile-matching proposal: if the Qualia pipeline (with retrieval)
+        # can answer a share R of these documents above the current applied
+        # threshold, the own-knowledge examiner should call approximately the
+        # same share "applied" — set the threshold at the (1-R) quantile of
+        # the observed mastery distribution.
+        masteries = sorted(float(s["li_mastery"]) for s in graded)
+        target_share = min(0.85, max(0.15, rag_support_rate))
+        idx = min(len(masteries) - 1, max(0, round((1.0 - target_share) * len(masteries))))
+        proposed_applied = round(min(0.45, max(0.10, masteries[idx])), 3)
+        change = abs(proposed_applied - applied_t)
+        recommendation: dict[str, Any] = {
+            "mean_li_mastery": round(mean_li, 4),
+            "mean_rag_grounding": round(mean_rag, 4),
+            "li_applied_rate": round(li_applied_rate, 3),
+            "rag_support_rate": round(rag_support_rate, 3),
+            "median_li_verbatim": round(median_verbatim, 4),
+            "proposed_applied_threshold": proposed_applied,
+            "current_applied_threshold": applied_t,
+            "recommendation": (
+                "keep current"
+                if change < 0.03
+                else ("lower applied threshold" if proposed_applied < applied_t else "raise applied threshold")
+            ),
+            "note": "Proposed from quantile matching against the Qualia pipeline's retrieval-supported answer rate on the same documents. Apply via POST /api/learning/thresholds.",
+        }
+        if median_verbatim > recited_t:
+            recommendation["proposed_recited_threshold"] = round(min(0.9, recited_t + 0.1), 3)
+            recommendation["note"] += " Recitation boundary raised: median verbatim overlap sits above the current recited cutoff."
+        qualia_scores = [s["qualia_overall"] for s in graded if s["qualia_overall"] is not None]
+        if qualia_scores:
+            recommendation["mean_qualia_overall"] = round(sum(qualia_scores) / len(qualia_scores), 4)
+        report["calibration"] = recommendation
+
+        # Audit trail: keep the calibration in learning_settings.
+        history = _get_setting("calibration_history", "[]")
+        try:
+            entries = json.loads(history)
+        except Exception:
+            entries = []
+        entries.append(
+            {
+                "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "samples_graded": len(graded),
+                "agreement_rate": report["agreement_rate"],
+                "recommendation": recommendation.get("recommendation"),
+                "proposed_applied_threshold": recommendation.get("proposed_applied_threshold"),
+            }
+        )
+        _set_setting("calibration_history", json.dumps(entries[-20:], ensure_ascii=True))
+    # Hand the examination desk back to the background worker.
+    _set_setting("learning_enabled", "on")
+    return report
+
+
+@router.post("/calibrate")
+def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
+    """Start a Learning Index vs Qualia Lab calibration as a background job
+    (each sample runs retrieval + one gateway call — minutes on the small
+    machine — so the request returns immediately and /calibrate/status
+    reports results)."""
+    global _calibration_thread
+    if not _calibration_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="A calibration run is already in progress — check /api/learning/calibrate/status.")
+    _calibration_lock.release()
+    state = _get_setting("calibration_state", "idle")
+    if state == "running" and not (_calibration_thread is not None and _calibration_thread.is_alive()):
+        # Stale state from a killed/restarted server (§37) — heal and proceed.
+        _set_setting("calibration_state", "interrupted")
+        _set_setting("learning_enabled", "on")
+        state = "interrupted"
+    if state == "running":
+        raise HTTPException(status_code=409, detail="A calibration run is already in progress — check /api/learning/calibrate/status.")
+    _set_setting("calibration_state", "running")
+
+    def _job() -> None:
+        try:
+            report = _run_calibration(int(payload.samples))
+            _set_setting("calibration_report", json.dumps(report, ensure_ascii=True))
+            _set_setting("calibration_state", "done" if report.get("ok") else "error")
+        except Exception as exc:
+            _set_setting("calibration_report", json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=True))
+            _set_setting("calibration_state", "error")
+        finally:
+            # The examiner must NEVER stay paused because a run crashed.
+            _set_setting("learning_enabled", "on")
+
+    _calibration_thread = threading.Thread(target=_job, name="learning-calibration", daemon=True)
+    _calibration_thread.start()
+    return {"ok": True, "started": True, "samples": int(payload.samples), "status_endpoint": "/api/learning/calibrate/status"}
+
+
+@router.get("/calibrate/status")
+def api_learning_calibrate_status() -> dict[str, Any]:
+    """Latest calibration run: state + full report when done.
+
+    Self-healing: a 'running' state with no live worker thread (server was
+    restarted mid-run, §37 lesson) is downgraded to 'interrupted' instead of
+    blocking future runs forever, and the examiner toggle is restored.
+    """
+    state = _get_setting("calibration_state", "idle")
+    if state == "running":
+        thread_alive = _calibration_thread is not None and _calibration_thread.is_alive()
+        if not thread_alive:
+            _set_setting("calibration_state", "interrupted")
+            _set_setting("learning_enabled", "on")
+            state = "interrupted"
+    report_raw = _get_setting("calibration_report", "")
+    report: dict[str, Any] | None = None
+    if report_raw:
+        try:
+            report = json.loads(report_raw)
+        except Exception:
+            report = None
+    return {"ok": True, "state": state, "report": report}

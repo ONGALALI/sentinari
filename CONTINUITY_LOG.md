@@ -985,3 +985,25 @@ review listing can be produced anytime.
 **First exam in history (live-verified):** "Analyzing Network Traffic for Incidents" — verdict APPLIED, grounding 0.6522, verbatim 0.0815 (answered in her own words). Library: 12,732 documents; at one exam/10s the full sweep runs continuously without starving the small machine.
 
 **Design honesty:** % Learned measures EXAMINED-AND-GRADED share; verdicts are conservative pending calibration against Qualia Lab results. Nothing mutates knowledge — this is measurement, not modification; the Qualia Lab's discipline, run continuously.
+
+## §37 — LEARNING INDEX CALIBRATED AGAINST THE QUALIA LAB — 2026-09-25
+
+**Owner directive:** run both instruments over the same documents, compare verdicts, tune the applied/partial/recited thresholds.
+
+**Method:** calibration endpoint (POST /api/learning/calibrate) re-examines the most recent Learning-Index-assessed documents through the Qualia Lab's epistemology — retrieval from the library, grounded answer, scored by playground's own `_score_playground_response` — using the SAME exam questions the Learning Index generated. Two answer paths, one shared grader: Path A = LI own-knowledge answer (stored); Path B = retrieval-backed answer (live). Per-sample progress written to learning_settings; audit trail in calibration_history.
+
+**Results (8 graded pairs across two runs):**
+- Verdict agreement 7/8 (87.5%): run 1 = 3/3 (100%), run 2 = 4/5 (80%). The single disagreement: RAG retrieval fetched weak context on one document (grounding 0.25) — a retrieval miss, not an examiner error.
+- Scale alignment: mean LI mastery 0.5197 ≈ mean RAG grounding 0.5474 (Δ 0.028) — the two instruments measure the same quantity.
+- Mean Qualia 'overall' ≈ 0.34: the style scorer (structure/length/reasoning-words) is a complementary axis, not a knowledge axis — kept alongside for the record.
+- Median LI verbatim 0.13 — no recitation pathology in this corpus.
+- **Recommendation applied: applied threshold 0.28 → 0.379** (quantile-matched to the Qualia pipeline's 80% retrieval-support rate). POST /api/learning/thresholds now RE-GRADES all stored exams when thresholds change (_regrade_all) — verdicts are defined by thresholds, so calibration is retroactive. Live proof: 5 records re-graded, two applied→partial under the stricter bar. Partial floor stays 0.08, recited cutoff stays 0.6.
+
+**Engineering lessons (all fixed in code):**
+1. Deep-pipeline calibration (full run_autonomous_chat) pushed the small machine to 5.2 GB and swap-freeze → replaced with the LIGHT instrument (FTS retrieval + ONE gateway call per sample, same scorer): memory flat at ~100 MB. Deep mode returns on the new rig (noted in report payload).
+2. Calibration is a background job with status polling (POST starts, GET /calibrate/status reports state + progress + report) — never a synchronous request.
+3. Transient 'database is locked' storms (learning DB shared with load queue/auto-ingest) → retry-with-backoff armor on all learning writes.
+4. Stale 'running' state self-heals: POST checks thread liveness and downgrades to 'interrupted'; status endpoint does the same; the examiner toggle is restored in finally AND on heal — she can never stay paused from a crashed run.
+5. Minor: global-declaration ordering fix; /calibrate returns 409 while genuinely running.
+
+**Status at close:** threshold calibrated and persisted; examiner resumed (23/12,733 docs examined, 0.2%); worker continues with the calibrated bar. Library had grown to 12,733 documents during the session (auto-ingest still feeding her).
