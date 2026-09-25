@@ -938,3 +938,18 @@ review listing can be produced anytime.
 4. **Benefit to the person on the street (fearing job loss)** — the real question is who captures the value of AI's labor shift: Big Tech centralizes it (worker becomes a cost line), locally owned Sentinari disperses it (the amplifier sits in the worker's hands). Concretely: amplification not replacement (citation assistant free forever, contractually), a cited map for livelihood transition (vocational/NQF lineage), knowledge without a tollgate, privacy as dignity (questions never leave the machine), new stewardship work around the loop, and a vote through usage for accountable AI. One line: "Big Tech offers him an oracle he must rent and obey; Sentinari offers him a partner he can own and direct."
 
 **§33 ADDENDUM (owner request, next session):** Owner will need help explaining the Qualia Lab's maths in simpler terms. Terrain confirmed: `templates/gemma_qualia_console.html` displays Confidence and vector norms; underneath are embedding-based similarity concepts (cosine similarity, norms, confidence scoring). When revisiting: add plain-language explanations ("distance between meanings" framing) alongside the numbers, without touching the computation. Parked by owner: "we will get to it."
+
+## §34 — LOADED DATASETS NO LONGER REAPPEAR IN SEARCHES — 2026-09-25
+
+**Owner directive:** datasets already loaded + parsed must not show up in candidate searches again — they block the discovery of new material (new rig still pending, so library hygiene matters on the small machine).
+
+**Root cause found:** the storage loop in `app/skill_review.py` `find_candidates` already refused to *resurrect* loaded rows (the "never resurrect" branch), but the found items were still returned as cards in the search response with only an `already_loaded: true` badge — so every fresh search re-displayed everything already ingested.
+
+**Fix (three lanes + UI):**
+1. `/api/skill-review/find` — final response sweep now drops any candidate whose stored status is `loaded`; response reports `loaded_skipped` count. Verified live: search "cybersecurity" → count 5 new, 15 loaded hidden, 31 duplicates/rejected skipped, zero resurrections.
+2. Dormant write-lanes hardened (no UI callers today, but future-proof): legacy `/discover` and `/candidates/save` now pre-check identity status and refuse to re-store anything already `loaded` or `reject`.
+3. UI (playground_console.html): both search status lines now append "N already in the library (hidden)" when `loaded_skipped > 0`, so the owner sees why the lineup is smaller and that nothing was lost.
+
+**Design notes:** approved/test-status datasets still appear (not yet ingested — reviewable by design); rejected datasets were already hidden from earlier work (§ owner directive); loaded datasets remain permanently listed in their field container via `/loaded`. The `Already loaded ✓` badge still exists for the persisted-lineup edge (candidate row stored before its identity was loaded), but fresh searches no longer produce such cards.
+
+**Verified:** server restarted (port 8099), playground 200, live search test passed as above. Library at time of fix: 540 loaded datasets.

@@ -2624,7 +2624,10 @@
           const dupNote = Number(data.duplicates_skipped || 0) > 0
             ? ` — <span class="dup-note">${formatInt(data.duplicates_skipped)} duplicate(s) skipped</span>`
             : '';
-          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}${fullTextOnly ? ' · full text only' : ''}). Approve to keep for review, or Load to ingest into the field.${dupNote}`;
+          const loadedNote = Number(data.loaded_skipped || 0) > 0
+            ? ` — <span class="dup-note">${formatInt(data.loaded_skipped)} already in the library (hidden)</span>`
+            : '';
+          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}${fullTextOnly ? ' · full text only' : ''}). Approve to keep for review, or Load to ingest into the field.${dupNote}${loadedNote}`;
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = `Dataset search failed: ${error.message || error}`;
@@ -3461,10 +3464,13 @@
         const dupNote = Number(data.duplicates_skipped || 0) > 0
           ? ` <span class="dup-note">(${formatInt(data.duplicates_skipped)} duplicate(s) skipped)</span>`
           : '';
+        const loadedNote = Number(data.loaded_skipped || 0) > 0
+          ? ` <span class="dup-note">· ${formatInt(data.loaded_skipped)} already in the library (hidden)</span>`
+          : '';
         const pmNote = Number(data.pubmed_count || 0) > 0
           ? ` · PubMed ${formatInt(data.pubmed_count)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}`
           : '';
-        setStatus('scientificCandidateStatus', `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)}${pmNote}). They are stored below for review.${dupNote}`, true);
+        setStatus('scientificCandidateStatus', `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)}${pmNote}). They are stored below for review.${dupNote}${loadedNote}`, true);
         await loadScientificCandidates();
       } catch (error) {
         setStatus('scientificCandidateStatus', error.message, false);

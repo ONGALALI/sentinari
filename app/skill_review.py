@@ -655,6 +655,15 @@ def discover_candidates(payload: DiscoveryRequest) -> dict[str, Any]:
                 item,
                 str(item.get("title") or ""),
             )
+            already = conn.execute(
+                "SELECT status FROM skill_review_candidates WHERE identity_key = ?",
+                (identity,),
+            ).fetchone() if identity else None
+            if already is not None and str(already["status"]) in ("loaded", "reject"):
+                # Owner directive (§34): loaded datasets must never re-enter
+                # the review lineup through any write lane.
+                duplicates += 1
+                continue
             try:
                 conn.execute(
                     """
@@ -887,6 +896,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         unique_candidates.append(item)
 
     stored_ids: dict[str, int] = {}
+    loaded_skipped = 0
     with get_connection() as conn:
         # The DB is the second layer of the rejected-never-returns guarantee:
         # any legacy rows still carrying status='reject' are skipped too.
@@ -921,7 +931,10 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         ),
                     )
                 else:
-                    # Loaded or rejected: never resurrect — just report it.
+                    # Loaded or rejected: never resurrect. (Owner directive,
+                    # §34: loaded datasets are additionally dropped from the
+                    # visible lineup by the final sweep below, so fresh
+                    # searches surface only genuinely new material.)
                     duplicate_count += 1
                 continue
             try:
@@ -961,12 +974,26 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         conn.commit()
     candidates = unique_candidates
 
+    # Owner directive (§34): datasets already loaded + parsed into the
+    # library must not reappear in fresh searches — they crowd out new
+    # discoveries. The storage loop above already refuses to resurrect
+    # them; this final sweep drops any that slip through, so the lineup
+    # contains only genuinely new material.
+    visible: list[dict[str, Any]] = []
+    for item in candidates:
+        if item.get("already_loaded") is True:
+            loaded_skipped += 1
+            continue
+        visible.append(item)
+    candidates = visible
+
     return {
         "ok": True,
         "query": query,
         "field": field_text,
         "count": len(candidates),
         "duplicates_skipped": duplicate_count,
+        "loaded_skipped": loaded_skipped,
         "github_count": sum(1 for c in candidates if c["source_type"] == "github"),
         "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
@@ -1004,6 +1031,15 @@ def save_candidates(payload: dict[str, Any]) -> dict[str, Any]:
                 item if isinstance(item, dict) else {},
                 title,
             )
+            already = conn.execute(
+                "SELECT status FROM skill_review_candidates WHERE identity_key = ?",
+                (identity,),
+            ).fetchone() if identity else None
+            if already is not None and str(already["status"]) in ("loaded", "reject"):
+                # Owner directive (§34): loaded datasets must never re-enter
+                # the review lineup through any write lane.
+                duplicates += 1
+                continue
             try:
                 conn.execute(
                     """
