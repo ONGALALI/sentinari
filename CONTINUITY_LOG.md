@@ -967,3 +967,21 @@ review listing can be produced anytime.
 **Live verification (query "physics", field physics, fresh_only=true):** count 12 — 4 OpenAlex + 4 GitHub + 4 HF (PubMed correctly gated off for non-medical fields); 6 loaded hidden; zero `already_loaded` cards; scores strictly non-increasing (top: 2726 cites/2022 OpenAlex work). Toggle OFF restores the sources' native order (OpenAlex citation sort, GitHub relevance, HF downloads).
 
 **Interaction with §34:** §34 hides loaded datasets from fresh searches (on by default as data hygiene); §35 adds the explicit user-facing mode + novelty ranking on top. Both compose: fresh_only guarantees absence + orders by discovery value.
+
+## §36 — SENTINEL LEARNING INDEX: % LEARNED, PROVEN BY EXAM — 2026-09-25
+
+**Owner request (1):** determine automatically whether Sentinel can actually APPLY the data she has digested, via a background worker, with a % Learned progress bar.
+
+**Owner request (2) — LOGGED DIRECTIVE for future build:** defense against Algorithmic Distortion and Information De-escalation (AIDE). Near-term: a defensive gateway that filters incoming/AI-generated content for distortion and de-escalation patterns before it reaches Sentinel's library or answers. Longer-term offensive: an app that seeks out and exposes AIDE patterns in the wild. Observer note for the whitepaper: the ingested-works-only gateway already denies poisoned sources the raw material to distort with — AIDE defense is the immune system; the load lane is the diet. Owner explicitly asked for this to be recorded in the continuity log.
+
+**What was built (`app/learning_index.py` + main.py wiring + Workflow Dashboard card):**
+- Background worker (daemon thread, 10s pacing, one exam per tick): for each unassessed ingested document, one gateway call writes ONE exam question grounded ONLY in that document's chunks, then answers from the model's own knowledge WITHOUT quoting the passage.
+- Local grading (zero extra API cost): grounding = share of answer tokens drawn from the source (did she use the knowledge?); verbatim = share of the source parroted back (recitation). mastery = grounding penalized when verbatim > 0.6. Verdicts: applied / partial / recited / not-learned / skipped.
+- Index: per-field and whole-library % Learned = share of ingested documents examined. Sweeps the ENTIRE library (recent window first, then deeper) — the 10s pacing is the throttle, not a window.
+- Field names normalized (legacy Title-case rows like "Chemistry"/"Physics" merge into slug form).
+- UI: Workflow Dashboard card with overall progress bar, per-field percentages, recent-exam verdicts, "Examine one now" button (watch her learn live), Pause/Resume toggle persisted in learning_settings (the pattern-recognition toggle pattern).
+- API: GET /api/learning/status, POST /api/learning/toggle, POST /api/learning/probe {document_id?}.
+
+**First exam in history (live-verified):** "Analyzing Network Traffic for Incidents" — verdict APPLIED, grounding 0.6522, verbatim 0.0815 (answered in her own words). Library: 12,732 documents; at one exam/10s the full sweep runs continuously without starving the small machine.
+
+**Design honesty:** % Learned measures EXAMINED-AND-GRADED share; verdicts are conservative pending calibration against Qualia Lab results. Nothing mutates knowledge — this is measurement, not modification; the Qualia Lab's discipline, run continuously.

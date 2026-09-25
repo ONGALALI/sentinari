@@ -611,6 +611,19 @@
               <a class="action-link" href="/ui/playground/workbench-b">Workbench B</a>
             </div>
           </div>
+          <div class="card">
+            <h2>Sentinel Learning Index</h2>
+            <div class="hint">A gentle background examiner: for each ingested document, Sentinel writes one exam question from it and answers in her own words. Grounding is graded locally — applying the knowledge scores; reciting it does not.</div>
+            <div class="progress-track" style="margin-top:10px;"><div class="progress-fill" id="learningOverallFill" style="width:0%"></div></div>
+            <div class="hint" id="learningOverallLabel" style="margin-top:4px;">Learning Index: gathering first results…</div>
+            <div id="learningFields" class="hint" style="margin-top:8px;"></div>
+            <div id="learningLatest" class="hint" style="margin-top:6px;color:#5b6b83;"></div>
+            <div class="row" style="margin-top:10px;">
+              <button id="btnLearningProbe" type="button">Examine one now</button>
+              <button id="btnLearningToggle" type="button" class="ghost">Pause</button>
+            </div>
+            <div id="learningProbeStatus" class="hint" style="margin-top:6px;"></div>
+          </div>
         </div>
 
         <div class="layout" id="chat-lab">
@@ -2924,6 +2937,84 @@
       } catch (_) { /* keep watching; transient errors are fine */ }
     };
     window.setInterval(pollLoadQueue, 3000);
+
+    // ---------- Sentinel Learning Index (owner directive §36) ----------
+    const learningEnabledState = { on: true };
+    const escapeLearning = (text) => String(text || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const renderLearningStatus = (data) => {
+      const fill = byId('learningOverallFill');
+      const label = byId('learningOverallLabel');
+      if (!fill || !label) return;
+      const pct = Number(data.percent || 0);
+      fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+      label.innerHTML = `<strong>% Learned: ${pct}%</strong> — ${formatInt(data.assessed || 0)} of ${formatInt(data.total || 0)} ingested documents examined.`;
+      const fieldsEl = byId('learningFields');
+      if (fieldsEl) {
+        const rows = (data.fields || []).slice(0, 6).map((f) =>
+          `<div>• ${escapeLearning(f.field)}: <strong>${Number(f.percent || 0).toFixed(1)}%</strong> (${formatInt(f.assessed)}/${formatInt(f.total)})</div>`
+        ).join('');
+        fieldsEl.innerHTML = rows;
+      }
+      const latestEl = byId('learningLatest');
+      if (latestEl) {
+        const rows = (data.latest || []).slice(0, 3).map((l) =>
+          `<div>• [${escapeLearning(l.verdict)}] ${escapeLearning(String(l.title || '').slice(0, 60))}</div>`
+        ).join('');
+        latestEl.innerHTML = rows ? `Recent exams: ${rows}` : '';
+      }
+      const toggleBtn = byId('btnLearningToggle');
+      if (toggleBtn) toggleBtn.textContent = data.enabled ? 'Pause' : 'Resume';
+      learningEnabledState.on = Boolean(data.enabled);
+    };
+    const pollLearning = async () => {
+      try {
+        const response = await fetch('/api/learning/status');
+        const data = await readApiJson(response);
+        if (response.ok && data.ok !== false) renderLearningStatus(data);
+      } catch (_) { /* transient */ }
+    };
+    const probeLearning = async () => {
+      const statusEl = byId('learningProbeStatus');
+      if (statusEl) statusEl.textContent = 'Examining one document now — Sentinel writes the question and answers in her own words…';
+      try {
+        const response = await fetch('/api/learning/probe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await readApiJson(response);
+        if (!response.ok || data.ok === false) throw new Error(data.detail || 'Probe failed.');
+        const r = data.result || {};
+        if (statusEl) statusEl.innerHTML = `Verdict: <strong>${escapeLearning(r.verdict || '?')}</strong> — grounding ${(100 * Number(r.mastery || 0)).toFixed(0)}% · “${escapeLearning(String(r.question || '').slice(0, 120))}”`;
+      } catch (error) {
+        if (statusEl) statusEl.textContent = `Probe failed: ${error.message || error}`;
+      }
+      pollLearning();
+    };
+    const toggleLearning = async () => {
+      const btn = byId('btnLearningToggle');
+      const next = !learningEnabledState.on;
+      if (btn) btn.disabled = true;
+      try {
+        const response = await fetch('/api/learning/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: next })
+        });
+        const data = await readApiJson(response);
+        if (!response.ok || data.ok === false) throw new Error(data.detail || 'Toggle failed.');
+        learningEnabledState.on = next;
+        if (btn) btn.textContent = next ? 'Pause' : 'Resume';
+      } catch (error) {
+        setStatus('learningProbeStatus', `Toggle failed: ${error.message || error}`, false);
+      }
+      if (btn) btn.disabled = false;
+    };
+    byId('btnLearningProbe')?.addEventListener('click', probeLearning);
+    byId('btnLearningToggle')?.addEventListener('click', toggleLearning);
+    pollLearning();
+    window.setInterval(pollLearning, 20000);
 
     // ---------- Permanently loaded datasets per field ----------
     const loadSentinelLoadedDatasets = async (fieldSlug) => {
