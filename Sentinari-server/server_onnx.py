@@ -150,7 +150,7 @@ def _log_request(**fields: Any) -> None:
 # Persona injection (domain-based, mirrors settings.yaml personality block)
 # --------------------------------------------------------------------------
 
-PERSONA_NAME = str(PERSONA_CFG.get("name") or "Mira-VET")
+PERSONA_NAME = str(PERSONA_CFG.get("name") or "Sentinari")  # §43: legacy Mira-VET fallback discarded
 PERSONA_TONE = str(PERSONA_CFG.get("tone") or "Friendly, warm, lightly humorous, evidence-first")
 PERSONA_LANGUAGE = str(PERSONA_CFG.get("default_language") or "English")
 

@@ -428,8 +428,8 @@ def _build_system_prompt(
     refuse_harmful_or_illegal = bool(ethics.get("refuse_harmful_or_illegal", True))
     privacy_first = bool(ethics.get("privacy_first", True))
 
-    tone = str(personality.get("tone") or "Friendly, warm, lightly humorous, evidence-first").strip()
-    name = str(personality.get("name") or "Mira-VET").strip()
+    tone = str(personality.get("tone") or "Calm, precise, evidence-first").strip()
+    name = str(personality.get("name") or "Sentinari").strip()  # §43: legacy Mira-VET fallback discarded
     default_language = str(personality.get("default_language") or "English").strip() or "English"
     supported_languages_raw = personality.get("supported_languages") or []
     supported_languages: list[str] = []
@@ -767,7 +767,7 @@ def _is_direct_general_question(question: str, mode: str) -> bool:
     if not normalized or len(normalized) > 220:
         return False
     normalized = re.sub(
-        r"^(?:SMI|smi|mira|assistant|ai)\s*[:,\-]?\s+",
+        r"^(?:SMI|smi|sentinari|assistant|ai)\s*[:,\-]?\s+",
         "",
         normalized,
         flags=re.IGNORECASE,

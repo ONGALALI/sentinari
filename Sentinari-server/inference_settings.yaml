@@ -16,8 +16,10 @@ model:
   auto_load: true
 
 personality:
-  name: "Mira-VET"          # same persona as the main platform
-  tone: "Friendly, warm, lightly humorous, evidence-first"
+  # §43 persona switchover: seeded from config/persona_sentinari.yaml (the
+  # canonical Sentinari profile). Legacy Mira-VET lineage is discarded.
+  name: "Sentinari"
+  tone: "Calm, precise, evidence-first; professional warmth without intimacy"
   default_language: "English"
 
 # Domain-based persona injection at the inference boundary.

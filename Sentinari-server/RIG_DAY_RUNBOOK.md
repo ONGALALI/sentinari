@@ -91,7 +91,7 @@ curl -s -X POST http://127.0.0.1:8100/api/inference/chat \
      -d '{"prompt": "Say hello to Inspirari.", "domain": "default"}'
 ```
 
-Expect `"degraded": false` and a genuine Mira-VET reply. Then check the
+Expect `"degraded": false` and a genuine Sentinari reply (persona per config/persona_sentinari.yaml). Then check the
 log rows: `curl "http://127.0.0.1:8100/api/inference/log?limit=5"` —
 engine should read `onnx:cuda` (or `onnx:cpu`), not `degraded-stub`.
 

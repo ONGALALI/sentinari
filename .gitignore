@@ -37,8 +37,9 @@ Thumbs.db
 # Freebuff agent tool noise
 .freebuff/
 
-# ETDP app lives here physically but is a SEPARATE application (see CONTINUITY_LOG)
-VocationalLLM/
+# §43 legacy purge: ETDP app REMOVED from the tree entirely; conversion venv
+# (was left un-ignored by oversight) removed and its path ignored.
+.venv-convert/
 
 # NCBI PubMed API key (kept local; app reads it via pubmed_worker)
 pubmedapi.md
