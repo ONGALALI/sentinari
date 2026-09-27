@@ -1115,3 +1115,22 @@ BOTH. Verified live in the databases, not from memory:
 - **Net root now:** app/, config/, data/, scripts/, sentinel/, templates/, Sentinari-server/, plus the launchers, run_smi.py, requirements.txt, the three governance docs, adversarial_battery.py and the three owner-local secret/notes files. Nothing Ollama-era, nothing ETDP-era, nothing Qwen-era remains.
 
 **State at close:** persona = Sentinari across config, code, and both servers, seeded from one canonical file; tree is migration-clean for the rig copy; Victus untouched and dormant; confidential files never entered git. Next session can diff the tree against this entry as the migration checklist.
+
+## §44 — QUEUED: FULL REBRAND SWEEP + GITHUB-FASHION RESTRUCTURE (FUTURE ACTION) — 2026-09-27
+
+**Owner directive (logged for future action, NOT executed — freeze discipline; §43's scope is closed):** (1) Every UI tag/reference not related to Sentinari — SMI, SMI24, Gemma 4:12B etc. — replaced with Sentinari only; zero traces of Gemini, Codex/OpenAI anywhere. (2) Restructure the app in typical GitHub fashion (or another orderly layout) during migration, suitable for a tree image for documentation.
+
+**Census taken 2026-09-27 (read-only, exact numbers so the executor starts warm):**
+- templates/ (user-visible UI): SMI/smi 59 hits in 8 files; gemma/Gemma 44 hits in 7 files; gemini 5 hits in 3 files; openai/codex 0; Qwen/VocationalLLM 0. Worst offenders: inpirari_start_console.html, wan_console.html, gemma_qualia_console.html.
+- config/code: project_name SMI_Stand (settings.yaml line 1); DB filename smi_vocationalllm.db (paths.sqlite_db — 1.3 GB file on disk); legacy strings in app/ (config.py docstring "VocationalLLM app", auto_ingest thread name, ingestion User-Agent, __init__ default db path). gemini: 41 hits (llm_gateway provider + settings gemini block + reembed script — FUNCTIONAL sealed infra, not just cosmetics). openai: 39 hits (mostly llm_gateway's "openai_compatible" generic protocol naming + comments). codex: 0 everywhere.
+- Root: launch-smi-core.bat/.sh names still SMI-branded (owner-facing — rename to launch-sentinari.bat/.sh).
+
+**Execution checklist for the rebrand session (§45 candidate):**
+1. UI sweep: all 108 template hits → Sentinari; <title>, headers, brand spans, status labels. Verify each console renders (playground 200 + spot screenshots).
+2. Root/config cosmetics: project_name: Sentinari; launcher renames (update launch-all.bat reference + README/runbook mentions).
+3. Model-name display strings (gemma4:12B in UI/config chat_model): coupled to the :8100 cutover — rename to the Sentinari local-model label when the ONNX engine lands; do NOT half-rename while Ollama-era naming is still the runtime key.
+4. DB filename smi_vocationalllm.db → sentinari.db: MIGRATION-DAY ITEM ONLY (backup-first, stop servers, move 1.3 GB file, flip paths.sqlite_db, boot-verify, keep old file as .bak until rig-week passes).
+5. Gemini/OpenAI DECISION (owner to confirm): recommend full REMOVAL of the gemini provider block + gateway path + reembed gemini mode now that §41 sealed the cloud (zero-cloud doctrine; §23 fallback never returns). "openai_compatible" is a generic protocol name — rename to "http_json_provider" or keep (owner's call). Codex: already zero.
+6. Restructure proposal (GitHub-fashion, minimal import breakage): keep app/ and sentinel/ as packages (moving app/ → src/ would churn every import for zero functional gain); ADD README.md (project overview + quickstart + architecture); CREATE docs/ (CONTINUITY_LOG.md, VALIDATION_PROTOCOL.md, SENTINEL-v2_Review.md, CREDITS.md, Sentinari-server/RIG_DAY_RUNBOOK.md) ; CREATE tests/ (absorb sentinel/test_sentinel.py + adversarial_battery.py or keep battery at root by owner preference); data/ stays gitignored runtime. Deliver the final tree as a diagram (docs/architecture.md) for the owner's documentation image.
+
+**State at close:** nothing changed this entry — census + plan only. §43 tree state unchanged (4b5b2a5). Servers running with Sentinari persona. These two items are the declared next work block, on the owner's signal.
