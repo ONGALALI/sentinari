@@ -160,3 +160,26 @@ ingestion:
   # Sentinel's own source (app/scripts/templates/config) into the knowledge
   # library on every startup. Sentinel's code is engineering, not knowledge.
   auto_sync_coding_corpus: false
+
+# §42 VICTUS (Challenger persona) — SKELETON, PERMANENTLY DORMANT.
+# app/victus.py implements the structural spine: state machine, fail-closed
+# engagement rules, kill switch, local append-only audit log. NOTHING here
+# enables it: every gate below must be explicitly true AND a live engine
+# object must be supplied by code that does not yet exist (rig day). While
+# the gates are off the module costs nothing — no weights, no threads, no
+# sockets, no writes. Every action attempt AND every refusal is audit-logged.
+victus:
+  # Master gate. With this false the module is spec-on-disk and refuses every
+  # action with REFUSED_DORMANT.
+  enabled: false
+  # Per-capability gates — each authorises exactly ONE capability, so rig-day
+  # activation can proceed capability by capability, each flip audited:
+  allow_probe_rounds: false            # adversarial probe rounds vs the local primary
+  allow_inverted_attractor: false      # inverted S-vector attractor (adversarial mirror)
+  allow_exploitation_training: false   # fine-tuning on the logged Big-Tech exploitation runs
+  # Audit log path (append-only JSONL; git-ignored via data/victus_audit_log.jsonl).
+  audit_log: data/victus_audit_log.jsonl
+  # NOTE (§42): the DARPA external-API audit mode (Sovereign Audit Engine
+  # probing third-party models) is NOT part of app/victus.py. When it is
+  # built it gets its own module, its own config gates and its own review.
+  # Victus engages ONLY the local primary persona, inside the fence.
