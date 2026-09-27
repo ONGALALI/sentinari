@@ -1,0 +1,7 @@
+# Runtime artifacts — never commit
+inference_log.sqlite3
+inference_server.log
+__pycache__/
+models/
+service_stdout.log
+service_stderr.log

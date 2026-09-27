@@ -1,0 +1,43 @@
+# Sentinari Inference Server settings (ONNX, post-Ollama).
+# Everything here is a settings change, never a code change.
+
+server:
+  host: 127.0.0.1        # loopback only — the air-gap starts at the socket
+  port: 8100
+
+model:
+  # Folder produced by convert_to_onnx.py, carried across whole.
+  # Empty / missing => server boots in DEGRADED mode (stub replies, clearly
+  # labelled as such). Fill this in after the first conversion.
+  path: ""
+  label: "gemma-onnx"
+  execution_provider: cpu     # cpu | cuda | dml  (match the RUNNING machine)
+  max_length: 2048
+  auto_load: true
+
+personality:
+  name: "Mira-VET"          # same persona as the main platform
+  tone: "Friendly, warm, lightly humorous, evidence-first"
+  default_language: "English"
+
+# Domain-based persona injection at the inference boundary.
+domains:
+  default:
+    focus: "general research and knowledge work"
+    temperature: 0.1
+    max_tokens: 768
+  science:
+    focus: "the 21 scientific domains of the Sentinari library"
+    temperature: 0.1
+    max_tokens: 768
+  coding:
+    focus: "software engineering for the Sentinari platform"
+    temperature: 0.2
+    max_tokens: 1024
+  tutor:
+    focus: "teaching and explanation in plain language"
+    temperature: 0.4
+    max_tokens: 768
+
+logging:
+  db_path: "inference_log.sqlite3"

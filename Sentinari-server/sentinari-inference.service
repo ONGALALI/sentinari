@@ -1,0 +1,42 @@
+# systemd unit for the Sentinari ONNX inference server (Ubuntu / final rig)
+#
+# Install:
+#   sudo cp sentinari-inference.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable sentinari-inference
+#   sudo systemctl start sentinari-inference
+#
+# Check status / logs:
+#   sudo systemctl status sentinari-inference
+#   journalctl -u sentinari-inference -f
+#
+# EDIT THE PATHS BELOW before installing — they must match your actual
+# deployment layout on the Ubuntu machine.
+
+[Unit]
+Description=Sentinari ONNX Inference Server (air-gapped, Gemma)
+After=network.target
+# Air-gapped: this service does not need network access to function.
+# 'After=network.target' just ensures a sane boot order, not internet access.
+
+[Service]
+Type=simple
+User=sentinari
+Group=sentinari
+WorkingDirectory=/opt/sentinari/inference_server
+ExecStart=/opt/sentinari/inference_server/.venv/bin/python /opt/sentinari/inference_server/server_onnx.py
+Restart=on-failure
+RestartSec=5
+
+# Hardening: this process has no business touching the network at all
+# once the model is loaded from local disk. IPAddressDeny enforces that
+# at the systemd/cgroup level as defense-in-depth alongside your
+# existing air-gap discipline.
+IPAddressDeny=any
+IPAddressAllow=localhost
+# If your backend/frontend run on OTHER machines within the same
+# air-gapped local network (not the open internet), add their subnet
+# here instead of just localhost, e.g.: IPAddressAllow=192.168.1.0/24
+
+[Install]
+WantedBy=multi-user.target

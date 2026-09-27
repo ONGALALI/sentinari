@@ -1,0 +1,18 @@
+# Sentinari inference server — pinned per the roadmap's preview-API warning.
+# onnxruntime-genai has had breaking changes between minor versions
+# (e.g. tokenizer.encode() return shape); pin once verified, re-check the
+# API docs before upgrading.
+#
+# CPU-only runtime:
+onnxruntime-genai==0.7.0
+onnxruntime==1.20.1
+#
+# CUDA runtime (new rig) — use the CUDA build instead of the CPU one:
+# onnxruntime-genai-cuda==0.7.0
+#
+# FastAPI layer:
+fastapi>=0.116
+uvicorn>=0.35
+pydantic>=2.7
+PyYAML>=6.0
+numpy>=2.0
