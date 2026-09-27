@@ -1053,3 +1053,25 @@ review listing can be produced anytime.
 **Also this morning:** server 8099 was down after the Freebuff restart — relaunched (PID 9732). ACL hardening walk found DEAD again (3rd kill: log still only "START grant pass", no DONE marker) — needs a more reboot-proof approach (note for next session: scheduled task or NSSM-hosted one-shot).
 
 **Next:** run convert_to_onnx.py on this connected box (Gemma is a supported architecture; conversion output lands in models/ and plugs in via /model/load), pin versions after first real generation, Phase 5 wiring (coding_agent/gemma_training -> 8100), Ubuntu migration keeps the same Python file under systemd.
+
+## §41 — OLLAMA SEVERED, CLOUD SEALED, CONVERSION ROUTED TO THE RIG — 2026-09-27
+
+**Owner directive:** kill all Ollama processes and see if it launches. Follow-up: "Do we NEED Gemini????" (four marks — the answer is NO; Gemini was §23's transition fallback, not the endgame). Owner chose the strict path: straight to local inference on :8100, zero cloud.
+
+**Ollama severed:**
+- First kill reverted within the hour: `ollama app.exe` (tray, --hide --fast-startup) respawned the server via an ephemeral cmd wrapper; no Run key, no scheduled task, no service, no app-code spawner ever identified (chain died at an exited PID). Surgical seal: renamed the whole install dir to `%LOCALAPPDATA%\Programs\Ollama.disabled` (reversible) — nothing can respawn what does not exist. Processes then killed for good (taskkill /IM is mangled by Git Bash path conversion — use PowerShell Stop-Process). 11434 dead.
+- BONUS DISCOVERY: Ollama's real engine `llama-server.exe` SURVIVED as an orphan (parent killed, child kept running) holding 7.9 GB with gemma4:12B loaded. Killed it: free RAM went 1.4 GB → 9.9 GB. Lesson for the rig migration: check for orphaned llama-server children whenever a host process dies.
+- GGUF blobs at D:\inpirari\Ollama\models preserved untouched (12B is Q4-quantized ~7.4 GB; NOT convertible — GGUF import path takes f16/f32 only; 26B/31b blobs likewise quantized).
+
+**Cloud seal (settings.yaml):** `llm.fallback_providers` emptied (was [gemini]) with an explanatory comment — the Learning examiner had been silently falling back to Gemini cloud whenever Ollama hiccuped. With Ollama dead + fallbacks empty, NOTHING can call the cloud quietly. `provider:` line kept (legacy value; runtime_llm.client_backend decides the real path).
+
+**THE LAUNCH TEST (owner's question) — VERDICT: the platform launches and stands without Ollama.** Fresh 8099 boot with Ollama dead: ok:true, startup_ready:true, llm_firewall_ok:true; llm_runtime honestly reports reachable:false / requires_attention:true (chat dark BY DESIGN); /ui/playground 200; examiner paused via /api/learning/toggle (she stays quiet until real weights land). Degraded stubs from :8100 are loud and honest.
+
+**Phase 0 exploration on this box (all findings transferred to the rig kit):**
+- Python 3.14 → oldest ort-genai wheel is 0.12.0; installed 0.17.0 (onnxruntime 1.30.0 came along). Requirements-inference.txt corrected from the aspirational 0.7.0/1.20.1 pin — the roadmap's preview-churn warning proven twice more: create_model() now REQUIRES input_path + prepared hf_details (call it via the official CLI), and the builder imports onnx_ir + torch + transformers (converter-only deps; the RUNTIME stays transformer-free).
+- HF repo `google/gemma-4-12B-it` (canonical capital-B) is UN-GATED — no token, no license wall.
+- The real Phase 0 entrypoint is `python -m onnxruntime_genai.models.builder -m <repo> -o <out> -p int4 -e cpu -c <cache>`.
+
+**Owner decision: conversion belongs to the NEW RIG.** This box (15.5 GB, tight) runs the server wrapper now (degraded, honest); the rig (84 GB RAM / 24 GB GPU) does the conversion. Built the rig-day kit in Sentinari-server/: convert_to_onnx.py REWRITTEN for the 0.17.0 CLI (online mode -m repo / offline mode --download-only snapshot → hand-carry → --input hf_path), requirements-conversion.txt (converter-only deps, clearly fenced from the runtime requirements), RIG_DAY_RUNBOOK.md (copy-paste: venv, Option A online / Option B offline air-gap transfer, wire via model.path or POST /model/load, real-generation verification, systemd keep-alive, pin discipline).
+
+**State at close:** Ollama gone + sealed; cloud fallbacks sealed; app healthy-but-dark on chat; examiner paused; :8100 wrapper live degraded; rig kit committed. On rig day: run the runbook, flip model.path, and Mira-VET speaks from her own weights — no Ollama, no cloud, cord fully cut.

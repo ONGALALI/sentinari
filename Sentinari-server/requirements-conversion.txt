@@ -1,0 +1,21 @@
+# Sentinari Phase 0 conversion toolchain — run ONLY where conversion happens.
+#
+# Honest note: the CONVERTER needs transformers/torch (it reads the HF
+# checkpoint and exports ONNX). The RUNTIME never does — on the air-gapped
+# rig, install requirements-inference.txt only. That keeps the roadmap's
+# promise: no HF library code executes at inference time.
+#
+# Verified working versions on Python 3.14 / Windows (2026-09-27):
+onnxruntime-genai==0.17.0
+onnxruntime==1.30.0
+onnx
+onnx-ir
+torch
+transformers
+sentencepiece
+protobuf
+huggingface_hub>=0.30
+numpy>=2.0
+#
+# Optional speed-up on a CUDA rig (swap the torch line for the CUDA build):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128

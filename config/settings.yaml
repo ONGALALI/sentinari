@@ -16,9 +16,11 @@ paths:
   protected_dirs: []
   qualia_files: []
 llm:
-  provider: ollama            # §23 cord-cut: flip to 'gemini' when ready
-  fallback_providers:
-    - gemini
+  provider: ollama            # legacy value; runtime_llm.client_backend decides the real path
+  # §41 cloud-seal: fallback_providers emptied (was [gemini]) — NOTHING may
+  # call the cloud silently now that Ollama is gone; local inference only
+  # (Sentinari inference server :8100 via llm_gateway 'sentinari' provider).
+  fallback_providers: []
   base_url: http://127.0.0.1:11434
   chat_model: gemma4:12B
   embedding_model: nomic-embed-text

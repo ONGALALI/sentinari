@@ -1,103 +1,137 @@
+"""Gemma -> ONNX conversion — Phase 0 of the_process_to_follow.md.
+
+This script drives Microsoft's onnxruntime-genai model builder via its
+OFFICIAL command-line interface (``python -m onnxruntime_genai.models.builder``).
+The 0.17.0 API moved the plumbing into the CLI (create_model now demands
+prepared hf_details), so we wrap the supported entrypoint instead of
+re-implementing it — that keeps this script churn-proof across releases.
+
+MODES
+-----
+1. ONLINE (machine has internet — the one sanctioned touchpoint):
+
+       python convert_to_onnx.py --model google/gemma-4-12B-it \\
+           --output ./models/gemma-12b-onnx --precision int4 \\
+           --execution-provider cpu
+
+   Downloads the source checkpoint from Hugging Face (un-gated, no token),
+   converts to ONNX, writes a self-contained folder: ONNX weights +
+   tokenizer + genai config. NOTHING HF-authored needs to execute at
+   runtime — the runtime installs onnxruntime-genai only.
+
+2. OFFLINE (air-gapped rig — the roadmap's discipline):
+
+   Step A (on the CONNECTED box, e.g. this Windows machine):
+
+       python convert_to_onnx.py --download-only --model google/gemma-4-12B-it \\
+           --snapshot-dir ./carry/gemma-4-12B-it
+
+   Step B: carry ./carry/gemma-4-12B-it across by hand (USB / LAN).
+
+   Step C (on the rig, still offline):
+
+       python convert_to_onnx.py --input ./carry/gemma-4-12B-it \\
+           --output ./models/gemma-12b-onnx --precision int4 \\
+           --execution-provider cpu
+
+The conversion itself is CPU/RAM heavy: ~24 GB download (fp16 weights),
+~40-50 GB RAM peak during export on CPU. int4 output lands around 7-8 GB.
+
+After it finishes: verify the output folder, then point the runtime's
+inference_settings.yaml (model.path) at it — or POST it live to
+/api/inference/model/load on a running Sentinari inference server.
 """
-Gemma -> ONNX conversion — run ONCE on a machine WITH internet access.
-------------------------------------------------------------------------
-This script never runs on the air-gapped machine. Its only job is to
-produce a self-contained model folder that gets carried across the air
-gap by hand (USB / internal transfer), same as your existing process.
 
-What it does:
-  1. Downloads the source Gemma checkpoint from Hugging Face (this is
-     the one, one-time internet touchpoint — same as before).
-  2. Converts it to ONNX format using Microsoft's onnxruntime-genai
-     model builder.
-  3. Outputs a folder containing ONNX weights + tokenizer config —
-     nothing Hugging Face-authored ships inside that output folder,
-     and nothing in it needs `transformers` to run.
-
-Usage:
-    pip install onnxruntime-genai huggingface_hub
-    # For CPU-only target hardware:
-    pip install onnxruntime-genai
-    # For CUDA target hardware, use the CUDA build instead:
-    # pip install onnxruntime-genai-cuda
-
-    python convert_to_onnx.py --model google/gemma-4-12b-it \
-                               --output ./models/gemma-onnx \
-                               --precision int4 \
-                               --execution-provider cpu
-
-After it finishes: verify the output folder, then copy the ENTIRE
---output folder (not individual files) across the air gap. That
-folder is MODEL_PATH in server_onnx.py.
-"""
+from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Convert a Gemma checkpoint to ONNX for onnxruntime-genai.")
-    parser.add_argument(
-        "--model", required=True,
-        help="Source model: a Hugging Face repo id (e.g. google/gemma-4-12b-it) "
-             "or a local folder path if you've already downloaded it.",
-    )
-    parser.add_argument(
-        "--output", required=True,
-        help="Output folder for the converted ONNX model. This whole folder "
-             "is what gets carried across the air gap.",
-    )
-    parser.add_argument(
-        "--precision", default="int4", choices=["fp32", "fp16", "int4", "int8"],
-        help="Quantization precision. int4 gives the smallest footprint and "
-             "is usually the right choice for CPU-bound air-gapped hardware. "
-             "Use fp16 if you have a capable GPU and want higher fidelity.",
-    )
-    parser.add_argument(
-        "--execution-provider", default="cpu", choices=["cpu", "cuda", "dml"],
-        help="Target hardware on the AIR-GAPPED machine that will actually "
-             "run this model — not the machine doing the conversion. "
-             "'dml' is DirectML (Windows GPU). Match this to your real "
-             "deployment target, interim Windows box or final Ubuntu rig.",
-    )
-    args = parser.parse_args()
-
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
+def _builder_module() -> str:
+    """Return the -m target for the official builder CLI, or die loudly."""
     try:
-        from onnxruntime_genai.models.builder import create_model
+        import onnxruntime_genai  # noqa: F401
     except ImportError:
         print(
-            "ERROR: onnxruntime-genai model builder not found.\n"
-            "Install it with: pip install onnxruntime-genai\n"
-            "(or onnxruntime-genai-cuda for the CUDA build)",
+            "ERROR: onnxruntime-genai not installed in this environment.\n"
+            "Install the conversion toolchain first:\n"
+            "    pip install -r requirements-conversion.txt",
             file=sys.stderr,
         )
         sys.exit(1)
+    return "onnxruntime_genai.models.builder"
 
-    print(f"[convert] source model : {args.model}")
-    print(f"[convert] output folder: {output_dir}")
-    print(f"[convert] precision    : {args.precision}")
-    print(f"[convert] target exec. : {args.execution_provider}")
-    print("[convert] this will download the source checkpoint from Hugging "
-          "Face if --model is a repo id — this is the one internet "
-          "touchpoint in the whole pipeline, happening on THIS machine only.")
 
-    # create_model handles: fetching the source checkpoint (if a repo id),
-    # converting to ONNX graph(s), and applying the requested quantization.
-    create_model(
-        model_name=args.model,
-        output_dir=str(output_dir),
-        precision=args.precision,
-        execution_provider=args.execution_provider,
-        cache_dir=None,
+def _download_snapshot(model: str, snapshot_dir: Path) -> None:
+    """Download the HF checkpoint to a portable folder (no conversion)."""
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        print("ERROR: huggingface_hub not installed (see requirements-conversion.txt).", file=sys.stderr)
+        sys.exit(1)
+    print(f"[download-only] fetching {model} -> {snapshot_dir}")
+    snapshot_download(repo_id=model, local_dir=str(snapshot_dir))
+    print(f"[download-only] done. Carry {snapshot_dir} to the air-gapped machine by hand.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Convert a Gemma checkpoint to ONNX for onnxruntime-genai.")
+    parser.add_argument("--model", default="google/gemma-4-12B-it", help="Hugging Face repo id (online mode).")
+    parser.add_argument("--input", default="", help="Local HF-format checkpoint folder (offline mode, -i hf_path).")
+    parser.add_argument("--output", required=True, help="Output folder for the converted ONNX model.")
+    parser.add_argument("--precision", default="int4", choices=["fp32", "fp16", "int4", "int8"])
+    parser.add_argument("--execution-provider", default="cpu", choices=["cpu", "cuda", "dml"])
+    parser.add_argument("--cache-dir", default="./hf_cache", help="HF download / temp export cache.")
+    parser.add_argument(
+        "--download-only", action="store_true",
+        help="Only download the checkpoint to --snapshot-dir for hand-carrying (no conversion).",
     )
+    parser.add_argument("--snapshot-dir", default="./carry", help="Target folder for --download-only.")
+    args = parser.parse_args()
 
-    print(f"\n[convert] done. Verify the contents of {output_dir}, then carry "
-          f"the WHOLE folder across the air gap. Point server_onnx.py's "
-          f"MODEL_PATH at wherever it lands on the air-gapped machine.")
+    output_dir = Path(args.output).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.download_only:
+        _download_snapshot(args.model, Path(args.snapshot_dir).resolve())
+        return
+
+    module = _builder_module()
+    cli = [sys.executable, "-m", module]
+    if args.input:
+        input_path = Path(args.input).resolve()
+        if not input_path.exists():
+            print(f"ERROR: --input folder not found: {input_path}", file=sys.stderr)
+            sys.exit(1)
+        cli += ["-i", f"hf_path={input_path}"]
+    else:
+        cli += ["-m", args.model]
+    cli += [
+        "-o", str(output_dir),
+        "-p", args.precision,
+        "-e", args.execution_provider,
+        "-c", str(Path(args.cache_dir).resolve()),
+    ]
+
+    print("[convert] official builder CLI:", " ".join(cli))
+    print(f"[convert] target: {args.precision} / {args.execution_provider} -> {output_dir}")
+    if not args.input:
+        print("[convert] ONLINE MODE: this downloads the checkpoint from Hugging Face —")
+        print("[convert] the one internet touchpoint of the whole pipeline.")
+    result = subprocess.run(cli)
+    if result.returncode != 0:
+        print(f"[convert] builder exited with code {result.returncode}", file=sys.stderr)
+        sys.exit(result.returncode)
+
+    print(f"\n[convert] DONE. Verify {output_dir} contains: *.onnx + tokenizer files + genai_config.json.")
+    print("[convert] Point the runtime's inference_settings.yaml (model.path) at this folder,")
+    print("[convert] or POST it to a running server via /api/inference/model/load.")
+    if shutil.which("nvidia-smi") is None and args.execution_provider != "cpu":
+        print("[convert] NOTE: no NVIDIA driver visible — double-check the execution provider.", file=sys.stderr)
 
 
 if __name__ == "__main__":

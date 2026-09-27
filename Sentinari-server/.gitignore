@@ -5,3 +5,5 @@ __pycache__/
 models/
 service_stdout.log
 service_stderr.log
+hf_cache/
+carry/
