@@ -12,7 +12,7 @@ set "PYTHON=%ROOT%.venv\Scripts\python.exe"
 set "LOGDIR=%ROOT%Logs"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 set "SRVLOG=%SRV%inference_server.log"
-set "CORELOG=%LOGDIR%launch-smi-core.log"
+set "CORELOG=%LOGDIR%\launch-smi-core.log"
 
 echo.
 echo SENTINARI STACK LAUNCHER
@@ -28,7 +28,9 @@ if not exist "%PYTHON%" (
 )
 
 REM ---- 1/2: inference server (start if not already answering) ----
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8100/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; exit 1"
+REM Robust probe: REST first, then netstat fallback (some endpoint-protection
+REM stacks intermittently refuse loopback connects from fresh processes).
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8100/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8100 -State Listen -ErrorAction SilentlyContinue) { exit 0 }; exit 1"
 if not errorlevel 1 (
     echo Inference server already running. Reusing it...
 ) else (
@@ -36,7 +38,7 @@ if not errorlevel 1 (
     start "Sentinari Inference" /min cmd /c "cd /d "%SRV%" && "%PYTHON%" server_onnx.py >> "%SRVLOG%" 2>&1"
 
     echo Waiting for inference health...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline=(Get-Date).AddSeconds(20); do { try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8100/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; Start-Sleep -Milliseconds 700 } while ((Get-Date) -lt $deadline); exit 1"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline=(Get-Date).AddSeconds(30); do { try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8100/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8100 -State Listen -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 1500; if (Get-NetTCPConnection -LocalPort 8100 -State Listen -ErrorAction SilentlyContinue) { exit 0 } }; Start-Sleep -Milliseconds 700 } while ((Get-Date) -lt $deadline); exit 1"
     if errorlevel 1 (
         echo Inference server did not answer in time. Check: %SRVLOG%
         echo Continuing with SMI core anyway - it does not depend on 8100 yet.
@@ -46,7 +48,7 @@ if not errorlevel 1 (
 )
 
 REM ---- 2/2: SMI core (same never-duplicate logic as launch-smi-core.bat) ----
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; exit 1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction SilentlyContinue) { exit 0 }; exit 1"
 if not errorlevel 1 (
     echo SMI core already running. Reusing the existing server...
 ) else (
@@ -56,9 +58,12 @@ if not errorlevel 1 (
     start "SMi Core Standalone" /min cmd /c "cd /d "%ROOT%" && set SMI_SHARED_SKILLS_ROOT=%ROOT%data\skills && set OLLAMA_GPU_OVERRIDE=0 && "%PYTHON%" run_smi.py serve >> "%CORELOG%" 2>&1"
 
     echo Waiting for SMI core health...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline=(Get-Date).AddSeconds(30); do { try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; Start-Sleep -Milliseconds 700 } while ((Get-Date) -lt $deadline); exit 1"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline=(Get-Date).AddSeconds(45); do { try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 1500; if (Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction SilentlyContinue) { exit 0 } }; Start-Sleep -Milliseconds 700 } while ((Get-Date) -lt $deadline); exit 1"
     if errorlevel 1 (
-        echo SMI core did not answer in time. Check the log: %CORELOG%
+        echo SMI core did not answer in time. Last log lines:
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '%CORELOG%') { Get-Content '%CORELOG%' -Tail 8 } else { Write-Host '(log not found)' }"
+        echo.
+        echo The server MAY still be coming up. Check: http://127.0.0.1:8099/ui/playground
         pause
         exit /b 1
     )
