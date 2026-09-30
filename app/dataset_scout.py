@@ -170,7 +170,7 @@ def discover(query: str, limit_per_source: int = 8, sources: list[str] | None = 
         for item in outcome.get("items", []):
             item["priority_rank"] = source["rank"]
             candidates.append(item)
-        total += outcome.get("returned", 0)
+        total += len(outcome.get("items", []))  # §63: outcome has no 'returned' key — count items directly.
 
     return {
         "ok": total > 0,

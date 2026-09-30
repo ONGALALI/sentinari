@@ -40,14 +40,6 @@
   .liSwitch .liKnob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(16,35,60,.35); transition: left .2s ease; }
   .liSwitch.on { background: #2e7d32; }
   .liSwitch.on .liKnob { left: 23px; }
-  /* §61 dataset scout */
-  .scoutRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
-  .scoutCandidate { padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; margin-top: 6px; }
-  .scoutBadge { display: inline-block; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-right: 6px; background: #eceff4; color: #44546a; border: 1px solid #d5dde8; }
-  .scoutBadge.r1 { background: #dcebf9; color: #103c6b; border-color: #b9d4ee; }
-  .scoutBadge.r2 { background: #e2f3ea; color: #1d5c34; border-color: #b8ddc6; }
-  .scoutBadge.r3 { background: #fdf1dc; color: #7a5200; border-color: #eeddb0; }
-  .scoutBadge.r4 { background: #f3e8f8; color: #5c2d80; border-color: #dcc2ec; }
   /* §58 per-field progress bars + priority badges */
   .liFieldRow { margin: 10px 0; padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; }
   .liFieldHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; }
@@ -85,19 +77,13 @@
     </div>
 
     <div class="card">
-      <h2>Dataset Scout — find knowledge NOT yet in Sentinari</h2>
-      <div class="hint"><strong>Use this when she does not know a topic yet.</strong> It searches the OUTSIDE world for new candidate datasets and proposes them to you — it does NOT look inside her library (that is what Search Library is for). Priority order: <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong>. Proposals only: you approve → ingested → labeled → examined → counted in % Learned. Nothing enters without you (the intake firewall guards the door).</div>
-      <div class="scoutRow">
-        <input id="scoutQuery" placeholder="A topic she should learn next — e.g. transformer interpretability, drought-resistant crops">
-        <button id="scoutBtn">Search sources</button>
-      </div>
-      <div id="scoutStatus" class="hint" style="margin-top:6px;"></div>
-      <div id="scoutResults" style="margin-top:6px;"></div>
+      <h2>Dataset Scout — moved to the dashboard</h2>
+      <div class="hint">Dataset discovery now lives on <a href="/ui/playground">Dashboard Home</a> as <strong>Scientific Dataset Discovery &amp; Review</strong>: it shows Sentinari's weakest fields (from the Learning Index, sharpened by the HLE assessment) and searches the outside world — priority order <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong> — for exactly that lacking knowledge. Proposals only; the intake firewall still guards the door.</div>
     </div>
 
     <div class="card">
       <h2>Examination controls — for knowledge ALREADY digested</h2>
-      <div class="hint">These govern the gentle background examiner over knowledge already in the library (the bars above). For knowledge NOT yet in the library, use the Dataset Scout card above.</div>
+      <div class="hint">These govern the gentle background examiner over knowledge already in the library (the bars above). For knowledge NOT yet in the library, use the Scientific Dataset Discovery &amp; Review card on Dashboard Home.</div>
       <div class="row" style="margin-top:12px; align-items:center;">
         <button id="liProbeBtn">Examine one now</button>
         <label class="liSwitchWrap" id="liSwitchWrap" title="Learning Index master switch — persists across restarts">
@@ -221,29 +207,6 @@
       byId('liSwitchLabel').textContent = learnOn ? 'Learning: On' : 'Learning: Paused';
     } catch (e) { byId('liProbeStatus').textContent = 'Toggle failed: ' + (e.message || e); }
     wrap.style.pointerEvents = '';
-  });
-
-  byId('scoutBtn').addEventListener('click', async () => {
-    const btn = byId('scoutBtn');
-    const q = byId('scoutQuery').value.trim();
-    if (!q) { byId('scoutStatus').textContent = 'Type a topic to search for.'; return; }
-    btn.disabled = true;
-    byId('scoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
-    byId('scoutResults').innerHTML = '';
-    try {
-      const res = await fetch('/api/datasets/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, limit_per_source: 6 }) });
-      const d = await res.json();
-      if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Scout failed.');
-      byId('scoutStatus').textContent = `${d.total} candidates found — ${d.priority_note}. Proposals only: approve via the admin console before ingestion.`;
-      const LABELS = { openalex: '1·OpenAlex', medical: '2·Medical', github: '3·GitHub', huggingface: '4·HF' };
-      byId('scoutResults').innerHTML = (d.candidates || []).map((c) => {
-        const rank = c.priority_rank;
-        return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
-          `<a href="${esc(c.url || '')}" target="_blank" rel="noopener"><strong>${esc(c.title || '(untitled)')}</strong></a>` +
-          `<div class="liMeta">${esc(c.detail || '')}${c.year ? ' · ' + esc(String(c.year)) : ''}</div></div>`;
-      }).join('') || '<div class="hint">No candidates found for that query.</div>';
-    } catch (e) { byId('scoutStatus').textContent = 'Scout failed: ' + (e.message || e); }
-    btn.disabled = false;
   });
 
   byId('liCalBtn').addEventListener('click', async () => {

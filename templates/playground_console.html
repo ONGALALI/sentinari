@@ -476,6 +476,18 @@
     #datasetPreviewModal .dp-chunk { border: 1px solid #edf1f8; border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: #fbfdff; white-space: pre-wrap; }
     #datasetPreviewModal .dp-close { font-size: 13px; padding: 3px 12px; }
 
+    /* §63: Scientific Dataset Discovery & Review — weak spots, scout row, candidate rows. */
+    .weakChip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: #f2f6fc; border: 1px solid #d5e2f2; color: #1c3d5f; cursor: pointer; }
+    .weakChip:hover { background: #e3edf9; border-color: #b9d0e8; }
+    .scoutRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+    .scoutCandidate { padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; margin-top: 6px; }
+    .scoutBadge { display: inline-block; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-right: 6px; background: #eceff4; color: #44546a; border: 1px solid #d5dde8; }
+    .scoutBadge.r1 { background: #dcebf9; color: #103c6b; border-color: #b9d4ee; }
+    .scoutBadge.r2 { background: #e2f3ea; color: #1d5c34; border-color: #b8ddc6; }
+    .scoutBadge.r3 { background: #fdf1dc; color: #7a5200; border-color: #eeddb0; }
+    .scoutBadge.r4 { background: #f3e8f8; color: #5c2d80; border-color: #dcc2ec; }
+    .liMeta { font-size: 12px; color: #5b6b7d; margin-top: 3px; }
+
     @media (max-width: 1120px) {
       .shell { grid-template-columns: 1fr; }
       .sidebar { padding-bottom: 10px; }
@@ -521,6 +533,23 @@
             <button id="btnRefreshHealth" type="button" class="ghost">Refresh Health</button>
           </div>
           <div id="serverHealthDetail" class="hint">Waiting for the first health check.</div>
+        </div>
+
+        <div class="card" id="dataset-discovery" style="margin-top:14px;">
+          <div class="row" style="align-items:flex-start; justify-content:space-between;">
+            <div>
+              <h2>Scientific Dataset Discovery &amp; Review</h2>
+              <div class="hint">Closes the loop: the Learning Index and HLE reveal what Sentinari does <em>not</em> yet know &rarr; search the outside world for that lacking knowledge (priority order: 1) OpenAlex &rarr; 2) Medical web (Europe PMC) &rarr; 3) GitHub &rarr; 4) HuggingFace) &rarr; you approve &rarr; it is digested, examined, and feeds re-learning/fine-tuning (ladder stage 4). Proposals only — the intake firewall guards the door; nothing enters without you.</div>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:8px;"><strong>Weak spots</strong> — fields with the least examined knowledge (from the Learning Index). Click one to scout it:</div>
+          <div id="weakFields" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+          <div class="scoutRow" style="margin-top:10px;">
+            <input id="dsScoutQuery" placeholder="Or type a topic she should know — e.g. transformer interpretability">
+            <button id="dsScoutBtn">Search sources</button>
+          </div>
+          <div id="dsScoutStatus" class="hint" style="margin-top:6px;"></div>
+          <div id="dsScoutResults" style="margin-top:6px;"></div>
         </div>
 
         <div class="card" id="sentinel-grid" style="margin-top:14px;">
@@ -3777,6 +3806,72 @@
       loadRuntimeAlert()
         .catch((e) => setStatus('chatStatus', e.message || String(e), false));
     });
+
+    // §63: Scientific Dataset Discovery & Review — weak-field targeting + Scout wiring.
+    const dsPriorityLabel = (rank) => ({
+      0: 'P1 · AI & Information Science',
+      1: 'P1 · AI & Information Science',
+      2: 'P2 · Physics',
+      3: 'P3 · Engineering',
+    }[Number(rank)] || '');
+    const loadWeakFields = async () => {
+      const wrap = byId('weakFields');
+      const res = await fetch('/api/learning/status');
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Learning status unavailable.');
+      const fields = (d.fields || [])
+        .filter((f) => Number(f.total) > 0)
+        .sort((a, b) => (Number(a.percent || 0) - Number(b.percent || 0))
+          || ((Number(a.priority_rank ?? 99) - Number(b.priority_rank ?? 99)))
+          || (Number(b.total || 0) - Number(a.total || 0)))
+        .slice(0, 5);
+      wrap.innerHTML = fields.map((f) => {
+        const p = Math.max(0, Math.min(100, Number(f.percent || 0)));
+        const prio = dsPriorityLabel(f.priority_rank);
+        const title = prio
+          ? `${prio} — ${f.assessed}/${f.total} documents examined`
+          : `${f.assessed}/${f.total} documents examined`;
+        const label = prio ? `${prio} · ` : '';
+        return `<button type="button" class="ghost weakChip" data-q="${escapeHtml(f.field)}" title="${escapeHtml(title)}">${label}${escapeHtml(f.field)} — ${p.toFixed(1)}%</button>`;
+      }).join('') || '<span class="hint">No examined fields yet — let the Learning Index work first.</span>';
+      wrap.querySelectorAll('.weakChip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          byId('dsScoutQuery').value = String(chip.getAttribute('data-q') || '');
+          runDashboardScout();
+        });
+      });
+    };
+    const runDashboardScout = async () => {
+      const btn = byId('dsScoutBtn');
+      const q = String(byId('dsScoutQuery').value || '').trim();
+      if (!q) { byId('dsScoutStatus').textContent = 'Type a topic to search for — or click a weak spot above.'; return; }
+      btn.disabled = true;
+      byId('dsScoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
+      byId('dsScoutResults').innerHTML = '';
+      try {
+        const res = await fetch('/api/datasets/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, limit_per_source: 6 }) });
+        const d = await res.json();
+        if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Scout failed.');
+        byId('dsScoutStatus').textContent = `${d.total} candidates found — ${d.priority_note}. Proposals only: approve via the admin console before ingestion.`;
+        const LABELS = { openalex: '1·OpenAlex', medical: '2·Medical', github: '3·GitHub', huggingface: '4·HF' };
+        byId('dsScoutResults').innerHTML = (d.candidates || []).map((c) => {
+          const rank = c.priority_rank;
+          return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
+            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>` +
+            `<div class="liMeta">${escapeHtml(c.detail || '')}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</div></div>`;
+        }).join('') || '<div class="hint">No candidates found for that query.</div>';
+      } catch (e) { byId('dsScoutStatus').textContent = 'Scout failed: ' + (e.message || e); }
+      btn.disabled = false;
+    };
+    byId('dsScoutBtn').addEventListener('click', () => {
+      runDashboardScout().catch((e) => setStatus('dsScoutStatus', e.message || String(e), false));
+    });
+    byId('dsScoutQuery').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        runDashboardScout().catch((err) => setStatus('dsScoutStatus', err.message || String(err), false));
+      }
+    });
     byId('chatMode').addEventListener('change', () => {
       const mode = String(byId('chatMode').value || 'chat');
       setStatus(
@@ -3829,6 +3924,7 @@
       await safeStartup('Qualia history', 'qualiaHistoryStatus', () => loadQualiaHistory({ silent: false }), 'Qualia history is ready.');
       await safeStartup('Skills', 'skillsStatus', () => loadSkills({ silent: true }), '');
       await safeStartup('Sentinel domains', 'sentinelStatus', () => loadSentinelStatus({ silent: true }), '');
+      await safeStartup('Weak fields', 'dsScoutStatus', () => loadWeakFields(), '');
       setStatus('archStatus', 'Architecture snapshot loaded.', true);
       setStatus('phenodynamicsStatus', 'Exploratory composite index display is ready.', true);
       setStatus('libraryProgressStatus', 'Learning library progress loaded.', true);
