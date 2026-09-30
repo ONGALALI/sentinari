@@ -30,7 +30,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-DB = PROJECT_ROOT / "data" / "library_gemma.db"
+DB = PROJECT_ROOT / "data" / "sentinari.db"  # §51 renamed from library_gemma.db
 BACKUP = PROJECT_ROOT / "data" / "exports" / "purge-backup-legacy-unembedded.json.gz"
 MANIFEST = PROJECT_ROOT / "Logs" / "purge-legacy-unembedded-manifest.json"
 

@@ -140,6 +140,24 @@ class PlaygroundChatRequest(BaseModel):
     source_collection: str | None = None
 
 
+class DirectChatRequest(BaseModel):
+    """§51: payload for the revived Sentinari Direct Chat console (/ui/direct)."""
+    message: str = Field(min_length=1, max_length=24000)
+    history: list[dict[str, Any]] = Field(default_factory=list)
+    model: str | None = Field(default=None, max_length=120)
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    max_output_tokens: int | None = Field(default=None, ge=64, le=8192)
+
+
+class ModelLabRunRequest(BaseModel):
+    """§51: payload for the revived Model Deviation Lab comparison run."""
+    run_label: str = Field(default="", max_length=120)
+    prompt: str = Field(min_length=1, max_length=24000)
+    model: str | None = Field(default=None, max_length=120)
+    include_gemma: bool = True
+    manual_answers: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class PlaygroundQualiaSimulationRequest(BaseModel):
     behavior_variant: float = Field(default=0.1, ge=0.0, le=25.0)
     qualia_control: QualiaVectorControlRequest | None = None

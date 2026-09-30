@@ -35,7 +35,8 @@ def _attach_libraries(conn: sqlite3.Connection) -> None:
 
     The main database keeps chat/tasks/qualia state. The knowledge library
     (documents / chunks / chunk_fts / ingest_events) lives in ONE physical
-    database — library_gemma.db (Sentinel / Guardian fields).
+    database — sentinari.db (Sentinel / Guardian fields; §51 renamed from
+    the legacy library_gemma.db filename — same file, new name).
     Every existing query in the app keeps working unchanged against the TEMP
     views; writes go through the routing helpers below.
     """
@@ -304,7 +305,7 @@ def _migrate_library_fk_tables(conn: sqlite3.Connection) -> None:
 
 def initialize_database() -> None:
     # NOTE: documents / chunks / chunk_fts / ingest_events are NOT created here.
-    # They live in the attached physical library (library_gemma.db — the former
+    # They live in the attached physical library (sentinari.db — the former
     # coding library was folded in), created by _attach_libraries() on every connection.
     schema = """
     CREATE TABLE IF NOT EXISTS chat_sessions (

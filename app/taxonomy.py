@@ -134,7 +134,7 @@ def infer_metadata_from_taxonomy_path(conn: sqlite3.Connection, path: Path) -> d
             (category, slug),
         ).fetchone()
     except sqlite3.OperationalError:
-        # The caller passed a library-scoped connection (library_gemma.db /
+        # The caller passed a library-scoped connection (sentinari.db /
         # (the single Gemma library has no taxonomy_nodes table; fall back to a
         # read connection on the main database so taxonomy enrichment keeps
         # working without crashing the ingest.

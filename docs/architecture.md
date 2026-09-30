@@ -123,7 +123,7 @@ Sentinari/
 │
 └── data/                          # RUNTIME STATE (git-ignored — never committed)
     ├── smi_vocationalllm.db       #   Core DB (renames to sentinari.db on MIGRATION DAY)
-    ├── library_gemma.db           #   9.6 GB vector library (12,733 docs / 186k chunks)
+    ├── sentinari.db               #   vector library (§51 renamed from library_gemma.db)
     ├── patterns.db                #   Pattern Discovery store
     ├── knowledge_taxonomy/SMI_Log/#   Ingest logs + skills (path renames on migration day)
     ├── skills/                    #   Shared skill packs

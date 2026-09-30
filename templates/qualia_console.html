@@ -448,7 +448,7 @@
       <a href="/ui/start">Start</a>
       <a href="/ui/a1-logs">A1 Logs</a>
       <a href="/ui/direct">Direct Chat</a>
-      <a href="/ui/playground">Old Sentinari Lab</a>
+      <a href="/ui/playground">Sentinari Playground</a>
     </div>
   </header>
 
@@ -457,7 +457,7 @@
       <section>
         <h2>Runtime</h2>
         <div id="statusGrid" class="stack">
-          <div class="pill"><span>Ollama</span><span>checking</span></div>
+          <div class="pill"><span>Model Engine</span><span>checking</span></div>
         </div>
         <p class="meta" id="logPath"></p>
       </section>
@@ -487,8 +487,8 @@
       </section>
 
       <section>
-        <h2>Ollama Model Comparison</h2>
-        <p class="hint">Select local Ollama models. Press Run Model 1 first, wait for the result, then press Run Model 2.</p>
+        <h2>Local Model Comparison</h2>
+        <p class="hint">Select local models. Press Run Model 1 first, wait for the result, then press Run Model 2.</p>
         <label for="compareModels">Models to assess</label>
         <select id="compareModels" multiple>
           <option value="gemma4:12B" selected>Sentinari 12B</option>
@@ -1501,9 +1501,9 @@
         const res = await fetch("/api/playground/qualia/status");
         const data = await res.json();
         $("statusGrid").innerHTML = [
-          statusPill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "err"),
-          statusPill("Model", data.model || "not set", data.model ? "ok" : "err"),
-          statusPill("Old Sentinari boundary", data.boundary_disabled_in_normal_playground ? "blocks old chat" : "open", data.boundary_disabled_in_normal_playground ? "err" : "ok"),
+          statusPill("Model Engine", data.engine_state === "ready" ? "ready" : data.engine_state === "model_missing" ? "model missing" : "dark by design", data.engine_state === "ready" ? "ok" : "warn"),
+          statusPill("Model", data.model || "awaits engine install (rig day)", data.model ? "ok" : "warn"),
+          statusPill("Boundary", data.boundary_disabled_in_normal_playground ? "strict" : "open", data.boundary_disabled_in_normal_playground ? "warn" : "ok"),
           statusPill("Sentinari Qualia logs", String(data.qualia_chat_count || 0), "ok")
         ].join("");
         const currentModel = $("model").value || data.model;

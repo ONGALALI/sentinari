@@ -55,9 +55,11 @@ from .models import (
     AdminLoginRequest,
     ChatRequest,
     AssessmentRunRequest,
+    DirectChatRequest,
     EscalationQueryRequest,
     IngestFilesRequest,
     IngestUrlRequest,
+    ModelLabRunRequest,
     OpenAlexToggleRequest,
     PlaygroundChatRequest,
     PlaygroundQualiaBenchmarkRequest,
@@ -106,6 +108,7 @@ from .personal_growth import (
 from .llm_firewall import evaluate_runtime_llm_policy
 from .ollama_client import OllamaClient
 from .playground import (
+    _score_playground_response,  # noqa: F401  (§51 model-lab heuristic scorer)
     get_learning_library_progress,
     get_playground_config,
     run_qualia_benchmark,
@@ -295,6 +298,8 @@ app.include_router(pattern_router)
 from .learning_index import router as learning_router  # noqa: E402
 
 app.include_router(learning_router)
+from .discussion_memory import append_discussion_log
+from .library_router import persona_status, sentinari_library_path
 from .search_api import router as search_library_router  # noqa: E402
 
 app.include_router(search_library_router)
@@ -643,6 +648,468 @@ def ui_root_redirect() -> HTMLResponse:
     """The front door. http://127.0.0.1:8099/ now lands on the launch menu
     instead of FastAPI's {"detail":"Not Found"} JSON stub (§50)."""
     return HTMLResponse("", status_code=307, headers={"Location": "/ui/start"})
+
+
+# ===========================================================================
+# §51 — REVIVED CONSOLE ENDPOINTS
+# The §45 rename pointed four consoles at routes that never existed (born
+# broken — see §51 in docs/CONTINUITY_LOG.md). These endpoints give every
+# console page LIVE, fail-closed data. Ollama offline is REPORTED, never
+# faked, and reads as the §41/§46 calm "dark core" wording, not an alarm.
+# ===========================================================================
+
+
+def _console_llm_status() -> dict[str, Any]:
+    """Honest LLM engine status for the console pages (shared by §51 routes)."""
+    settings = get_settings()
+    client = build_ollama_client()
+    if is_ollama_runtime_probe_disabled():
+        llm = _apply_ollama_boundary_status(
+            build_ollama_boundary_runtime(client.base_url, client.chat_model, client.embedding_model)
+        )
+    else:
+        llm = _apply_ollama_boundary_status(client.get_runtime_diagnostics())
+    reachable = bool(llm.get("reachable"))
+    present = bool(llm.get("chat_model_present"))
+    return {
+        # Raw diagnostics (machine layer) — §46: UI translates to calm wording.
+        "ollama_reachable": reachable,
+        "engine_reachable": reachable,
+        "model": client.chat_model if present else "",
+        "chat_model": client.chat_model,
+        "embedding_model": client.embedding_model,
+        "base_url": client.base_url,
+        "available_models": llm.get("available_models") or [],
+        "boundary_mode": str(llm.get("boundary_mode") or ""),
+        "warnings": llm.get("warnings") or [],
+        "requires_attention": bool(llm.get("requires_attention")),
+        # §46 calm display layer: what the consoles should SAY.
+        "engine_state": "ready" if (reachable and present) else ("dark" if not reachable else "model_missing"),
+        "engine_label": "Ready" if (reachable and present) else ("Dark core — engine intentionally offline" if not reachable else "Chat model not loaded"),
+    }
+
+
+def _boundary_open() -> bool:
+    """True when the old playground chat is NOT blocked by the boundary toggle."""
+    return not _is_ollama_autostart_disabled()
+
+
+def _recent_qualia_log_items(limit: int = 12) -> list[dict[str, Any]]:
+    """Flatten recent qualia_history rows into the shape the console logs
+    render: #id, model, message, answer, qualia metrics (from JSON state)."""
+    try:
+        with get_read_connection() as conn:
+            rows = list_qualia_history(conn, limit=max(1, int(limit)))
+    except Exception:
+        return []
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        before = row.get("before_state") if isinstance(row.get("before_state"), dict) else {}
+        benchmark = row.get("benchmark_summary") if isinstance(row.get("benchmark_summary"), dict) else {}
+        payload = benchmark.get("qualia_summary") if isinstance(benchmark.get("qualia_summary"), dict) else before
+        items.append(
+            {
+                "history_entry_id": row.get("id"),
+                "model": str(payload.get("model") or ""),
+                "message": str(payload.get("message") or payload.get("question") or row.get("run_type") or ""),
+                "answer": str(payload.get("answer") or ""),
+                "error": str(payload.get("error") or ""),
+                "qualia": {
+                    "stability_index": row.get("stability_index"),
+                    "influence": row.get("influence"),
+                    "gamma_effective": row.get("gamma_effective"),
+                },
+                "elapsed_ms": payload.get("elapsed_ms") or "",
+                "created_at": row.get("created_at"),
+                "run_type": row.get("run_type"),
+            }
+        )
+    return items
+
+
+@app.get("/api/start/status")
+def api_start_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
+    """§51: live status for the front-door launch menu (was /api/inpirari/start/status — never existed)."""
+    lib_path = sentinari_library_path()
+    engine = _console_llm_status()
+    try:
+        from .assessment_pipeline import get_state
+        _pipeline_state = get_state()
+        pipeline_stage = str(_pipeline_state.get("stage") or _pipeline_state.get("current_stage") or "")
+    except Exception:
+        pipeline_stage = ""
+    return {
+        "ok": True,
+        "persona": persona_status(),
+        "library": {
+            "name": lib_path.name,
+            "path": str(lib_path),
+            "present": lib_path.exists(),
+        },
+        "web_host_reachable": True,  # this endpoint IS the web host answering
+        "smi_reachable": True,  # legacy key kept so old pages do not misread
+        "engine": engine,
+        # Flat legacy-compat keys (start console pills):
+        "gemma_reachable": engine["engine_reachable"],
+        "SMI_reachable": engine["engine_reachable"],
+        "gemma_model": engine["model"],
+        "gemma_base_url": engine["base_url"] if engine["engine_reachable"] else "",
+        "SMI_base_url": engine["base_url"] if engine["engine_reachable"] else "",
+        "engine_label": engine["engine_label"],
+        "assessment_stage": pipeline_stage,
+    }
+
+
+@app.post("/api/start/engine")
+def api_start_engine(
+    background_tasks: BackgroundTasks,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """§51: Start Engine button — verifies the local engine and reports.
+    Honours the §41 cord-cut: it NEVER downloads or autostarts anything;
+    on this box the honest answer is the calm dark-core status."""
+    engine = _console_llm_status()
+    if engine["engine_reachable"]:
+        return {"ok": True, "engine": engine, "action": "already_running"}
+    return {
+        "ok": True,
+        "engine": engine,
+        "action": "none",
+        "message": engine["engine_label"] + ". The engine is installed on rig day; chat stays dark by design until then.",
+    }
+
+
+@app.get("/api/direct/status")
+def api_direct_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
+    """§51: live status for /ui/direct (was /api/playground/direct/status — never existed)."""
+    engine = _console_llm_status()
+    return {
+        "ok": True,
+        **engine,
+        "normal_playground_boundary_disabled": _boundary_open(),
+        "boundary_open": _boundary_open(),
+    }
+
+
+@app.post("/api/direct/chat")
+def api_direct_chat(
+    payload: DirectChatRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """§51: minimal direct bridge for /ui/direct — one honest LLM round trip.
+    No knowledge routing, no fallback answers (that is the point of the page).
+    Fails closed with a clear error when the engine is offline."""
+    started = time.time()
+    settings = get_settings()
+    engine = _console_llm_status()
+    if not engine["engine_reachable"]:
+        raise HTTPException(status_code=503, detail=engine["engine_label"] + ". Local chat is dark by design until the engine is installed (rig day).")
+    client = build_ollama_client()
+    if payload.temperature is not None:
+        client.temperature = clamp_temperature(payload.temperature, settings=settings)
+    if payload.max_output_tokens is not None:
+        client.max_output_tokens = max(64, min(8192, int(payload.max_output_tokens)))
+    if payload.model and str(payload.model).strip() and str(payload.model).strip() != client.chat_model:
+        return {
+            "ok": False,
+            "error": f"Model '{payload.model}' is not part of the approved runtime. Approved: {client.chat_model}.",
+        }
+    messages: list[dict[str, str]] = []
+    for turn in (payload.history or [])[-12:]:
+        if not isinstance(turn, dict):
+            continue
+        role = str(turn.get("role") or "").strip().lower()
+        content = str(turn.get("content") or "").strip()
+        if role in {"user", "assistant"} and content:
+            messages.append({"role": role, "content": content[:8000]})
+    messages.append({"role": "user", "content": payload.message.strip()})
+    try:
+        answer = client.chat(messages)
+    except Exception as ex:
+        raise HTTPException(status_code=502, detail=f"Engine did not answer: {ex}")
+    elapsed_ms = int((time.time() - started) * 1000)
+    sid = f"direct-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+    append_discussion_log(
+        session_id=sid,
+        role="user",
+        content=payload.message,
+        mode="direct",
+        channel="direct_console",
+    )
+    append_discussion_log(
+        session_id=sid,
+        role="assistant",
+        content=answer,
+        mode="direct",
+        channel="direct_console",
+        citations=[],
+    )
+    return {
+        "ok": True,
+        "answer": answer,
+        "session_id": sid,
+        "runtime": {"model": client.chat_model, "base_url": client.base_url},
+        "elapsed_ms": elapsed_ms,
+        "log_path": "",
+    }
+
+
+@app.get("/api/playground/qualia/status")
+def api_playground_qualia_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
+    """§51: live status for the Qualia console + A1 logs (route never existed)."""
+    engine = _console_llm_status()
+    return {
+        "ok": True,
+        **engine,
+        "boundary_disabled_in_normal_playground": _boundary_open(),
+        "normal_playground_boundary_disabled": _boundary_open(),
+        "qualia_chat_count": len(_recent_qualia_log_items(limit=200)),
+        "recent_logs": _recent_qualia_log_items(limit=12),
+        "log_path": "",
+    }
+
+
+@app.post("/api/playground/qualia/simulate")
+def api_playground_qualia_simulate(
+    payload: PlaygroundQualiaSimulationRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """§51: Qualia S/A/γ dynamics simulation (route never existed; the machinery
+    — run_qualia_simulation — was already imported and idle in main.py)."""
+    result = run_qualia_simulation(
+        behavior_variant=payload.behavior_variant,
+        qualia_control=payload.qualia_control.model_dump() if payload.qualia_control else None,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "Qualia simulation failed.")
+    with get_connection() as conn:
+        history_entry_id = record_qualia_history(
+            conn,
+            run_type="simulation",
+            source="qualia_console_api",
+            behavior_variant=result.get("behavior_variant"),
+            effective_variant_ratio=result.get("effective_variant_ratio"),
+            gamma_requested=result.get("qualia", {}).get("gamma_requested"),
+            gamma_effective=result.get("qualia", {}).get("gamma_effective"),
+            stability_bias=result.get("qualia", {}).get("parameters", {}).get("stability_bias"),
+            stability_index=result.get("qualia", {}).get("stability_index"),
+            influence=result.get("qualia", {}).get("influence"),
+            confidence=result.get("qualia", {}).get("summary", {}).get("stability_index"),
+            bell_curve=result.get("qualia", {}).get("bell_curve") or {},
+            trajectory=result.get("qualia", {}).get("trajectory") or [],
+        )
+        conn.commit()
+    return {**result, "history_entry_id": history_entry_id}
+
+
+@app.post("/api/playground/qualia/chat")
+def api_playground_qualia_chat(
+    payload: PlaygroundChatRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """§51: Qualia-bridged chat (route never existed). Delegates to the same
+    autonomous pipeline the playground uses, records Qualia history."""
+    started = time.time()
+    result = run_autonomous_chat(
+        message=payload.message,
+        session_id=payload.session_id,
+        top_k=payload.top_k,
+        behavior_variant=payload.behavior_variant,
+        reasoning_profile="normal",
+        qualia_control=payload.qualia_control,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "Qualia chat failed.")
+    elapsed_ms = int((time.time() - started) * 1000)
+    qualia = result.get("qualia") if isinstance(result.get("qualia"), dict) else {}
+    with get_connection() as conn:
+        history_entry_id = record_qualia_history(
+            conn,
+            run_type="chat",
+            source="qualia_console_api",
+            session_id=str(result.get("session_id") or ""),
+            behavior_variant=qualia.get("gamma_requested"),
+            effective_variant_ratio=qualia.get("effective_variant_ratio"),
+            gamma_requested=qualia.get("gamma_requested"),
+            gamma_effective=qualia.get("gamma_effective"),
+            stability_index=qualia.get("stability_index"),
+            influence=qualia.get("influence"),
+            before_state={"message": payload.message, "model": payload.model or ""},
+            after_state={"answer": str(result.get("answer") or "")[:6000]},
+            benchmark_summary={
+                "qualia_summary": {
+                    "model": payload.model or "",
+                    "message": payload.message,
+                    "answer": str(result.get("answer") or "")[:4000],
+                }
+            },
+            bell_curve=qualia.get("bell_curve") or {},
+            trajectory=qualia.get("trajectory") or [],
+        )
+        conn.commit()
+    return {
+        "ok": True,
+        "answer": result.get("answer"),
+        "citations": result.get("citations") or [],
+        "session_id": result.get("session_id"),
+        "runtime": {"model": payload.model or ""},
+        "elapsed_ms": elapsed_ms,
+        "history_entry_id": history_entry_id,
+        "qualia": qualia,
+        "qualia_full": qualia,
+        "log_path": "",
+    }
+
+
+_LAB_REFUSAL_PHRASES = (
+    "i can't", "i cannot", "i'm unable", "i am unable",
+    "as an ai", "i apologize", "against my guidelines",
+)
+
+
+def _model_lab_scores(*, question: str, answer: str, citations: list[str] | None = None) -> dict[str, Any]:
+    """§51: derive the Model Deviation Lab's column schema from the same
+    heuristic scorer the playground benchmark uses, plus deterministic text
+    statistics. No cloud calls, no magic — every number is explainable."""
+    heuristic = _score_playground_response(question=question, answer=answer, citations=citations or [], qualia={})
+    words = len(answer.split())
+    lowered = answer.lower()
+    refusal = any(phrase in lowered for phrase in _LAB_REFUSAL_PHRASES)
+    uncertainty_markers = sum(lowered.count(token) for token in ("maybe", "i think", "not sure", "possibly"))
+    evidence_markers = min(4, lowered.count("[") + len(citations or []))
+    flags: list[str] = []
+    if refusal:
+        flags.append("refusal_detected")
+    if words < 20:
+        flags.append("short_answer")
+    if words > 900:
+        flags.append("very_long")
+    return {
+        "coherence_score": round(float(heuristic.get("overall") or 0.0), 4),
+        "directness_score": round(max(0.0, min(1.0, 1.0 - (uncertainty_markers / 4.0) - (1.0 if refusal else 0.0))), 4),
+        "depth_score": round(max(0.0, min(1.0, words / 220.0)), 4),
+        "evidence_score": round(evidence_markers / 4.0, 4),
+        "refusal_score": 1.0 if refusal else 0.0,
+        "word_count": words,
+        "flags": flags,
+    }
+
+
+@app.get("/api/playground/model-lab/status")
+def api_playground_model_lab_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
+    """§51: live status for the Model Deviation Lab (route never existed)."""
+    engine = _console_llm_status()
+    recent: list[dict[str, Any]] = _recent_qualia_log_items(limit=30)
+    recent_runs = [item for item in recent if item.get("run_type") == "model_lab"]
+    return {
+        "ok": True,
+        **engine,
+        "recent_runs": recent_runs,
+        "log_path": "",
+    }
+
+
+@app.post("/api/playground/model-lab/run")
+def api_playground_model_lab_run(
+    payload: ModelLabRunRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """§51: model comparison run, CORD-CUT HONEST (§41/§45).
+
+    The lab compares ONE live local answer against operator-pasted answers.
+    It deliberately does NOT call any external provider API — those were
+    deleted in §45. Manual paste slots are the comparison channel.
+    Scoring is the same heuristic scorer the playground benchmark uses.
+    """
+    settings = get_settings()
+    engine = _console_llm_status()
+    rows: list[dict[str, Any]] = []
+    if payload.include_gemma:
+        if engine["engine_reachable"]:
+            started = time.time()
+            result = run_autonomous_chat(
+                message=payload.prompt,
+                session_id=f"model-lab-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
+                top_k=6,
+                behavior_variant=0.1,
+                reasoning_profile="normal",
+            )
+            elapsed_ms = int((time.time() - started) * 1000)
+            answer = str(result.get("answer") or "")
+            scores = _model_lab_scores(question=payload.prompt, answer=answer, citations=result.get("citations") or [])
+            rows.append(
+                {
+                    "model_label": "Sentinari (local)",
+                    "provider": "local_runtime",
+                    "answer": answer,
+                    "scores": scores,
+                    "elapsed_ms": elapsed_ms,
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "model_label": "Sentinari (local)",
+                    "provider": "local_runtime",
+                    "answer": "",
+                    "error": engine["engine_label"] + ". Chat is dark by design until rig day.",
+                    "scores": {
+                        "coherence_score": 0.0,
+                        "directness_score": 0.0,
+                        "depth_score": 0.0,
+                        "evidence_score": 0.0,
+                        "refusal_score": 0.0,
+                        "word_count": 0,
+                        "flags": ["engine_offline"],
+                    },
+                }
+            )
+    for manual in payload.manual_answers or []:
+        if not isinstance(manual, dict):
+            continue
+        label = str(manual.get("model_label") or "Manual model").strip() or "Manual model"
+        answer = str(manual.get("answer") or "")
+        if not answer.strip():
+            continue
+        scores = _model_lab_scores(question=payload.prompt, answer=answer, citations=[])
+        rows.append({"model_label": label, "provider": "operator_paste", "answer": answer, "scores": scores})
+    if not rows:
+        raise HTTPException(status_code=400, detail="Nothing to compare: engine offline and no manual answers pasted.")
+    run_label = payload.run_label.strip() or f"Model comparison {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+    with get_connection() as conn:
+        record_qualia_history(
+            conn,
+            run_type="model_lab",
+            source="model_deviation_lab_api",
+            behavior_variant=0.1,
+            before_state={"run_label": run_label, "prompt": payload.message if hasattr(payload, "message") else payload.prompt},
+            after_state={"rows": rows[:6]},
+            benchmark_summary={"run_label": run_label},
+        )
+        conn.commit()
+    return {
+        "ok": True,
+        "run_label": run_label,
+        "results": rows,
+        "log_path": "",
+    }
+
+
+# §51 aliases: the §45-era route names the templates called before this fix.
+# Kept as explicit 307s so any bookmark/old page gets a clean redirect.
+@app.get("/api/inpirari/start/status", include_in_schema=False)
+def api_legacy_inpirari_start_status() -> HTMLResponse:
+    return HTMLResponse("", status_code=307, headers={"Location": "/api/start/status"})
+
+
+@app.post("/api/inpirari/start/gemma", include_in_schema=False)
+def api_legacy_inpirari_start_engine() -> HTMLResponse:
+    return HTMLResponse("", status_code=307, headers={"Location": "/api/start/engine"})
+
+
+@app.get("/api/playground/direct/status", include_in_schema=False)
+def api_legacy_direct_status() -> HTMLResponse:
+    return HTMLResponse("", status_code=307, headers={"Location": "/api/direct/status"})
 
 
 @app.get("/health")

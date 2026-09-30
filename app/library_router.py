@@ -1,18 +1,19 @@
-"""Sentinel library router — the single source of truth for the library.
+"""Sentinari library router — the single source of truth for the library.
 
 The knowledge library is ONE physical SQLite database:
 
-* ``library_gemma.db`` — the Sentinel / Guardian library. Gemma (the grounded
-  assistant) reads ALL scientific fields from here. Only the Sentinel gateway
-  writes here. The knowledge corpus lives in this single database.
+* ``sentinari.db`` — the Sentinel / Guardian library (renamed from the legacy
+  ``library_gemma.db`` filename in §51; the file itself moved untouched, so
+  every embedding, chunk, and FTS index rides along). Only the Sentinel
+  gateway writes here. The knowledge corpus lives in this single database.
 
 The active persona is:
 
-* ``gemma`` — grounded scientific assistant, reads the Sentinel library.
+* ``sentinari`` — grounded scientific assistant, reads the Sentinari library.
 
 The persona persists in the ``app_runtime_state`` table of the main database so
 all server processes agree. Focus profiles weight which scientific fields lead
-retrieval for Gemma without hiding the others.
+retrieval for Sentinari without hiding the others.
 """
 from __future__ import annotations
 
@@ -24,8 +25,11 @@ from typing import Any
 
 from .config import get_project_root, get_settings
 
-GEMMA_PERSONA = "gemma"
-VALID_PERSONAS = (GEMMA_PERSONA,)
+# §51: persona/model keys are runtime-coupled (Ollama tags, persisted state
+# rows) and stay as-is; only the LIBRARY FILENAME is rebranded here.
+SENTINARI_PERSONA = "gemma"
+GEMMA_PERSONA = SENTINARI_PERSONA  # legacy alias — persisted app_runtime_state rows carry 'gemma'
+VALID_PERSONAS = (SENTINARI_PERSONA,)
 
 CODING_FIELD = "computer-and-information-sciences"
 
@@ -36,8 +40,19 @@ PERSONA_MODELS = {
 _lock = threading.Lock()
 
 
+def sentinari_library_path() -> Path:
+    """The one library database. §51: file renamed library_gemma.db → sentinari.db."""
+    path = get_project_root() / "data" / "sentinari.db"
+    if not path.exists():
+        legacy = get_project_root() / "data" / "library_gemma.db"
+        if legacy.exists():
+            return legacy  # not yet renamed on this checkout — keep working
+    return path
+
+
 def gemma_library_path() -> Path:
-    return get_project_root() / "data" / "library_gemma.db"
+    """Legacy name kept for the call sites that still import it."""
+    return sentinari_library_path()
 
 
 def _ensure_state_table(conn: sqlite3.Connection) -> None:
@@ -109,8 +124,8 @@ def persona_model(persona: str | None = None) -> str:
 
 
 def library_path_for(persona: str | None = None) -> Path:
-    """Which library database a persona reads (always the Gemma library)."""
-    return gemma_library_path()
+    """Which library database a persona reads (always the Sentinari library)."""
+    return sentinari_library_path()
 
 
 def library_name_for_field(
@@ -121,10 +136,10 @@ def library_name_for_field(
     target_library: str | None = None,
     persona: str | None = None,
 ) -> str:
-    """Which library a *write* belongs to: always the Gemma / Sentinel library.
+    """Which library a *write* belongs to: always the Sentinari library.
 
     Legacy metadata that still carries target_library/persona values is
-    accepted and routed to the Gemma library — every field lives there.
+    accepted and routed to the Sentinari library — every field lives there.
     """
     del scientific_field, source_collection, module, target_library, persona
     return GEMMA_PERSONA
@@ -194,7 +209,7 @@ def persona_status() -> dict[str, Any]:
             {"persona": p, "model": PERSONA_MODELS[p], "library": str(library_path_for(p).name)}
             for p in VALID_PERSONAS
         ],
-        "gemma_library": str(gemma_library_path()),
+        "gemma_library": str(sentinari_library_path()),
         "focus_profile": active_focus_profile(),
         "focus_profiles": focus_profiles(),
     }

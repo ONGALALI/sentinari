@@ -189,7 +189,8 @@
     <section class="card" style="margin-top:14px;">
       <h2>Backup Launch Files</h2>
       <p class="meta">Only if the browser page is unavailable.</p>
-      <div class="command">D:\Inpirari\START-HERE.bat</div>
+      <div class="command">D:\inpirari\Sentinari\launch-sentinari.bat</div>
+      <div class="command">D:\inpirari\Sentinari\Sentinari-server\launch-all.bat</div>
       <p class="meta" id="logs"></p>
     </section>
   </main>
@@ -204,20 +205,21 @@
     async function refreshStatus() {
       $("status").innerHTML = pill("System", "checking", "warn");
       try {
-        const res = await fetch("/api/inpirari/start/status");
+        const res = await fetch("/api/start/status");
         const data = await res.json();
         const personaInfo = data.persona || {};
+        const engine = data.engine || {};
 
         $("status").innerHTML = [
           pill("Active Engine", "Sentinari (Science)", "ok"),
-          pill("Active Library", "library_gemma.db", "ok"),
+          pill("Active Library", (data.library && data.library.name) || "sentinari.db", "ok"),
           pill("Isolation Guard", "Strict On (No Mismatch)", "ok"),
-          pill("Sentinari Web Host", data.smi_reachable ? "running" : "offline", data.smi_reachable ? "ok" : "bad"),
-          pill("Model Engine", (data.gemma_reachable || data.SMI_reachable) ? "running" : "offline", (data.gemma_reachable || data.SMI_reachable) ? "ok" : "bad"),
-          pill("Active Model", personaInfo.active_model || data.gemma_model || "not found", "ok"),
-          pill("Base URL", data.gemma_base_url || data.SMI_base_url || "", (data.gemma_base_url || data.SMI_base_url) ? "ok" : "bad")
+          pill("Sentinari Web Host", data.web_host_reachable ? "running" : "offline", data.web_host_reachable ? "ok" : "bad"),
+          pill("Model Engine", engine.engine_state === "ready" ? "running" : engine.engine_state === "model_missing" ? "model missing" : "dark by design", engine.engine_state === "ready" ? "ok" : "warn"),
+          pill("Active Model", engine.model || "awaits engine install (rig day)", engine.model ? "ok" : "warn"),
+          pill("Base URL", engine.base_url || "", engine.base_url ? "ok" : "warn")
         ].join("");
-        $("logs").textContent = data.logs ? `Logs: ${data.logs.gemma_direct || data.logs.SMI_direct} | ${data.logs.gemma_qualia || data.logs.SMI_qualia} | ${data.logs.model_deviation}` : "";
+        $("logs").textContent = (data.assessment_stage ? `Assessment ladder stage: ${data.assessment_stage.replaceAll("_", " ")}. ` : "") + (engine.engine_state === "ready" ? "Engine ready." : "Chat is intentionally dark until the local engine is installed on rig day — the library, search, and labs all run now.");
       } catch (err) {
         $("status").innerHTML = pill("Start page API", "not answering", "bad");
       }
@@ -225,10 +227,12 @@
 
     async function startEngine() {
       $("startGemma").disabled = true;
-      $("startGemma").textContent = "Starting...";
+      $("startGemma").textContent = "Checking...";
       try {
-        await fetch("/api/inpirari/start/gemma", { method: "POST" });
-        setTimeout(refreshStatus, 3500);
+        const res = await fetch("/api/start/engine", { method: "POST" });
+        const data = await res.json();
+        if (data.message) $("logs").textContent = data.message;
+        setTimeout(refreshStatus, 800);
       } finally {
         $("startGemma").disabled = false;
         $("startGemma").textContent = "Start Engine";

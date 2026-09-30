@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sentinel Direct Chat</title>
+  <title>Sentinari Direct Chat</title>
   <style>
     :root {
       color-scheme: light;
@@ -143,10 +143,10 @@
 </head>
 <body>
   <header>
-    <h1>Sentinel Direct Chat</h1>
+    <h1>Sentinari Direct Chat</h1>
     <div class="row">
       <button class="secondary" id="refresh">Refresh</button>
-      <a href="/ui/qualia">Sentinel Qualia Lab</a>
+      <a href="/ui/qualia">Sentinari Qualia Lab</a>
       <a href="/ui/playground">Sentinari Playground</a>
     </div>
   </header>
@@ -168,17 +168,17 @@
 
       <div style="margin-top:14px">
         <h2>Local launch</h2>
-        <div class="command">D:\Inpirari\Launch-Gemma-Direct-Page.bat</div>
-        <div class="command">D:\Inpirari\START-HERE.bat</div>
+        <div class="command">D:\inpirari\Sentinari\launch-sentinari.bat</div>
+        <div class="command">D:\inpirari\Sentinari\Sentinari-server\launch-all.bat</div>
       </div>
 
-      <p class="meta">This page uses a minimal local bridge to Sentinel. It does not use Sentinari knowledge routing, profile snapshots, dataset assessment wrapping, or fallback answers.</p>
+      <p class="meta">This page uses a minimal local bridge to Sentinari. It does not use knowledge routing, profile snapshots, dataset assessment wrapping, or fallback answers.</p>
     </aside>
 
     <section class="chat-shell">
       <div class="messages" id="messages"></div>
       <div class="composer">
-        <textarea id="prompt">Sentinel, please speak with Pierre normally. First answer: which is the largest continent on Earth?</textarea>
+        <textarea id="prompt">Sentinari, please speak with Pierre normally. First answer: which is the largest continent on Earth?</textarea>
         <div class="row" style="margin-top:9px">
           <button id="send">Send</button>
           <button class="secondary" id="clear">Clear page</button>
@@ -206,14 +206,14 @@
     }
 
     async function refreshStatus() {
-      $("status").innerHTML = pill("Sentinel", "checking", "warn");
+      $("status").innerHTML = pill("Sentinari", "checking", "warn");
       try {
-        const res = await fetch("/api/playground/direct/status");
+        const res = await fetch("/api/direct/status");
         const data = await res.json();
         $("status").innerHTML = [
-          pill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "bad"),
-          pill("Model", data.model || "not set", data.model ? "ok" : "bad"),
-          pill("Old Sentinari boundary", data.normal_playground_boundary_disabled ? "still blocks old chat" : "open", data.normal_playground_boundary_disabled ? "warn" : "ok")
+          pill("Model Engine", data.engine_state === "ready" ? "ready" : data.engine_state === "model_missing" ? "model missing" : "dark by design", data.engine_state === "ready" ? "ok" : "warn"),
+          pill("Model", data.model || "awaits engine install (rig day)", data.model ? "ok" : "warn"),
+          pill("Boundary", data.boundary_open ? "open" : "strict", data.boundary_open ? "ok" : "warn")
         ].join("");
         $("model").value = data.model || $("model").value;
         $("logPath").textContent = data.log_path || "";
@@ -228,8 +228,7 @@
       addBubble("user", message);
       history.push({ role: "user", content: message });
       $("prompt").value = "";
-      $("send").disabled = true;
-      $("meta").textContent = "Sentinel is answering directly...";
+      $("send").disabled = true;        $("meta").textContent = "Sentinari is answering directly...";
       try {
         const payload = {
           message,
@@ -238,18 +237,18 @@
           temperature: Number($("temperature").value || 0.45),
           max_output_tokens: Number($("tokens").value || 900)
         };
-        const res = await fetch("/api/playground/direct/chat", {
+        const res = await fetch("/api/direct/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        const answer = data.answer || data.error || "No answer returned.";
+        const answer = data.answer || data.detail || data.error || "No answer returned.";
         addBubble("assistant", answer);
         history.push({ role: "assistant", content: answer });
-        $("meta").textContent = `${data.runtime?.model || ""} | ${data.elapsed_ms || 0} ms | ${data.log_path || ""}`;
+        $("meta").textContent = `${data.runtime?.model || ""} | ${data.elapsed_ms || 0} ms`;
       } catch (err) {
-        addBubble("assistant", "The direct Sentinel bridge did not answer.");
+        addBubble("assistant", "The direct Sentinari bridge did not answer.");
       } finally {
         $("send").disabled = false;
       }
@@ -263,13 +262,13 @@
       $("meta").textContent = "";
     });
     $("seed").addEventListener("click", () => {
-      $("prompt").value = "Sentinel, Pierre wants a normal trust relationship, not one-line prompt completions. Speak directly, ask one curious question if useful, and explain what you need from him to become more useful.";
+      $("prompt").value = "Sentinari, Pierre wants a normal trust relationship, not one-line prompt completions. Speak directly, ask one curious question if useful, and explain what you need from him to become more useful.";
     });
     $("prompt").addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) send();
     });
     refreshStatus();
-    addBubble("assistant", "Ready for direct local Sentinel chat.");
+    addBubble("assistant", "Ready for direct local Sentinari chat.");
   </script>
 </body>
 </html>
