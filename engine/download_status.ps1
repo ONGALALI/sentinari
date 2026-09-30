@@ -10,7 +10,7 @@
 $ErrorActionPreference = 'SilentlyContinue'
 $Dir = Join-Path $PSScriptRoot 'custom_engine_weights'
 $Big = Join-Path $Dir 'model.safetensors'
-$TotalBytes = 22280000000  # HEAD-declared total from the fetcher log (22.28 decimal GB = 20.75 GiB)
+$TotalBytes = 23919549408  # exact size from the HF API (blobs=true): 23,919,549,408 B = 22.28 GiB
 $IC = [System.Globalization.CultureInfo]::InvariantCulture  # dot decimals regardless of locale
 
 Write-Output '=============================================='
