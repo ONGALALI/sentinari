@@ -1593,3 +1593,13 @@ BOTH. Verified live in the databases, not from memory:
 **Built and PROVEN — Scripts/backup_sentinari.ps1 (the nightly ritual):** robocopy mirrors data\ + config\ to a date-stamped folder on the target disk (today C:\SentinariBackups — internal NVMe, physically different hardware from USB D:; one -Target argument flips it to the Seagate V: when docked), verifies by file COUNT and total BYTES against source, prunes to newest 3, never touches live files. Scheduled-task line included in the header. **First run: 26,651 files, 18.35 GiB, VERIFY PASSED (backup_2026-09-30_2306).** Weights download meanwhile at 30% (6.9 GB) — flowing untouched.
 
 **State at close:** §73 pending commit. Library now has a verified second copy on different hardware. On Seagate arrival: dock once, format/assign V:, flip the ritual's default target, move bulk re-obtainables (weights copies, exports) onto V:, keep the nightly data/ archives rolling.
+
+## §73a — WIRELESS CONSIDERED AND REJECTED; FINAL PHYSICAL LAYER: SEAGATE DOCKED TO MAINBOARD USB-C — 2026-09-30
+
+**Owner explored wireless:** "there must be a wireless solution in this day and age?" Measured his Wi-Fi (5 GHz 802.11ac, 173 Mbps negotiated — ~10-15 MB/s real) and laid out the routes: proper NAS (overkill + spend), Wi-Fi-direct drives (gimmick tier), router USB port (free). Owner then found the router's port is USB 2.0 (adapters + halved speed) — route rejected by the owner's own measurement instinct. Correct rejection: USB 2.0 (~30 MB/s) + Wi-Fi bottleneck + share-layer quirks for an always-on target.
+
+**Final physical layer decided:** the SEAGATE 20TB docks into the MAINBOARD's USB-C port (USB 3.x = 5-10 Gbps, ~30-60x the router port; small A-to-C adapter or C-to-C cable at most — recent Expansion models ship USB-C natively). Wear doctrine recorded precisely: connector wear comes from MATING CYCLES, not port type or wire existence — docked once, the drive is furniture; wireless would remove the visible wire but not add safety. Backup over docked USB 3.x: the 18.35 GiB library run completes in minutes, HDD-platter-limited.
+
+**Unchanged:** §73 rules (nothing live on SMR; V: never the only instance of anything irreplaceable; ritual verifies counts+bytes; C: interim target already proven). Wireless remains a future option for an OFF-SITE COLD COPY only, if the owner ever wants disaster-grade separation.
+
+**State at close:** §73a pending commit. Weights download LIVE (~30%+). Storage architecture final pending hardware arrival.
