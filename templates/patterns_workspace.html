@@ -89,11 +89,11 @@
 <div class="layout">
   <aside class="sidebar">
     <div class="brand">Sentinari</div>
-    <div class="sidecopy">Sentinel watches the knowledge library and raises new scientific patterns as they form.</div>
+    <div class="sidecopy">Sentinari watches the knowledge library and raises new scientific patterns as they form.</div>
     <nav class="nav">
       <a href="/ui/playground">Dashboard Home<small>Main landing page.</small></a>
       <a href="/ui/patterns" class="active">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
-      <a href="/ui/playground#sentinel-grid">Sentinel Domains<small>Scientific fields feeding the main LLM.</small></a>
+      <a href="/ui/playground#sentinel-grid">Knowledge Domains<small>Scientific fields feeding the engine.</small></a>
       <a href="/ui/admin">Admin Console<small>Profile, memory, and task board.</small></a>
     </nav>
   </aside>
@@ -108,7 +108,7 @@
       <div class="row" style="justify-content:space-between;">
         <div>
           <h2>Library-wide recognition</h2>
-          <div class="hint">How much of the knowledge library Sentinel has analyzed for new patterns so far.</div>
+          <div class="hint">How much of the knowledge library Sentinari has analyzed for new patterns so far.</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <label class="hint oa-toggle" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
@@ -133,7 +133,7 @@
 
     <div class="card">
       <h2>Start recognizing patterns in a scientific field</h2>
-      <div class="hint">Enter a field name (e.g. <b>physics</b>, <b>chemistry</b>, <b>psychology</b>) — or leave blank to scan every field. Sentinel reads the field's documents, extracts entities, relations and patterns, then analyzes each new pattern's potential benefits.</div>
+      <div class="hint">Enter a field name (e.g. <b>physics</b>, <b>chemistry</b>, <b>psychology</b>) — or leave blank to scan every field. Sentinari reads the field's documents, extracts entities, relations and patterns, then analyzes each new pattern's potential benefits.</div>
       <div class="row" style="margin-top:9px;">
         <input type="text" id="fieldInput" placeholder="Scientific field (blank = all fields)">
         <button id="btnStart" class="primary" type="button">Start recognition</button>
@@ -148,7 +148,7 @@
     <div class="card">
       <h2>User-requested pattern discovery</h2>
       <div class="mode-pill manual">Manual &middot; coming soon</div>
-      <div class="hint">Describe the pattern you want Sentinel to hunt for (e.g. <i>"Patterns linking drought resilience to crop genetics"</i>). Interactive, conversational discovery is a planned future capability — for now your request is <b>logged and archived</b> in the pattern store as future work, ready to feed the feature when it lands.</div>
+      <div class="hint">Describe the pattern you want Sentinari to hunt for (e.g. <i>"Patterns linking drought resilience to crop genetics"</i>). Interactive, conversational discovery is a planned future capability — for now your request is <b>logged and archived</b> in the pattern store as future work, ready to feed the feature when it lands.</div>
       <div class="row" style="margin-top:9px;">
         <input type="text" id="manualTopic" placeholder="Pattern topic to investigate">
         <input type="text" id="manualFields" placeholder="Fields involved (optional, comma-separated)">
@@ -311,7 +311,7 @@
       });
       const grid = $('containersGrid');
       if (!data.containers.length) {
-        grid.innerHTML = '<div class="container-card"><span class="muted">No patterns recorded yet. Start recognition above after loading datasets into your fields — Sentinel will raise new patterns here as they form.</span></div>';
+        grid.innerHTML = '<div class="container-card"><span class="muted">No patterns recorded yet. Start recognition above after loading datasets into your fields — Sentinari will raise new patterns here as they form.</span></div>';
       } else {
         grid.innerHTML = data.containers.map(containerCard).join('');
       }

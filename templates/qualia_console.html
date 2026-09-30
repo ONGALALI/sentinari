@@ -476,7 +476,7 @@
           <div>
             <label for="model">Model</label>
             <select id="model">
-              <option value="gemma4:12B">Sentinari 12B</option>
+              <option value="Sentinari 12B">Sentinari 12B</option>
             </select>
           </div>
           <div>
@@ -491,7 +491,7 @@
         <p class="hint">Select local models. Press Run Model 1 first, wait for the result, then press Run Model 2.</p>
         <label for="compareModels">Models to assess</label>
         <select id="compareModels" multiple>
-          <option value="gemma4:12B" selected>Sentinari 12B</option>
+          <option value="Sentinari 12B" selected>Sentinari 12B</option>
         </select>
         <div class="row" style="margin-top:10px">
           <button class="ghost" id="syncModelVectors">Copy global vector to selected</button>
@@ -739,7 +739,7 @@
       const previouslySelected = selectedComparisonModels();
       let unique = Array.from(new Set((models || []).filter(Boolean)));
       if (preferred) unique = [preferred, ...unique.filter((name) => name !== preferred)];
-      if (!unique.length) unique.push("gemma4:12B");
+      if (!unique.length) unique.push("Sentinari 12B");
       const options = unique.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
       $("model").innerHTML = options;
       $("compareModels").innerHTML = unique.map((name, idx) => {
@@ -770,7 +770,7 @@
 
     function renderModelVectorRows(previous = {}) {
       const selected = selectedComparisonModels();
-      const models = selected.length ? selected : [$("model").value || "gemma4:12B"];
+      const models = selected.length ? selected : [$("model").value || "Sentinari 12B"];
       $("modelVectorGrid").innerHTML = models.map((model) => {
         const value = previous[model] || {
           variant: asNum($("variant").value, 4.8),

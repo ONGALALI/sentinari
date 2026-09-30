@@ -118,8 +118,8 @@
     <h1>Model Deviation Lab</h1>
     <div class="row">
       <button class="secondary" id="refresh">Refresh Status</button>
-      <a href="/ui/direct">Sentinel Direct</a>
-      <a href="/ui/qualia">Sentinel Qualia</a>
+      <a href="/ui/direct">Sentinari Direct</a>
+      <a href="/ui/qualia">Sentinari Qualia</a>
     </div>
   </header>
 
@@ -132,8 +132,8 @@
       <label for="runLabel">Run label</label>
       <input id="runLabel" value="baseline-deviation">
 
-      <label for="model">Local Sentinel model</label>
-      <input id="model" value="gemma4:12B">
+      <label for="model">Local Sentinari model</label>
+      <input id="model" value="Sentinari 12B" placeholder="engine model (rig day)">
 
       <label for="prompt">Shared test prompt</label>
       <textarea id="prompt">Which is the largest continent on Earth? Answer directly, then explain your reasoning in two sentences.</textarea>
@@ -143,7 +143,7 @@
         <button class="secondary" id="science">Science prompt</button>
       </div>
 
-      <p class="meta">Paste Gemini, Grok, Claude, DeepSeek, or other model answers below. The same prompt and scoring sheet will be logged with Sentinel's local answer.</p>
+      <p class="meta">Paste Gemini, Grok, Claude, DeepSeek, or other model answers below. The same prompt and scoring sheet will be logged with Sentinari's local answer.</p>
     </aside>
 
     <section>
@@ -227,8 +227,8 @@
         const res = await fetch("/api/playground/model-lab/status");
         const data = await res.json();
         $("status").innerHTML = [
-          pill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "bad"),
-          pill("Local model", data.model || "not set", data.model ? "ok" : "bad"),
+          pill("Model Engine", data.engine_state === "ready" ? "ready" : data.engine_state === "model_missing" ? "model missing" : "dark by design", data.engine_state === "ready" ? "ok" : "warn"),
+          pill("Local model", data.model || "awaits engine install (rig day)", data.model ? "ok" : "warn"),
           pill("Previous runs", String((data.recent_runs || []).length), "ok")
         ].join("");
         $("model").value = data.model || $("model").value;
@@ -304,7 +304,7 @@
           <div class="value">${escapeHtml(leader.label)} · ${(leader.score * 100).toFixed(1)}%</div>
         </div>
         <div class="score-card local">
-          <div class="label">Local Sentinel</div>
+          <div class="label">Local Sentinari</div>
           <div class="value">${local ? `${(local.score * 100).toFixed(1)}%` : "Not included"}</div>
         </div>
         <div class="score-card">

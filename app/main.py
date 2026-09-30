@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sys
 import re
 import sqlite3
@@ -507,6 +508,19 @@ def _normalize_languages(default_language: str, values: list[str] | None) -> lis
 
 
 @app.middleware("http")
+async def ui_no_store_cache_guard(request: Request, call_next):
+    """§52: console pages must NEVER be served from browser cache.
+    The owner saw §51 fixes invisible because stale HTML kept rendering
+    dead-endpoint fallbacks. UI pages get no-store; API JSON unaffected."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/ui") and response.status_code == 200:
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@app.middleware("http")
 async def localhost_access_guard(request: Request, call_next):
     settings = get_settings()
     security = settings.get("security", {}) if isinstance(settings.get("security"), dict) else {}
@@ -651,6 +665,94 @@ def ui_root_redirect() -> HTMLResponse:
 
 
 # ===========================================================================
+# §52 — SHARED LEFT RAIL (single sidebar markup for every console page)
+# Injected by _shared_left_rail(active=...) into pages that previously had
+# no workspace menu (admin console, qualia, direct chat, model lab).
+# ===========================================================================
+
+_SIDE_NAV_ITEMS = [
+    ("/ui/playground", "Dashboard Home", "Summary, domains, and downloads."),
+    ("/ui/direct", "Chat Lab", "Dedicated conversation workspace."),
+    ("/ui/qualia", "Qualia Lab", "Dedicated qualia workspace."),
+    ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
+    ("/ui/admin", "Skills Manager", "Skills live in the Admin Console."),
+    ("/ui/patterns", "New Patterns", "Scientific Patterns Discovery workspace."),
+    ("/ui/search", "Search Library", "Datasets ingested per scientific field."),
+    ("/ui/model-lab", "Model Deviation Lab", "Score Sentinari against manual pasted answers."),
+    ("/ui/admin", "Admin Console", "Profile, memory, and task board."),
+]
+
+_LEFT_RAIL_CSS = """
+    .shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { background: linear-gradient(180deg, #13263b 0%, #0e1c2c 100%); color: #d9e8f6; padding: 18px 16px; }
+    .sidebar .brand { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    .sidebar .sidecopy { color: #9ab4cd; font-size: 13px; margin-bottom: 16px; }
+    .sidebar .nav { display: grid; gap: 8px; }
+    .sidebar .nav a {
+      display: block; padding: 10px 12px; border-radius: 10px; color: #d9e8f6;
+      text-decoration: none; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06); font-size: 14px;
+    }
+    .sidebar .nav a.active { background: rgba(29, 111, 216, 0.32); border-color: rgba(88, 152, 226, 0.55); }
+    .sidebar .nav a small { display: block; color: #9ab4cd; font-size: 12px; margin-top: 2px; }
+    @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .sidebar { padding-bottom: 10px; } }
+"""
+
+
+def _shared_left_rail(active: str) -> str:
+    lines: list[str] = []
+    active_used = False
+    for href, label, hint in _SIDE_NAV_ITEMS:
+        if href == active and not active_used:
+            active_attr = ' class="active"'
+            active_used = True
+        else:
+            active_attr = ""
+        lines.append(
+            '        <a href="' + href + '"' + active_attr + '>'
+            + label + '<small>' + hint + '</small></a>'
+        )
+    links = "\n".join(lines)
+    return (
+        '    <aside class="sidebar">\n'
+        '      <div class="brand">Sentinari</div>\n'
+        '      <div class="sidecopy">One workspace for every Sentinari lab.</div>\n'
+        '      <nav class="nav">\n'
+        f"{links}"
+        "      </nav>\n"
+        "    </aside>\n"
+    )
+
+
+def _inject_left_rail(html: str, active: str) -> str:
+    """Insert the shared rail into a page: adds .shell wrapper, rail CSS,
+    and the aside itself. Idempotent — pages that already carry a sidebar
+    (via class="shell") are returned untouched."""
+    if 'class="shell"' in html or '<aside class="sidebar"' in html:
+        return html
+    css = _LEFT_RAIL_CSS + "\n  </style>"
+    if "</style>" in html:
+        html = html.replace("</style>", css, 1)
+    marker = re.search(r"<body[^>]*>\s*", html)
+    if marker:
+        insert_at = marker.end()
+        has_own_main = "<main" in html[insert_at:]
+        if has_own_main:
+            # Page carries its own <main>: the rail becomes a grid sibling,
+            # no wrapper <main> is added (nested <main> is invalid HTML).
+            shell_open = '  <div class="shell">\n' + _shared_left_rail(active) + '\n    <div class="page-shell" style="min-width:0;">\n'
+        else:
+            shell_open = '  <div class="shell">\n' + _shared_left_rail(active) + '\n    <main class="page-shell" style="min-width:0; padding: 0 18px;">\n'
+        html = html[:insert_at] + shell_open + html[insert_at:]
+        # Close the wrapper before </body> — the last structural close in the doc.
+        close_idx = html.rfind("</body>")
+        if close_idx != -1:
+            closer = "</main>" if not has_own_main else "</div>"
+            html = html[:close_idx] + "\n    " + closer + "\n  </div>\n" + html[close_idx:]
+    return html
+
+
+# ===========================================================================
 # §51 — REVIVED CONSOLE ENDPOINTS
 # The §45 rename pointed four consoles at routes that never existed (born
 # broken — see §51 in docs/CONTINUITY_LOG.md). These endpoints give every
@@ -675,7 +777,10 @@ def _console_llm_status() -> dict[str, Any]:
         # Raw diagnostics (machine layer) — §46: UI translates to calm wording.
         "ollama_reachable": reachable,
         "engine_reachable": reachable,
+        # §52: model stays the RAW runtime key (selectors submit it as a value);
+        # model_label is the UI-facing product name for text pills.
         "model": client.chat_model if present else "",
+        "model_label": "Sentinari 12B" if present else "",
         "chat_model": client.chat_model,
         "embedding_model": client.embedding_model,
         "base_url": client.base_url,
@@ -809,7 +914,7 @@ def api_direct_chat(
         client.temperature = clamp_temperature(payload.temperature, settings=settings)
     if payload.max_output_tokens is not None:
         client.max_output_tokens = max(64, min(8192, int(payload.max_output_tokens)))
-    if payload.model and str(payload.model).strip() and str(payload.model).strip() != client.chat_model:
+    if payload.model and str(payload.model).strip() and str(payload.model).strip() not in {client.chat_model, "Sentinari 12B"}:
         return {
             "ok": False,
             "error": f"Model '{payload.model}' is not part of the approved runtime. Approved: {client.chat_model}.",
@@ -1189,7 +1294,7 @@ def ui_admin(request: Request) -> HTMLResponse:
     page = get_project_root() / "templates" / "admin_console.html"
     if not page.exists():
         raise HTTPException(status_code=500, detail="admin_console.html template not found.")
-    return HTMLResponse(page.read_text(encoding="utf-8"))
+    return HTMLResponse(_inject_left_rail(page.read_text(encoding="utf-8"), active="/ui/admin"))
 
 
 @app.get("/ui/start", response_class=HTMLResponse)
@@ -1261,6 +1366,7 @@ def ui_qualia(request: Request) -> HTMLResponse:
         template_name="qualia_console.html",
         next_path="/ui/qualia",
         missing_detail="qualia_console.html template not found.",
+        left_rail=True,
     )
 
 
@@ -1288,6 +1394,7 @@ def ui_direct(request: Request) -> HTMLResponse:
         template_name="direct_console.html",
         next_path="/ui/direct",
         missing_detail="direct_console.html template not found.",
+        left_rail=True,
     )
 
 
@@ -1315,6 +1422,7 @@ def ui_model_lab(request: Request) -> HTMLResponse:
         template_name="model_deviation_lab.html",
         next_path="/ui/model-lab",
         missing_detail="model_deviation_lab.html template not found.",
+        left_rail=True,
     )
 
 
@@ -1329,6 +1437,7 @@ def _render_authed_ui_template(
     next_path: str,
     missing_detail: str,
     replacements: dict[str, str] | None = None,
+    left_rail: bool = False,
 ) -> HTMLResponse:
     auth = get_admin_auth_settings(get_settings())
     if auth["enabled"] and not _is_admin_authenticated(request):
@@ -1345,6 +1454,8 @@ def _render_authed_ui_template(
 
     for key, value in (replacements or {}).items():
         html = html.replace(key, value)
+    if left_rail:
+        html = _inject_left_rail(html, active=next_path)
     return HTMLResponse(html)
 
 
