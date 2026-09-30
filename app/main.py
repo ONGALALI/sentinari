@@ -63,6 +63,7 @@ from .models import (
     IngestUrlRequest,
     ModelLabRunRequest,
     OpenAlexToggleRequest,
+    ScoutBlockRequest,
     ScoutRequest,
     PlaygroundChatRequest,
     PlaygroundQualiaBenchmarkRequest,
@@ -3034,9 +3035,59 @@ def api_datasets_discover(
         payload.query,
         limit_per_source=payload.limit_per_source,
         sources=payload.sources or None,
+        bypass_blocks=bool(payload.bypass_blocks),
     )
     if not result.get("ok") and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# §64 — Owner source blocklist ("once blocked, always blocked"): sub-standard
+# origins are filtered from scout discovery BEFORE the review surface, so
+# review effort shrinks instead of re-judging the same noise. Unblock is an
+# API-only safety valve; the UI never offers it.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/datasets/blocks")
+def api_datasets_blocks_list(
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import dataset_scout
+
+    return dataset_scout.list_blocks()
+
+
+@app.post("/api/datasets/block")
+def api_datasets_block(
+    payload: ScoutBlockRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import dataset_scout
+
+    result = dataset_scout.block_source(
+        payload.origin,
+        label=payload.label,
+        source=payload.source,
+        scope=payload.scope,
+        note=payload.note,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.delete("/api/datasets/block/{origin}")
+def api_datasets_unblock(
+    origin: str,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import dataset_scout
+
+    result = dataset_scout.unblock_source(origin)
+    if not result.get("ok") or not result.get("removed"):
+        raise HTTPException(status_code=404, detail="no such block")
     return result
 
 

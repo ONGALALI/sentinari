@@ -539,7 +539,7 @@
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
               <h2>Scientific Dataset Discovery &amp; Review</h2>
-              <div class="hint">Closes the loop: the Learning Index and HLE reveal what Sentinari does <em>not</em> yet know &rarr; search the outside world for that lacking knowledge (priority order: 1) OpenAlex &rarr; 2) Medical web (Europe PMC) &rarr; 3) GitHub &rarr; 4) HuggingFace) &rarr; you approve &rarr; it is digested, examined, and feeds re-learning/fine-tuning (ladder stage 4). Proposals only — the intake firewall guards the door; nothing enters without you.</div>
+              <div class="hint"><strong>Learning first, HLE second.</strong> The Learning Index shows what she has not learned yet — scouting targets exactly that lacking knowledge (priority order: 1) OpenAlex &rarr; 2) Medical web (Europe PMC) &rarr; 3) GitHub &rarr; 4) HuggingFace) &rarr; you approve &rarr; it is digested, examined, and feeds re-learning/fine-tuning (ladder stage 4). HLE measures the gap once the library is learned. Standard: <strong>comprehensive, whole-field datasets at masters/PhD level</strong> — fewer datasets, entire subjects. Sub-standard sources get blocked; once blocked, always blocked. Proposals only — the intake firewall guards the door; nothing enters without you.</div>
             </div>
           </div>
           <div class="hint" style="margin-top:8px;"><strong>Weak spots</strong> — fields with the least examined knowledge (from the Learning Index). Click one to scout it:</div>
@@ -550,6 +550,8 @@
           </div>
           <div id="dsScoutStatus" class="hint" style="margin-top:6px;"></div>
           <div id="dsScoutResults" style="margin-top:6px;"></div>
+          <div class="hint" style="margin-top:8px;"><span id="dsBlockCount"></span> <a href="#" id="dsBlocksLink" style="display:none;">View blocked sources</a></div>
+          <div id="dsBlocksList" style="display:none; margin-top:4px;"></div>
         </div>
 
         <div class="card" id="sentinel-grid" style="margin-top:14px;">
@@ -3841,28 +3843,87 @@
         });
       });
     };
-    const runDashboardScout = async () => {
+    // §64: owner source blocklist — "once blocked, always blocked".
+    const dsBlockBar = async () => {
+      try {
+        const res = await fetch('/api/datasets/blocks');
+        const d = await res.json();
+        const n = Number(d.count || 0);
+        byId('dsBlockCount').textContent = n ? `${n} source${n === 1 ? '' : 's'} blocked — their candidates are hidden from every search.` : 'No sources blocked yet. Block sub-standard origins (masters/PhD standard only) straight from the results.';
+        const link = byId('dsBlocksLink');
+        link.style.display = n ? '' : 'none';
+      } catch (_) { /* blocklist is optional decoration; never break scouting */ }
+    };
+    const dsToggleBlocks = async () => {
+      const box = byId('dsBlocksList');
+      if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+      try {
+        const res = await fetch('/api/datasets/blocks');
+        const d = await res.json();
+        box.innerHTML = (d.blocks || []).map((b) =>
+          `<div class="liMeta">• <strong>${escapeHtml(b.origin)}</strong>${b.label ? ' — ' + escapeHtml(b.label) : ''} <span class="scoutBadge">${escapeHtml(b.scope)}</span> <span class="liMeta">${escapeHtml(String(b.blocked_at || '').slice(0, 10))}</span></div>`
+        ).join('') || '<div class="liMeta">None.</div>';
+        box.style.display = '';
+      } catch (e) { box.innerHTML = `<div class="liMeta">Could not load: ${escapeHtml(e.message || String(e))}</div>`; box.style.display = ''; }
+    };
+    byId('dsBlocksLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      dsToggleBlocks();
+    });
+    const dsBlockSource = async (origin, source, scope, btn) => {
+      const msg = `Block ${origin} everywhere — everything they publish, past and future (once blocked, always blocked)?`;
+      if (!window.confirm(msg)) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/datasets/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origin, source, scope, note: `blocked from discovery card ${new Date().toISOString().slice(0, 10)}` }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.ok === false) throw new Error(d.detail || 'Block failed.');
+        byId('dsScoutStatus').textContent = `Blocked "${origin}" — their candidates are hidden from every search from now on.`;
+        await Promise.all([dsBlockBar(), runDashboardScout({ silent: true })]);
+      } catch (e) {
+        byId('dsScoutStatus').textContent = 'Block failed: ' + (e.message || e);
+        btn.disabled = false;
+      }
+    };
+    const runDashboardScout = async (opts = {}) => {
       const btn = byId('dsScoutBtn');
       const q = String(byId('dsScoutQuery').value || '').trim();
       if (!q) { byId('dsScoutStatus').textContent = 'Type a topic to search for — or click a weak spot above.'; return; }
-      btn.disabled = true;
-      byId('dsScoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
+      if (!opts.silent) {
+        btn.disabled = true;
+        byId('dsScoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
+      }
       byId('dsScoutResults').innerHTML = '';
       try {
         const res = await fetch('/api/datasets/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, limit_per_source: 6 }) });
         const d = await res.json();
         if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Scout failed.');
-        byId('dsScoutStatus').textContent = `${d.total} candidates found — ${d.priority_note}. Proposals only: approve via the admin console before ingestion.`;
+        const blockNote = Number(d.blocked_count || 0) ? ` (${d.blocked_count} hidden by your blocklist)` : (Number(d.blocks_active || 0) ? ' (blocklist active — nothing blocked this time)' : '');
+        byId('dsScoutStatus').textContent = `${d.total} candidates found${blockNote} — ${d.priority_note}. Proposals only: approve via the admin console before ingestion.`;
         const LABELS = { openalex: '1·OpenAlex', medical: '2·Medical', github: '3·GitHub', huggingface: '4·HF' };
         byId('dsScoutResults').innerHTML = (d.candidates || []).map((c) => {
           const rank = c.priority_rank;
+          const origin = (c.authors && c.authors[0]) || '';
+          const blockBtn = origin
+            ? ` <button type="button" class="ghost dsBlockBtn" data-origin="${escapeHtml(origin)}" data-source="${escapeHtml(c.source || '')}" title="Block this origin everywhere — once blocked, always blocked">⌀ Block ${escapeHtml(origin)}</button>`
+            : '';
           return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
-            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>` +
+            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>${blockBtn}` +
             `<div class="liMeta">${escapeHtml(c.detail || '')}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</div></div>`;
         }).join('') || '<div class="hint">No candidates found for that query.</div>';
+        byId('dsScoutResults').querySelectorAll('.dsBlockBtn').forEach((b) => {
+          b.addEventListener('click', () => {
+            dsBlockSource(String(b.getAttribute('data-origin') || ''), String(b.getAttribute('data-source') || ''), 'user', b);
+          });
+        });
       } catch (e) { byId('dsScoutStatus').textContent = 'Scout failed: ' + (e.message || e); }
       btn.disabled = false;
     };
+    dsBlockBar();
     byId('dsScoutBtn').addEventListener('click', () => {
       runDashboardScout().catch((e) => setStatus('dsScoutStatus', e.message || String(e), false));
     });

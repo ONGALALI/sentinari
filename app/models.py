@@ -145,6 +145,21 @@ class ScoutRequest(BaseModel):
     query: str = Field(min_length=2, max_length=300)
     limit_per_source: int = Field(default=8, ge=1, le=25)
     sources: list[str] = Field(default_factory=list)
+    bypass_blocks: bool = False  # §64: owner-only audit view — show blocklist-hidden candidates
+
+
+class ScoutBlockRequest(BaseModel):
+    """§64: block a dataset source ("once blocked, always blocked").
+
+    scope "user"  blocks the origin everywhere (HF user, GitHub user/org,
+    journal host) — everything they publish, past and future.
+    scope "exact" blocks one HuggingFace repo (user/dataset-name) only.
+    """
+    origin: str = Field(min_length=1, max_length=200)
+    label: str = Field(default="", max_length=300)
+    source: str = Field(default="", max_length=40)
+    scope: Literal["user", "exact"] = "user"
+    note: str = Field(default="", max_length=500)
 
 
 class IntakeApproveRequest(BaseModel):
