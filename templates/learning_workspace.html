@@ -34,6 +34,20 @@
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th { text-align: left; color: #52657e; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #e2eaf4; }
   td { padding: 6px 8px; border-bottom: 1px solid #eef2f8; }
+  /* §61 visible Learning toggle switch */
+  .liSwitchWrap { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .liSwitch { width: 44px; height: 24px; background: #c3cfdd; border-radius: 999px; position: relative; transition: background .2s ease; flex: 0 0 auto; }
+  .liSwitch .liKnob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(16,35,60,.35); transition: left .2s ease; }
+  .liSwitch.on { background: #2e7d32; }
+  .liSwitch.on .liKnob { left: 23px; }
+  /* §61 dataset scout */
+  .scoutRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+  .scoutCandidate { padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; margin-top: 6px; }
+  .scoutBadge { display: inline-block; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-right: 6px; background: #eceff4; color: #44546a; border: 1px solid #d5dde8; }
+  .scoutBadge.r1 { background: #dcebf9; color: #103c6b; border-color: #b9d4ee; }
+  .scoutBadge.r2 { background: #e2f3ea; color: #1d5c34; border-color: #b8ddc6; }
+  .scoutBadge.r3 { background: #fdf1dc; color: #7a5200; border-color: #eeddb0; }
+  .scoutBadge.r4 { background: #f3e8f8; color: #5c2d80; border-color: #dcc2ec; }
   /* §58 per-field progress bars + priority badges */
   .liFieldRow { margin: 10px 0; padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; }
   .liFieldHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; }
@@ -68,9 +82,23 @@
       <div class="hint" id="liLabel" style="margin-top:6px;">Gathering status…</div>
       <div id="liFields" style="margin-top:10px;"></div>
       <div id="liLatest" class="hint" style="margin-top:8px;"></div>
-      <div class="row" style="margin-top:12px;">
+    </div>
+
+    <div class="card">
+      <h2>Dataset Scout — new candidate data</h2>
+      <div class="hint">Searches for candidate datasets in your priority order: <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong>. Proposals only — nothing is ingested without your approval (the intake firewall guards the door).</div>
+      <div class="scoutRow">
+        <input id="scoutQuery" placeholder="e.g. climate resilience crop genetics; transformer interpretability">
+        <button id="scoutBtn">Search sources</button>
+      </div>
+      <div id="scoutStatus" class="hint" style="margin-top:6px;"></div>
+      <div id="scoutResults" style="margin-top:6px;"></div>
+      <div class="row" style="margin-top:12px; align-items:center;">
         <button id="liProbeBtn">Examine one now</button>
-        <button id="liToggleBtn" class="ghost">Pause</button>
+        <label class="liSwitchWrap" id="liSwitchWrap" title="Learning Index master switch — persists across restarts">
+          <span class="liSwitch" id="liSwitch"><span class="liKnob"></span></span>
+          <span id="liSwitchLabel" style="font-weight:600;">Learning: On</span>
+        </label>
         <button id="liCalBtn" class="ghost" title="Pauses/resumes Qualia-Lab cross-checking (heavy)">Calibration: …</button>
       </div>
       <div id="liProbeStatus" class="status"></div>
@@ -147,7 +175,9 @@
     byId('liLatest').innerHTML = (d.latest || []).slice(0, 3).map((l) =>
       `<div>• [${esc(l.verdict)}] ${esc(String(l.title || '').slice(0, 70))}</div>`).join('');
     learnOn = Boolean(d.enabled);
-    byId('liToggleBtn').textContent = learnOn ? 'Pause' : 'Resume';
+    const sw = byId('liSwitch');
+    sw.classList.toggle('on', learnOn);
+    byId('liSwitchLabel').textContent = learnOn ? 'Learning: On' : 'Learning: Paused';
     calOn = Boolean(d.calibration_enabled);
     byId('liCalBtn').textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
   };
@@ -173,16 +203,41 @@
     poll();
   });
 
-  byId('liToggleBtn').addEventListener('click', async () => {
-    const btn = byId('liToggleBtn');
-    btn.disabled = true;
+  byId('liSwitchWrap').addEventListener('click', async () => {
+    const wrap = byId('liSwitchWrap');
+    wrap.style.pointerEvents = 'none';
     try {
       const res = await fetch('/api/learning/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !learnOn }) });
       const d = await res.json();
       if (!res.ok || d.ok === false) throw new Error(d.detail || 'Toggle failed.');
       learnOn = !learnOn;
-      btn.textContent = learnOn ? 'Pause' : 'Resume';
+      const sw = byId('liSwitch');
+      sw.classList.toggle('on', learnOn);
+      byId('liSwitchLabel').textContent = learnOn ? 'Learning: On' : 'Learning: Paused';
     } catch (e) { byId('liProbeStatus').textContent = 'Toggle failed: ' + (e.message || e); }
+    wrap.style.pointerEvents = '';
+  });
+
+  byId('scoutBtn').addEventListener('click', async () => {
+    const btn = byId('scoutBtn');
+    const q = byId('scoutQuery').value.trim();
+    if (!q) { byId('scoutStatus').textContent = 'Type a topic to search for.'; return; }
+    btn.disabled = true;
+    byId('scoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
+    byId('scoutResults').innerHTML = '';
+    try {
+      const res = await fetch('/api/datasets/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, limit_per_source: 6 }) });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Scout failed.');
+      byId('scoutStatus').textContent = `${d.total} candidates found — ${d.priority_note}. Proposals only: approve via the admin console before ingestion.`;
+      const LABELS = { openalex: '1·OpenAlex', medical: '2·Medical', github: '3·GitHub', huggingface: '4·HF' };
+      byId('scoutResults').innerHTML = (d.candidates || []).map((c) => {
+        const rank = c.priority_rank;
+        return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
+          `<a href="${esc(c.url || '')}" target="_blank" rel="noopener"><strong>${esc(c.title || '(untitled)')}</strong></a>` +
+          `<div class="liMeta">${esc(c.detail || '')}${c.year ? ' · ' + esc(String(c.year)) : ''}</div></div>`;
+      }).join('') || '<div class="hint">No candidates found for that query.</div>';
+    } catch (e) { byId('scoutStatus').textContent = 'Scout failed: ' + (e.message || e); }
     btn.disabled = false;
   });
 

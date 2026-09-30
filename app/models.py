@@ -140,6 +140,13 @@ class PlaygroundChatRequest(BaseModel):
     source_collection: str | None = None
 
 
+class ScoutRequest(BaseModel):
+    """§61: dataset scout discovery request (owner priority order)."""
+    query: str = Field(min_length=2, max_length=300)
+    limit_per_source: int = Field(default=8, ge=1, le=25)
+    sources: list[str] = Field(default_factory=list)
+
+
 class IntakeApproveRequest(BaseModel):
     """§60: approve a quarantined document by assigning its scientific field."""
     document_id: int = Field(ge=1)

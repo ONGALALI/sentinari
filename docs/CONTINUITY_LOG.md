@@ -1383,3 +1383,17 @@ BOTH. Verified live in the databases, not from memory:
 **Live demonstration:** approved doc #9 as `scientific_field=quantum-doctrine-rd, domain=owner-research` — it instantly appeared in the Learning index as its own field (1 doc, 0% awaiting exams) and the learning total went 13,220 → 13,221. 18 remain quarantined for the owner's judgment (11 instruction notes = likely keep-as-reference or delete; 7 R&D copies = approve under the R&D field or delete the duplicates). Fix during build: sqlite needed a plain path, not a URI, for writes; request model lives in models.py (main.py has no BaseModel import).
 
 **State at close:** §60 pending commit. Stack up on 8099. Lesson recorded: the intake firewall's power is in what it refuses to do — it never deletes alone; every irreversible step is owner-ordered with a backup first.
+
+## §61 — VISIBLE LEARNING SWITCH + DATASET SCOUT IN OWNER PRIORITY ORDER (OPENALEX → MEDICAL → GITHUB → HF) — 2026-09-30
+
+**Owner asks:** make the Learning toggle visible on the Learning Index page; and when scouting new candidate datasets, set source priority 1) OpenAlex 2) Medical web sources 3) GitHub 4) HuggingFace.
+
+**Visible toggle:** the Learning workspace's old ghost button is now a real switch (green slide = on, grey = paused) beside "Examine one now", wired to the same persisted `/api/learning/toggle` — the state stays on across restarts, and the §58 engine-dark idle guard still governs the worker.
+
+**Dataset scout (new `app/dataset_scout.py` + POST `/api/datasets/discover`):** searches the four sources strictly in the owner's priority order and returns PROPOSALS ONLY — nothing is ever auto-ingested (the §60 intake firewall still guards the door). Sources: OpenAlex (the in-tree keyed worker, citation-ranked per §22), Europe PMC (free, no key — the medical wing), GitHub repo search, HuggingFace datasets hub. Each source is error-isolated (one failing never hides the others) and the response reports per-source ok/returned/error plus the priority line. Every candidate carries its priority_rank.
+
+**Live verification:** query "climate resilience crop genetics" → OpenAlex 4 (citation-led), Medical 4, GitHub 0, HF 0; query "transformer interpretability" → OpenAlex 3 + Medical 3 + GitHub 3, HF 0 (HF search sometimes returns empty for narrow queries — per-source isolation keeps the rest visible). Learning workspace gained the scout card: query box, priority note, ranked candidates with source badges and links.
+
+**Build notes:** request models belong in models.py (main.py has no BaseModel import) — same lesson as §60, now twice-learned. HF zero-result behaviour is per-source isolated, not a failure.
+
+**State at close:** §61 pending commit. Stack up on 8099. Lesson recorded: discovery and ingestion are separate powers — the scout proposes in the owner's order, the firewall and the owner decide.

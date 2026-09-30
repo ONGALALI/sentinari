@@ -63,6 +63,7 @@ from .models import (
     IngestUrlRequest,
     ModelLabRunRequest,
     OpenAlexToggleRequest,
+    ScoutRequest,
     PlaygroundChatRequest,
     PlaygroundQualiaBenchmarkRequest,
     QualiaRecommendationRequest,
@@ -3013,6 +3014,29 @@ def api_intake_firewall_delete(
     result = intake_firewall.delete(document_id)
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result.get("error") or "Delete failed.")
+    return result
+
+
+# ---------------------------------------------------------------------------
+# §61 — Dataset scout: candidate discovery in owner priority order
+# 1) OpenAlex  2) Medical (Europe PMC)  3) GitHub  4) HuggingFace
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/datasets/discover")
+def api_datasets_discover(
+    payload: ScoutRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import dataset_scout
+
+    result = dataset_scout.discover(
+        payload.query,
+        limit_per_source=payload.limit_per_source,
+        sources=payload.sources or None,
+    )
+    if not result.get("ok") and result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
     return result
 
 
