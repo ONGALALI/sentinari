@@ -85,14 +85,19 @@
     </div>
 
     <div class="card">
-      <h2>Dataset Scout — new candidate data</h2>
-      <div class="hint">Searches for candidate datasets in your priority order: <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong>. Proposals only — nothing is ingested without your approval (the intake firewall guards the door).</div>
+      <h2>Dataset Scout — find knowledge NOT yet in Sentinari</h2>
+      <div class="hint"><strong>Use this when she does not know a topic yet.</strong> It searches the OUTSIDE world for new candidate datasets and proposes them to you — it does NOT look inside her library (that is what Search Library is for). Priority order: <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong>. Proposals only: you approve → ingested → labeled → examined → counted in % Learned. Nothing enters without you (the intake firewall guards the door).</div>
       <div class="scoutRow">
-        <input id="scoutQuery" placeholder="e.g. climate resilience crop genetics; transformer interpretability">
+        <input id="scoutQuery" placeholder="A topic she should learn next — e.g. transformer interpretability, drought-resistant crops">
         <button id="scoutBtn">Search sources</button>
       </div>
       <div id="scoutStatus" class="hint" style="margin-top:6px;"></div>
       <div id="scoutResults" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Examination controls — for knowledge ALREADY digested</h2>
+      <div class="hint">These govern the gentle background examiner over knowledge already in the library (the bars above). For knowledge NOT yet in the library, use the Dataset Scout card above.</div>
       <div class="row" style="margin-top:12px; align-items:center;">
         <button id="liProbeBtn">Examine one now</button>
         <label class="liSwitchWrap" id="liSwitchWrap" title="Learning Index master switch — persists across restarts">
