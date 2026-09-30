@@ -3120,6 +3120,8 @@ def api_sources_assess(
         source=payload.source,
         label=payload.label,
         note=payload.note,
+        nqf_level_reach=payload.nqf_level_reach,
+        builds_through=payload.builds_through,
     )
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result["error"])

@@ -3886,7 +3886,15 @@
         `<select id="srDim${i}" data-key="${escapeHtml(dim.key)}">` +
         anchors.map((an, v) => `<option value="${v + 1}">${escapeHtml(an)}</option>`).join('') +
         `</select></div>`
-      ).join('') + `<input id="srNote" placeholder="Owner note (optional)" style="margin-top:10px; width:100%;">`;
+      ).join('') +
+        `<div class="srRow"><label for="srLevel"><strong>NQF level reach</strong> — cumulative: Level N must carry Levels 1..N-1</label>` +
+        `<select id="srLevel"><option value="">— no level claim —</option>` +
+        (dsRubric.nqf_levels || []).map((l) => `<option value="${l.level}">${escapeHtml(l.name)}</option>`).join('') +
+        `</select></div>` +
+        `<div class="srRow"><label for="srBuilds"><strong>Builds through the lower levels</strong> — the whole staircase (understand · apply · reflect on Levels 1..N-1) is demonstrably present</label>` +
+        `<input type="checkbox" id="srBuilds" style="justify-self:start;"></div>` +
+        `<div class="hint" style="margin-top:8px;">${escapeHtml(dsRubric.cumulative_rule || '')} Internationally benchmarked — valid, reliable, fair; defensible by case studies (docs/nqf_level_descriptors.md).</div>` +
+        `<input id="srNote" placeholder="Owner note (optional)" style="margin-top:10px; width:100%;">`;
       byId('srModal').classList.add('open');
       byId('srModal').setAttribute('data-origin', origin || '');
       byId('srModal').setAttribute('data-source', source || '');
@@ -3899,6 +3907,11 @@
       const source = String(modal.getAttribute('data-source') || '');
       const scores = {};
       modal.querySelectorAll('select[data-key]').forEach((sel) => { scores[String(sel.getAttribute('data-key'))] = Number(sel.value); });
+      const levelEl = modal.querySelector('#srLevel');
+      const buildsEl = modal.querySelector('#srBuilds');
+      const levelVal = String(levelEl && levelEl.value ? levelEl.value : '');
+      const nqf_level_reach = levelVal ? Number(levelVal) : null;
+      const builds_through = nqf_level_reach ? Boolean(buildsEl && buildsEl.checked) : null;
       const noteEl = modal.querySelector('#srNote');
       const note = String(noteEl ? noteEl.value : '').trim();
       const btn = byId('srSave');
@@ -3907,12 +3920,13 @@
         const res = await fetch('/api/sources/assess', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ origin, source, scores, note }),
+          body: JSON.stringify({ origin, source, scores, note, nqf_level_reach, builds_through }),
         });
         const d = await res.json();
         if (!res.ok || d.ok === false) throw new Error(d.detail || 'Assessment failed.');
         byId('srModal').classList.remove('open');
-        byId('dsScoutStatus').textContent = `§65 assessment saved — ${origin} composite ${Number(d.composite).toFixed(2)}/5: ${d.band}.`;
+        const lc = d.level_claim ? ` · ${d.level_claim}` : '';
+        byId('dsScoutStatus').textContent = `§65 assessment saved — ${origin} composite ${Number(d.composite).toFixed(2)}/5: ${d.band}${lc}.`;
         await dsAssessBar();
         await runDashboardScout({ silent: true });
       } catch (err) {
@@ -3986,8 +4000,10 @@
           const rank = c.priority_rank;
           const origin = (c.authors && c.authors[0]) || '';
           const a = origin ? dsAssessMap[String(origin).toLowerCase()] : null;
+          const lvl = (a && a.nqf_level_reach) ? ` · L${a.nqf_level_reach}${a.builds_through === true ? ' ✓' : a.builds_through === false ? ' ✗' : ' ?'}` : '';
+          const lvlTitle = (a && a.nqf_level_reach) ? `NQF L${a.nqf_level_reach}${a.builds_through === true ? ' (builds through lower levels)' : a.builds_through === false ? ' (staircase NOT confirmed)' : ' (staircase unverified)'} — ` : '';
           const badge = a
-            ? ` <span class="scoutBadge rubricBadge ${Number(a.composite) >= 4 ? 'rbGood' : Number(a.composite) >= 3 ? 'rbMid' : 'rbLow'}" title="${escapeHtml(a.band)} — assessed ${escapeHtml(String(a.assessed_at || '').slice(0, 10))}">§65 ${Number(a.composite).toFixed(1)}/5</span>`
+            ? ` <span class="scoutBadge rubricBadge ${Number(a.composite) >= 4 ? 'rbGood' : Number(a.composite) >= 3 ? 'rbMid' : 'rbLow'}" title="${escapeHtml(lvlTitle + a.band)} — assessed ${escapeHtml(String(a.assessed_at || '').slice(0, 10))}">§65 ${Number(a.composite).toFixed(1)}/5${escapeHtml(lvl)}</span>`
             : '';
           const assessBtn = origin
             ? ` <button type="button" class="ghost dsAssessBtn" data-origin="${escapeHtml(origin)}" data-source="${escapeHtml(c.source || '')}" title="Score this source on the owner's ten doctoral dimensions (Likert 1-5)">§65 Assess</button>`
@@ -4109,7 +4125,7 @@
       <div class="sr-head">
         <div>
           <strong id="srTitle" style="font-size:15px;">Doctoral rubric</strong>
-          <div class="hint">Ten dimensions, Likert 1-5 (1 = not evidenced … 5 = exemplary) · composite = mean · &ge;4.0 exemplary, approve · 3.0-3.9 borderline, review · &lt;3.0 below standard, block. The judgment is yours; Sentinari scores, sums, and remembers.</div>
+          <div class="hint">Ten dimensions, Likert 1-5 (1 = not evidenced … 5 = exemplary) · composite = mean · &ge;4.0 exemplary, approve · 3.0-3.9 borderline, review · &lt;3.0 below standard, block. NQF levels are CUMULATIVE: a source claiming Level N must carry Levels 1..N-1 (understand · apply · reflect). The judgment is yours; Sentinari scores, sums, and remembers.</div>
         </div>
         <button id="srCancel" class="ghost" type="button">Cancel</button>
       </div>

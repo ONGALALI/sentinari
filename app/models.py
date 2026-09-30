@@ -174,6 +174,11 @@ class SourceAssessRequest(BaseModel):
     label: str = Field(default="", max_length=300)
     scores: dict[str, int] = Field(default_factory=dict)
     note: str = Field(default="", max_length=500)
+    # §66: NQF level claim. The cumulative rule holds: a source claiming Level N
+    # must carry Levels 1..N-1 (understand, apply, reflect); builds_through is
+    # the owner's confirmation that the staircase is demonstrably present.
+    nqf_level_reach: int | None = Field(default=None, ge=1, le=10)
+    builds_through: bool | None = None
 
 
 class IntakeApproveRequest(BaseModel):

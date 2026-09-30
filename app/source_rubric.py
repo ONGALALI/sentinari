@@ -46,6 +46,30 @@ LIKERT_ANCHORS: tuple[str, ...] = (
     "5 - Exemplary",
 )
 
+# §66 — NQF levels 1-10. The owner's CUMULATIVE RULE: a candidate claiming
+# Level N reach must also carry Levels 1..N-1 (understand, apply, reflect at
+# every rung below); the ladder is internationally benchmarked — valid,
+# reliable, fair, defensible by case studies. Canonical text:
+# docs/nqf_level_descriptors.md
+NQF_LEVELS: tuple[dict[str, Any], ...] = (
+    {"level": 1, "name": "Level One"},
+    {"level": 2, "name": "Level Two"},
+    {"level": 3, "name": "Level Three"},
+    {"level": 4, "name": "Level Four"},
+    {"level": 5, "name": "Level Five"},
+    {"level": 6, "name": "Level Six"},
+    {"level": 7, "name": "Level Seven"},
+    {"level": 8, "name": "Level Eight"},
+    {"level": 9, "name": "Level Nine — masters"},
+    {"level": 10, "name": "Level Ten — doctoral"},
+)
+
+CUMULATIVE_RULE = (
+    "NQF cumulative rule (§66): a candidate at Level N must also include all levels "
+    "before it — understand, apply and reflect on levels 1..N-1. A Level 10 source "
+    "is Level 10 only if the whole staircase is present."
+)
+
 # Guidance bands (draft, owner-adjustable) — advisory only; the owner decides.
 BAND_EXEMPLARY_MIN = 4.0
 BAND_BORDERLINE_MIN = 3.0
@@ -87,8 +111,18 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    _ensure_columns(conn)
     conn.commit()
     return conn
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """§66 migration: add the level columns to ledgers created before §66."""
+    cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(source_assessments)").fetchall()}
+    if "nqf_level_reach" not in cols:
+        conn.execute("ALTER TABLE source_assessments ADD COLUMN nqf_level_reach INTEGER")
+    if "builds_through" not in cols:
+        conn.execute("ALTER TABLE source_assessments ADD COLUMN builds_through INTEGER")
 
 
 def get_rubric() -> dict[str, Any]:
@@ -97,12 +131,15 @@ def get_rubric() -> dict[str, Any]:
         "ok": True,
         "dimensions": [dict(d) for d in RUBRIC_DIMENSIONS],
         "likert_anchors": list(LIKERT_ANCHORS),
+        "nqf_levels": [dict(l) for l in NQF_LEVELS],
+        "cumulative_rule": CUMULATIVE_RULE,
         "bands": {
             "exemplary_min": BAND_EXEMPLARY_MIN,
             "borderline_min": BAND_BORDERLINE_MIN,
             "note": ">=4.0 exemplary - approve; 3.0-3.9 borderline - owner review; <3.0 below standard - block candidate",
         },
         "canonical_doc": "docs/source_assessment_benchmark.md",
+        "nqf_doc": "docs/nqf_level_descriptors.md",
     }
 
 
@@ -113,6 +150,8 @@ def save_assessment(
     label: str = "",
     note: str = "",
     assessed_by: str = "owner",
+    nqf_level_reach: int | None = None,
+    builds_through: bool | None = None,
 ) -> dict[str, Any]:
     """Store one owner assessment. Rejects invalid dimensions/scores."""
     o = str(origin or "").strip().lower()  # §64 convention: origins are case-insensitive keys
@@ -134,16 +173,40 @@ def save_assessment(
     if missing:
         return {"ok": False, "error": f"missing dimension(s): {', '.join(sorted(missing))}"}
 
+    # §66 level claim: optional, but validated when present.
+    reach: int | None
+    if nqf_level_reach is None or nqf_level_reach == "":
+        reach = None
+    else:
+        try:
+            reach = int(nqf_level_reach)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "nqf_level_reach must be an integer 1-10"}
+        if not 1 <= reach <= 10:
+            return {"ok": False, "error": "nqf_level_reach must be 1-10"}
+        if reach < 10 and not builds_through:
+            pass  # lower claims are the owner's call too; the flag simply records the staircase
+    builds: int | None
+    builds = None if builds_through is None else int(bool(builds_through))
+    if reach == 10 and builds is None:
+        # a doctoral claim without the staircase recorded is stored, but flagged unverified
+        level_claim = f"L{reach} unverified (builds_through not confirmed)"
+    elif reach is not None:
+        level_claim = f"L{reach}{' verified through lower levels' if builds else ''}"
+    else:
+        level_claim = ""
+
     composite = round(sum(clean.values()) / len(RUBRIC_DIMENSIONS), 2)
     band = band_for(composite)
     conn = _connect()
     try:
         conn.execute(
-            "INSERT INTO source_assessments (origin, source, label, scores, composite, band, note, assessed_at, assessed_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "INSERT INTO source_assessments (origin, source, label, scores, composite, band, note, assessed_at, assessed_by, nqf_level_reach, builds_through) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(origin) DO UPDATE SET source=excluded.source, label=excluded.label, "
             "scores=excluded.scores, composite=excluded.composite, band=excluded.band, "
-            "note=excluded.note, assessed_at=excluded.assessed_at, assessed_by=excluded.assessed_by",
+            "note=excluded.note, assessed_at=excluded.assessed_at, assessed_by=excluded.assessed_by, "
+            "nqf_level_reach=excluded.nqf_level_reach, builds_through=excluded.builds_through",
             (
                 o,
                 str(source or "").strip().lower(),
@@ -154,12 +217,23 @@ def save_assessment(
                 str(note or "").strip(),
                 datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 str(assessed_by or "owner"),
+                reach,
+                builds,
             ),
         )
         conn.commit()
     finally:
         conn.close()
-    return {"ok": True, "origin": o, "composite": composite, "band": band, "dimensions_scored": len(clean)}
+    result: dict[str, Any] = {
+        "ok": True,
+        "origin": o,
+        "composite": composite,
+        "band": band,
+        "dimensions_scored": len(clean),
+    }
+    if level_claim:
+        result["level_claim"] = level_claim
+    return result
 
 
 def get_assessments(origins: list[str] | None = None) -> dict[str, Any]:
@@ -168,14 +242,14 @@ def get_assessments(origins: list[str] | None = None) -> dict[str, Any]:
     try:
         if origins:
             rows = conn.execute(
-                f"SELECT origin, source, label, scores, composite, band, note, assessed_at, assessed_by "
+                f"SELECT origin, source, label, scores, composite, band, note, assessed_at, assessed_by, nqf_level_reach, builds_through "
                 f"FROM source_assessments WHERE origin IN ({','.join('?' for _ in origins)}) "
                 f"ORDER BY composite DESC, assessed_at DESC",
                 [str(o).strip().lower() for o in origins],
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT origin, source, label, scores, composite, band, note, assessed_at, assessed_by "
+                "SELECT origin, source, label, scores, composite, band, note, assessed_at, assessed_by, nqf_level_reach, builds_through "
                 "FROM source_assessments ORDER BY composite DESC, assessed_at DESC"
             ).fetchall()
     finally:
@@ -194,6 +268,8 @@ def get_assessments(origins: list[str] | None = None) -> dict[str, Any]:
                 "note": r["note"],
                 "assessed_at": r["assessed_at"],
                 "assessed_by": r["assessed_by"],
+                "nqf_level_reach": r["nqf_level_reach"],
+                "builds_through": (None if r["builds_through"] is None else bool(r["builds_through"])),
             }
             for r in rows
         ],
