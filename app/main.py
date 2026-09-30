@@ -59,6 +59,7 @@ from .models import (
     DirectChatRequest,
     EscalationQueryRequest,
     IngestFilesRequest,
+    IntakeApproveRequest,
     IngestUrlRequest,
     ModelLabRunRequest,
     OpenAlexToggleRequest,
@@ -2964,6 +2965,55 @@ def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
 @app.get("/api/assessment/datasets")
 def api_assessment_datasets() -> dict[str, Any]:
     return assessment_pipeline.datasets_status()
+
+
+# ---------------------------------------------------------------------------
+# §60 — Intake firewall: warn / quarantine / approve / delete unlabeled docs
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/intake/firewall")
+def api_intake_firewall_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
+    from . import intake_firewall
+
+    return intake_firewall.status()
+
+
+@app.post("/api/intake/firewall/scan")
+def api_intake_firewall_scan(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
+    from . import intake_firewall
+
+    return intake_firewall.scan()
+
+
+@app.post("/api/intake/firewall/approve")
+def api_intake_firewall_approve(
+    payload: IntakeApproveRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import intake_firewall
+
+    result = intake_firewall.approve(
+        payload.document_id,
+        payload.scientific_field,
+        domain=payload.domain,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "Approve failed.")
+    return result
+
+
+@app.post("/api/intake/firewall/delete/{document_id}")
+def api_intake_firewall_delete(
+    document_id: int,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import intake_firewall
+
+    result = intake_firewall.delete(document_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "Delete failed.")
+    return result
 
 
 @app.get("/api/victus/status")

@@ -1371,3 +1371,15 @@ BOTH. Verified live in the databases, not from memory:
 **Path for the 19 (owner decides later):** label them via admin/ingestion with a proper scientific field to enroll them, or leave them as searchable reference. The Quantum Doctrine / Organisation Design documents are owner-authored strategic material — likely worth a domain of their own one day, not science fields.
 
 **State at close:** §59 pending commit. Stack up on 8099. Lesson recorded: an 'unclassified' bucket in any index is either a filter leak or an intake path without metadata — audit the provenance before blaming the filter; here the front door was clean, two side doors were unlabeled.
+
+## §60 — R&D IDENTIFIED AND ENROLLED; INTAKE FIREWALL BUILT: WARN / QUARANTINE / APPROVE / DELETE — 2026-09-30
+
+**Owner realization:** the chat-upload documents ARE his R&D (Quantum Doctrine, Organisation Design, qualia material) — the basis of the app — and must be digested properly. Owner directive: the firewall should warn, quarantine, or force unlabeled data into a review folder for re-approval or deletion.
+
+**Truth about the R&D digestion:** the Quantum Doctrine / Organisation Design / qualia uploads ARE chunked and searchable in sentinari.db (they were ingested, just unlabeled — retrieval always saw them). What they lacked was a field, so learning passed them by (§59). Doc #9 also proved to be a pre-rebrand DUPLICATE of #5603/5604 (same Quantum Doctrine from the SMI_Core tree).
+
+**Intake firewall (new `app/intake_firewall.py`, owner rule encoded):** unlabeled intake = WARN + QUARANTINE + hold for owner. Ledger `intake_quarantine` in the main DB; `scan()` ledgers every unlabeled doc (all 19 on first run); `status()` joins ledger to live library truth; `approve(document_id, field, domain?)` labels the doc — immediately enrolling it into learning; `delete(document_id)` backs up doc+chunks to `data/exports/quarantine-backup-<id>.json.gz`, then removes doc/chunks and marks `file_ingest_state` so auto-ingest cannot resurrect the source. The firewall NEVER deletes on its own. API: GET `/api/intake/firewall`, POST `/scan`, `/approve`, `/delete/{id}` (admin-guarded).
+
+**Live demonstration:** approved doc #9 as `scientific_field=quantum-doctrine-rd, domain=owner-research` — it instantly appeared in the Learning index as its own field (1 doc, 0% awaiting exams) and the learning total went 13,220 → 13,221. 18 remain quarantined for the owner's judgment (11 instruction notes = likely keep-as-reference or delete; 7 R&D copies = approve under the R&D field or delete the duplicates). Fix during build: sqlite needed a plain path, not a URI, for writes; request model lives in models.py (main.py has no BaseModel import).
+
+**State at close:** §60 pending commit. Stack up on 8099. Lesson recorded: the intake firewall's power is in what it refuses to do — it never deletes alone; every irreversible step is owner-ordered with a backup first.

@@ -140,6 +140,13 @@ class PlaygroundChatRequest(BaseModel):
     source_collection: str | None = None
 
 
+class IntakeApproveRequest(BaseModel):
+    """§60: approve a quarantined document by assigning its scientific field."""
+    document_id: int = Field(ge=1)
+    scientific_field: str = Field(min_length=2, max_length=120)
+    domain: str | None = Field(default=None, max_length=120)
+
+
 class DirectChatRequest(BaseModel):
     """§51: payload for the revived Sentinari Direct Chat console (/ui/direct)."""
     message: str = Field(min_length=1, max_length=24000)
