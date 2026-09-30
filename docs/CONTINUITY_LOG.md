@@ -1571,3 +1571,17 @@ BOTH. Verified live in the databases, not from memory:
 **Ruling:** no rename, no action against the running download. The fp16 safetensors is the MASTER ARTIFACT — Route C's custom engine reads tensors from it, and it is the documented conversion input for the int4 Enigma build. Google's QAT q4_0 GGUF is recorded as PLAN B: only if the fp16→ONNX conversion stumbles do we pull it and use the builder's -i mode. Download left untouched and verified flowing (4,276 MB / 22,280 MB at check time).
 
 **State at close:** §71c pending commit. Download LIVE at ~19%.
+
+## §72 — CLOUD QUESTION ANSWERED WITH NUMBERS; LOCAL STORAGE ARCHITECTURE; D: IS USB DISCOVERY — 2026-09-30
+
+**Owner:** offered a Google Cloud account + APIs for the growing data; later clarified: only the DATA would ever have been considered — "the app stays local, will never upload it to the cloud"; owns 5 x 1TB USB SSDs, worried about "bridging 5".
+
+**Cloud answer (measured, no):** the whole Sentinari universe is ~50 GB (data/ 19 GB, sentinari.db 9.5 GB, weights ~21 GiB, future int4 ~7-8 GiB) against 727 GiB free on D: and 365 on C: — growth is not beyond control, and §41/§45 zero-cloud stands. Legitimate cloud use would only ever be an encrypted cold BACKUP copy (pennies, disaster-only) — offered honestly, owner's call, recommendation: no account. The real answer to growth: local architecture + rig day.
+
+**Storage architecture decided (owner via structured questions):** 4-drive striped vault (V:) for weights/datasets/archives + 1 SSD kept out as the dedicated backup target; USB externals; pooling wipes disks so every step is owner-confirmed.
+
+**DISCOVERY (read-only inventory, Scripts/inventory_drives.ps1 + probe_usb_partition.ps1):** only ONE of the SSDs is attached — and it is ALREADY IN SERVICE as D:, Sentinari's live home (Crucial CT1000E1SSD8, USB, healthy, NTFS, 931.5 GiB, 726 free; initial 'RAW/unlettered' reading was an ObjectId quirk, corrected by Get-Partition: letter=D). Nothing to recover, nothing to pool tonight. Internal NVMe (Kingston 1TB) = C: (OS, 'xPortable'). The other SSDs are not attached.
+
+**Risk recorded:** the live SQLite library runs on a USB external SSD — USB disconnect is the classic SQLite killer. This promotes the nightly backup ritual to 'important before rig day': date-stamped archive of data/ + configs onto a SEPARATE physical disk. Plan when owner attaches the additional SSDs: re-inventory read-only, owner confirms each empty, pool 4 -> V: vault, leave 1 as backup target.
+
+**State at close:** §72 pending commit. Weights download LIVE. Waiting on owner to attach the remaining SSDs for the vault step.
