@@ -66,15 +66,18 @@ def _env_key(env_var: str) -> str:
     try:
         from .config import get_project_root
 
-        env_file = get_project_root().parent / ".env"
-        if not env_file.exists():
-            env_file = get_project_root() / ".env"
-        if env_file.exists():
-            prefix = f"{env_var}="
-            for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = line.strip()
-                if line.startswith(prefix):
-                    return line[len(prefix):].strip().strip('"').strip("'")
+        # In-tree .env first (self-contained folder), legacy parent fallback.
+        for env_file in (
+            get_project_root() / ".env",
+            get_project_root().parent / ".env",
+        ):
+            if env_file.exists():
+                prefix = f"{env_var}="
+                for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if line.startswith(prefix):
+                        return line[len(prefix):].strip().strip('"').strip("'")
+        return ""
     except Exception:
         pass
     return ""

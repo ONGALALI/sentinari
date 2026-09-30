@@ -59,7 +59,7 @@ def build_ollama_client():
     temperature = clamp_temperature(llm.get("temperature"), settings=settings)
     return OllamaClient(
         base_url=str(llm.get("base_url") or "http://127.0.0.1:11434"),
-        chat_model=str(llm.get("chat_model") or "SMI4:26B"),
+        chat_model=str(llm.get("chat_model") or "gemma4:12B"),
         embedding_model=str(llm.get("embedding_model") or "nomic-embed-text"),
         temperature=temperature,
         num_ctx=int(llm.get("num_ctx") or llm.get("context_window") or 4096),

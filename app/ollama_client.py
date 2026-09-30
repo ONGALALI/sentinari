@@ -183,7 +183,7 @@ class OllamaClient:
                 chat_transport = "generate_fallback"
                 warnings.append(
                     f"Configured chat model '{chat_model}' is completion-only on this Ollama runtime. "
-                    "SMi is using generate fallback instead of the chat endpoint."
+                    "Sentinari is using generate fallback instead of the chat endpoint."
                 )
             else:
                 chat_transport = "unsupported"
@@ -257,7 +257,7 @@ class OllamaClient:
             payload["keep_alive"] = self.keep_alive
 
         try:
-            # Thinking models (e.g. gemma4:26B) spend the entire num_predict
+            # Thinking models spend the entire num_predict
             # budget on hidden reasoning and return empty "content". Ask the
             # runtime to disable thinking; retry once without the flag for
             # Ollama builds that reject it for non-thinking models.

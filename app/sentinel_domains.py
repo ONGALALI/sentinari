@@ -397,7 +397,7 @@ def get_sentinel_status(*, refresh_counts: bool = True) -> dict[str, Any]:
 
     return {
         "ok": True,
-        "main_model": "gemma4:12B",
+        "main_model": "Sentinari 12B",
         "field_cap_mb": SENTINEL_FIELD_CAP_MB,
         "rooms": [dict(room) for room in SENTINEL_ROOMS],
         "domains": domains_out,

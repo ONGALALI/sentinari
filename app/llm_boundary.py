@@ -10,12 +10,18 @@ def get_project_root() -> Path:
 
 
 def _read_SMI_link_enabled() -> bool:
-    """Read the SMI-runtime-link.json toggle written by Toggle-SMIOllamaLink.ps1.
-    Returns True (link ON) unless the file explicitly sets ollamaLinkEnabled=false.
+    """Read the runtime-link toggle. In-tree copy first (data/toggles/), then
+    the legacy parent-folder location. Returns True (link ON) unless a readable
+    file explicitly sets ollamaLinkEnabled=false.
     """
-    link_file = get_project_root().parent / "Data" / "SMIStandalone" / "SMI-runtime-link.json"
-    try:
-        if link_file.exists():
+    candidates = (
+        get_project_root() / "data" / "toggles" / "runtime-link.json",
+        get_project_root().parent / "Data" / "SMIStandalone" / "SMI-runtime-link.json",
+    )
+    for link_file in candidates:
+        try:
+            if not link_file.exists():
+                continue
             # utf-8-sig transparently strips the BOM that PowerShell Set-Content -Encoding UTF8 adds
             text = link_file.read_text(encoding="utf-8-sig").strip()
             if not text:
@@ -24,27 +30,31 @@ def _read_SMI_link_enabled() -> bool:
             # Honour explicit false; any other value (True, missing) keeps the link alive
             if data.get("ollamaLinkEnabled") is False:
                 return False
-    except Exception:
-        pass  # Unreadable → default ON (Ollama.is_available() is the real guard)
+        except Exception:
+            pass  # Unreadable → default ON (Ollama.is_available() is the real guard)
     return True
 
 
 def is_ollama_runtime_probe_disabled() -> bool:
     # 1. Env-var override (highest priority)
-    raw = (os.environ.get("SMI_SKIP_OLLAMA_AUTOSTART") or "").strip().lower()
+    raw = (
+        os.environ.get("SENTINARI_SKIP_OLLAMA_AUTOSTART")
+        or os.environ.get("SMI_SKIP_OLLAMA_AUTOSTART")
+        or ""
+    ).strip().lower()
     if raw in {"1", "true", "yes", "on"}:
         return True
-    # 2. Flag file override
+    # 2. Flag file override (inside the project tree — survives folder moves)
     if (get_project_root() / "data" / "flags" / "skip_ollama_autostart.flag").exists():
         return True
-    # 3. Toggle-SMIOllamaLink.ps1 JSON config
+    # 3. Toggle JSON config (in-tree copy first, legacy parent location second)
     return not _read_SMI_link_enabled()
 
 
 def build_ollama_boundary_runtime(base_url: str, chat_model: str, embedding_model: str) -> dict[str, object]:
     warnings = [
         "Ollama contact is disabled by local boundary control.",
-        "Remove the boundary flag only when a live local SMI/Ollama run is explicitly required.",
+        "Remove the boundary flag only when a live local Sentinari/Ollama run is explicitly required.",
     ]
     return {
         "base_url": str(base_url or "http://127.0.0.1:11434"),
@@ -61,8 +71,4 @@ def build_ollama_boundary_runtime(base_url: str, chat_model: str, embedding_mode
         "chat_transport": "boundary_disabled",
         "warnings": warnings,
         "operator_trigger": warnings[0],
-        "ollama_autostart_disabled": True,
-        "ollama_probe_disabled": True,
-        "boundary_mode": "ollama_probe_disabled",
     }
-

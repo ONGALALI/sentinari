@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sentinari by Inspirari</title>
+  <title>Sentinari</title>
   <style>
     :root {
       --bg: #eef3f8;
@@ -488,7 +488,7 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand">Sentinel</div>
+      <div class="brand">Sentinari</div>
       <div class="sidecopy">Landing dashboard for the main playground workflow.</div>
       <nav class="nav">
         <a href="/ui/playground" class="active">Dashboard Home<small>Summary, domains, and downloads.</small></a>
@@ -510,7 +510,7 @@
 
     <main class="page-shell">
       <div class="wrap">
-        <h1>Sentinari by Inspirari</h1>
+        <h1>Sentinari</h1>
         <div class="hint">Main landing page for workflow 1 — the library summary, the scientific domains, and the download workflow. Chat, Qualia, and Learning live in their own workspaces in the left menu.</div>
         <div id="llmRuntimeAlert" class="alert-panel"></div>
         <div id="resonanceMatrixAlert" class="alert-panel"></div>
@@ -1896,7 +1896,7 @@
       byId('sentinelChunks').textContent = formatInt(totals.chunks);
       byId('sentinelMb').textContent = sentinelFormatMb(totalMb);
       byId('sentinelRooms').textContent = formatInt((data?.rooms || []).length);
-      byId('sentinelModel').textContent = String(data?.main_model || 'gemma4:12B');
+      byId('sentinelModel').textContent = String(data?.main_model || 'Sentinari 12B');
       byId('sentinelState').textContent = 'ON';
       renderSentinelDonut(domains, totals);
       renderSentinelRibbon(domains, totals);
@@ -3284,18 +3284,29 @@
 
       const lines = [];
       if (chatModel) {
-        lines.push(`Chat model: ${chatModel}.`);
+        // Display-layer rename (owner directive): the configured runtime key
+        // is shown under its Sentinari label; the raw key stays in the API.
+        const shownModel = /^gemma4:/i.test(chatModel) ? 'Sentinari 12B' : chatModel;
+        lines.push(`Chat model: ${shownModel}.`);
       }
       if (transport === 'generate_fallback') {
         lines.push('Completion fallback is active because this Ollama build does not expose a chat transport for the configured model.');
       } else if (transport === 'missing') {
-        lines.push('The configured chat model is missing from Ollama.');
+        lines.push('The local inference engine is not running yet. Sentinari stays fully local — start the model service to enable chat.');
       } else if (transport === 'unsupported') {
         lines.push('The configured chat model does not expose a usable text generation capability.');
       } else if (transport === 'error') {
-        lines.push('Sentinel could not inspect the local Ollama runtime cleanly.');
+        lines.push('Sentinari could not inspect the local model runtime cleanly.');
       }
-      warnings.forEach((warning) => lines.push(String(warning)));
+      warnings.forEach((raw) => {
+        // Display-layer rewrite (owner directive): raw transport diagnostics
+        // become calm, branded status lines. Truth lives in /api + /health.
+        const warning = String(raw)
+          .replace(/Ollama API is unreachable\./i, 'The local model engine is offline — chat stays dark until it is running (zero-cloud by design).')
+          .replace(/Configured chat model '[^']*' is not available in Ollama\./i, 'Chat model: waiting for the local engine to register the model.')
+          .replace(/Configured embedding model '([^']*)' is not available in Ollama\./i, 'Embedding model: $1 — waiting for the local engine (library operations pause until it runs).');
+        if (warning) lines.push(warning);
+      });
 
       el.innerHTML = `<strong>LLM Runtime Attention</strong>${String(lines.join(' ')).replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]))}`;
       el.style.display = 'block';
@@ -3827,7 +3838,7 @@
   </script>
 
   <footer class="app-credits" style="margin:26px auto 34px; text-align:center; font-size:12.5px; color:var(--muted); max-width:900px; line-height:1.55;">
-    Sentinari by Inspirari — engineered with <strong>Codebuff</strong> by <strong>Buffy</strong>, the Codebuff coding agent.<br>
+    Sentinari — engineered with <strong>Codebuff</strong> by <strong>Buffy</strong>, the Codebuff coding agent.<br>
     Scientific field Guardians · tri-source dataset discovery &amp; review (GitHub · Hugging Face · OpenAlex) · ingestion gateway &amp; firewall ·
     provider-agnostic LLM gateway · Sentinel Pattern-Recognition MVP · 2026.<br>
     Provenance: Sentinari runs on locally hosted open-weight models only — lineage stated honestly, identity her own. Zero-cloud doctrine (§41/§45).

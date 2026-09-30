@@ -641,7 +641,7 @@ def personal_growth_finetune_status(run_id: str | None = None, limit: int = 20) 
 def create_personal_growth_finetune_dataset(
     *,
     categories: list[str] | str | None = None,
-    model_name: str = "SMI4:26b",
+    model_name: str = "gemma4:12B",
     max_samples: int = 2000,
     sample_style: str = "source_grounded",
 ) -> dict[str, Any]:
@@ -698,7 +698,7 @@ def create_personal_growth_finetune_dataset(
             (
                 run_id,
                 "initialized" if total else "empty",
-                str(model_name or "SMI4:26b").strip() or "SMI4:26b",
+                str(model_name or "gemma4:12B").strip() or "gemma4:12B",
                 json.dumps(category_list, ensure_ascii=True),
                 style,
                 str(output_path),
@@ -758,7 +758,7 @@ def create_personal_growth_finetune_dataset(
                         "publisher": str(row["publisher"] or ""),
                         "published_date": str(row["published_date"] or ""),
                         "sample_kind": sample_kind,
-                        "model_target": str(model_name or "SMI4:26b").strip() or "SMI4:26b",
+                        "model_target": str(model_name or "gemma4:12B").strip() or "gemma4:12B",
                     },
                 }
                 handle.write(json.dumps(sample, ensure_ascii=False) + "\n")

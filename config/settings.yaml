@@ -83,11 +83,7 @@ security:
     allowed_runtime_providers:
     - ollama
     allowed_chat_models:
-    - SMI4:12b
-    - SMI4:26b
     - gemma4:12B
-    - gemma4:26B
-    - gemma2:9B
 playground:
   benchmark_baseline:
     behavior_variant: 4.8

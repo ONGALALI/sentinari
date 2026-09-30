@@ -142,11 +142,14 @@ def _key_sources() -> list[str]:
     candidate_lines: list[str] = []
     if key_file.exists():
         candidate_lines.extend(key_file.read_text(encoding="utf-8", errors="replace").splitlines())
-    env_file = get_project_root().parent / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-            if "openalex" in line.lower():
-                candidate_lines.append(line.strip())
+    for env_file in (
+        get_project_root() / ".env",          # in-tree first — folder is self-contained
+        get_project_root().parent / ".env",   # legacy parent-folder fallback
+    ):
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                if "openalex" in line.lower():
+                    candidate_lines.append(line.strip())
 
     for line in candidate_lines:
         line = line.strip()

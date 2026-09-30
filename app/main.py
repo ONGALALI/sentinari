@@ -1613,7 +1613,7 @@ def api_playground_personal_growth_finetune_dataset(
     try:
         return create_personal_growth_finetune_dataset(
             categories=[str(item or "").strip() for item in categories if str(item or "").strip()],
-            model_name=str(payload.get("model_name") or "SMI4:26b").strip() or "SMI4:26b",
+            model_name=str(payload.get("model_name") or "gemma4:12B").strip() or "gemma4:12B",
             max_samples=int(payload.get("max_samples") or 2000),
             sample_style=str(payload.get("sample_style") or "source_grounded").strip() or "source_grounded",
         )

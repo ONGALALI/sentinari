@@ -32,7 +32,7 @@ def get_llm_firewall_settings(settings: dict[str, Any]) -> dict[str, Any]:
         llm_firewall.get("blocked_model_substrings") or ["gemini", "google", "palm"]
     )
     allowed_chat_models = _normalize_list(
-        llm_firewall.get("allowed_chat_models") or ["SMI4:26b"]
+        llm_firewall.get("allowed_chat_models") or ["gemma4:12B"]
     )
     allowed_embedding_models = _normalize_list(llm_firewall.get("allowed_embedding_models") or ["nomic-embed-text"])
 

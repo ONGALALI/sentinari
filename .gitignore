@@ -45,3 +45,6 @@ Thumbs.db
 pubmedapi.md
 # Owner's PubMed process notes (contains pasted third-party chat content - kept local by design)
 pubmedprocess.md
+
+# Live API key notes stay local-only (sanitized copies live in docs/)
+app/apis/
