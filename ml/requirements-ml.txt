@@ -1,0 +1,18 @@
+# Sentinari ML environment — Windows day-1 + rig-day parity (§48)
+# Install:  .venv-ml/Scripts/python.exe -m pip install -r ml/requirements-ml.txt
+# PyTorch wheels bundle their own CUDA runtime; only the NVIDIA driver
+# (already present, 610.62) is required. No CUDA toolkit install needed.
+
+# --- Torch stack (CUDA 12.8 build: runs the laptop's Ada card AND the rig's Blackwell) ---
+# GOTCHA (verified §48): with torch>=2.11, pip resolves the NEWER bare release
+# from PyPI (CPU build, +cpu) over the older +cu128 wheel. PEP 440 ranks
+# local versions (+cu128) above the bare release, so pinning the EXACT version
+# makes the CUDA wheel win even through the extra index:
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0
+
+# --- Scientific stack (owner's ml/ scripts) ---
+numpy>=2.0
+matplotlib>=3.9
+tqdm>=4.66
+pandas>=2.2

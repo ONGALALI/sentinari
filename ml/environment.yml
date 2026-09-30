@@ -1,0 +1,26 @@
+# Sentinari ML environment — RIG DAY (Ubuntu / RTX 5070 Ti, Blackwell sm_120)
+# For miniconda on the new rig (§48). One command after miniconda lands:
+#   conda env create -f ml/environment.yml
+#   conda activate sentinari-ml
+#
+# Notes:
+# - PyTorch wheels bundle CUDA; install the NVIDIA driver only (570 series
+#   or newer). No separate CUDA toolkit needed for training.
+# - cu128 wheels support Blackwell (sm_120). If a newer CUDA build ships by
+#   rig day, bump the index URL (cu129/cu130) — nothing else changes.
+# - Python 3.12: the safest wheel coverage for torch + the scientific stack.
+name: sentinari-ml
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      # Exact pin: PEP 440 ranks 2.11.0+cu128 above PyPI's bare 2.11.0, so the
+      # CUDA wheel wins. A >= pin would let a newer +cpu PyPI release win.
+      - torch==2.11.0
+      - numpy>=2.0
+      - matplotlib>=3.9
+      - tqdm>=4.66
+      - pandas>=2.2

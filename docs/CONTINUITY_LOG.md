@@ -1204,3 +1204,19 @@ BOTH. Verified live in the databases, not from memory:
 **Owner to-do (one step):** accept cais/hle license on the hub, paste HF_TOKEN into Sentinari/.env, re-run `python -m assessments.hle` — then the ladder's stage 3 can grade on the local engine after rig day.
 
 **State at close:** §47 committed on main. Servers green (8099+8100). The Learning workspace now hosts the assessment ladder UI; the ML training loop itself remains the declared future work (stage 2, rig day, QLoRA-capable).
+
+## §48 — ML ENVIRONMENT FORGED: CUDA TORCH LIVE ON GPU, PINN SCRIPTS VERIFIED, RIG SPEC READY — 2026-09-30
+
+**Owner directive:** start creating the machine-learning environment; owner's ml/ folder holds pytorch.py + sci_ml_core.py + scientific_ml.py (RTX 5070 Ti targeted, CUDA to be installed on the rig, Linux/Ubuntu, miniconda "unless you think it is possible now").
+
+**Environment decisions:** (1) DEDICATED venv `.venv-ml` (Python 3.14) — the app's runtime venv stays torch-free by design (zero-coupling: server never imports torch, training never touches the app); gitignored. (2) CONDA NOW? NO — answered: the app venv pattern covers day-1; miniconda earns its keep on rig day (Ubuntu + CUDA env management), so ml/environment.yml was written for that day. Owner installs miniconda on the rig only. (3) DISCOVERY: this laptop has an NVIDIA driver (610.62, RTX 4050 Laptop, Ada sm_89, 6GB) — so the CUDA stack was verified on REAL hardware today, not deferred to the rig.
+
+**The pip trap (logged for every future env build):** the venv already held `torch 2.14.0+cpu` (bare PyPI build — cannot see any GPU). `pip install torch>=2.11 --extra-index-url .../cu128` re-resolved the NEWER bare 2.14 from PyPI because PEP 440 ranks local versions (+cu128) ABOVE the bare release — only an EXACT pin wins the CUDA wheel. Fixed with `--index-url .../whl/cu128 torch==2.11.0`; requirements-ml.txt and environment.yml pin `torch==2.11.0` with the explanation inline. cu128 covers BOTH the laptop's Ada (sm_89) and the rig's Blackwell (sm_120) — one spec, two machines.
+
+**Verified live (all three owner scripts, GPU):** torch 2.11.0+cu128, cuda:True, device RTX 4050 Laptop (8,9). pytorch.py: 100 epochs, loss 0.99→0.77. scientific_ml.py: 2000 epochs PINN, data error 0.086→0.065, constraint stable ~0.19. sci_ml_core.py: 1000 epochs in 5.31s.
+
+**Bug fixed in owner's sci_ml_core.py (§48):** X_experimental carried requires_grad=True AND y_experimental was derived from it (torch.sin of the tracked tensor) — the LABELS were inside the autograd graph; the first backward() freed the shared graph and epoch 2 crashed with "backward through the graph a second time". Fix: grad-free data tensors; physics loss keeps its own fresh clone+requires_grad pattern (correct PINN idiom). scientific_ml.py was immune (labels from numpy). Fix commented in-file with the explanation.
+
+**New files:** ml/requirements-ml.txt (day-1, exact pin), ml/environment.yml (rig-day miniconda: python 3.12, conda-forge, same cu128 exact pin), ml/README.md (layout, verified results, day-1 + rig-day commands, ladder linkage), architecture.md updated with the ml/ block. .gitignore += .venv-ml/. Rig note in README: install NVIDIA driver only (570+); wheels bundle CUDA; bump index cu129/cu130 if newer ships.
+
+**State at close:** §48 committed on main. .venv-ml verified end-to-end on GPU. Servers untouched and green. Next blocks: rig day (§ migration), Training Phase 1 design (ml/ + learning_index feed the HLE stage), owner's HLE token still pending.

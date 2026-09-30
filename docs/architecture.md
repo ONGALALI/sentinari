@@ -102,6 +102,14 @@ Sentinari/
 │   ├── _hf.py                     #   Shared HF token/cache plumbing (in-tree cache)
 │   └── swe-workbench/             #   Owner-downloaded execution harness (untracked, 132MB)
 │
+├── ml/                            # ML WORKSHOP (§48, isolated venv .venv-ml)
+│   ├── pytorch.py                 #   GPU verification + baseline training loop
+│   ├── scientific_ml.py           #   PINN template (data + physics constraint loss)
+│   ├── sci_ml_core.py             #   PINN core (Jacobian residual, §48 grad fix)
+│   ├── requirements-ml.txt        #   Day-1 CUDA torch spec (exact +cu128 pin)
+│   ├── environment.yml            #   Rig-day miniconda spec (Ubuntu, sm_120)
+│   └── README.md                  #   Verified results + run instructions
+│
 ├── tests/                         # Self-verifying test modules
 │   └── test_sentinel.py           #   python -m tests.test_sentinel
 │
