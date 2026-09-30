@@ -1507,3 +1507,13 @@ BOTH. Verified live in the databases, not from memory:
 **Recorded as standing doctrine:** in this R&D, AI is the OBSERVER — it watches, measures, surfaces, and proposes (the Scout discovers, the Learning Index measures, the rubric modal prepares the evidence) — but it never decides. The OWNER is the JUDGE: approves, blocks, assesses, rules. Every §-surface built on this design obeys the division: proposals only, firewall at the door, once-blocked-always-blocked by owner hand, Likert judgments owner-made, composite arithmetic machine-done. The Observer makes the known visible; the Judge commands what becomes known. (Companion entries: §60 firewall, §63–§67 review loop, §68/§68a doctrine.)
 
 **State at close:** §68b pending commit. Stack up on 8099 (health 200 verified). Owner proceeding to hands-on testing.
+
+## §69 — EXAM LOG REFRESH BUTTON (LEARNING INDEX) — 2026-09-30
+
+**Owner request:** add a Refresh button on top of the Exam Log within the Learning Index menu.
+
+**Built (learning_workspace.html):** the Exam Log card header is now a flex row — title left, "↻ Refresh" ghost button right (id `liExamsRefresh`), with a tooltip. Clicking disables the button, shows "Refreshing…" in the table body, re-runs the existing `loadExams()` (GET `/api/learning/exams?limit=25`), and re-enables the button in a finally block so failures never leave it stuck. No server change; no-store serving makes it live immediately.
+
+**Verification:** stack relaunched after the Freebuff restart (health 200); served page carries the button (3 grep hits); `.row` layout class pre-exists on the page; `/api/learning/exams` responds with live graded rows.
+
+**State at close:** §69 pending commit. Stack up on 8099.

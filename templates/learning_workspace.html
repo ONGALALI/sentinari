@@ -127,7 +127,10 @@
     </div>
 
     <div class="card">
-      <h2>Exam Log</h2>
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <h2 style="margin:0;">Exam Log</h2>
+        <button id="liExamsRefresh" class="ghost" type="button" title="Re-read the most recent exams from the ledger">↻ Refresh</button>
+      </div>
       <div class="hint">The most recent exams, as graded.</div>
       <table style="margin-top:8px;">
         <thead><tr><th>Verdict</th><th>Document</th><th>Question</th><th>Mastery</th><th>When</th></tr></thead>
@@ -250,6 +253,17 @@
       byId('liExamRows').innerHTML = rows || '<tr><td colspan="5" class="hint">No exams recorded yet.</td></tr>';
     } catch (_) { byId('liExamRows').innerHTML = '<tr><td colspan="5" class="hint">Exam log unavailable.</td></tr>'; }
   };
+
+  byId('liExamsRefresh').addEventListener('click', async () => {
+    const btn = byId('liExamsRefresh');
+    btn.disabled = true;
+    byId('liExamRows').innerHTML = '<tr><td colspan="5" class="hint">Refreshing…</td></tr>';
+    try {
+      await loadExams();
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   // ---- Assessment ladder (§47) ----
   const loadAssessment = async () => {
