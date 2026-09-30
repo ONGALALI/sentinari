@@ -1517,3 +1517,17 @@ BOTH. Verified live in the databases, not from memory:
 **Verification:** stack relaunched after the Freebuff restart (health 200); served page carries the button (3 grep hits); `.row` layout class pre-exists on the page; `/api/learning/exams` responds with live graded rows.
 
 **State at close:** §69 pending commit. Stack up on 8099.
+
+## §70 — LEARNING STALL DIAGNOSED (ENGINE DARK BY DESIGN); OWNER CHOOSES STRICT ENIGMA-ONLY; GOOGLE PROCUREMENT = WEIGHTS ONCE — 2026-09-30
+
+**Owner report:** learning stuck at 2,972 docs / 22% — "she has not moved 1 byte" — and exam log still shows Neuroscience. Then: Ollama was UNINSTALLED; "we will need to create out what is needed"; later: "Do we need Ollama? or can we rather go Enigma route?"
+
+**Diagnosis (no bug):** the §58 guard works as designed — with the engine dark, the worker idles and never burns documents. Last exams are timestamped 2026-09-27 (the day learning last ran), so she has been dark three days, not misdirected. Direction confirmed correct: LEARNING_PRIORITY_FIELDS is P1 computer-and-information-sciences / information-science / artificial-intelligence ("AI and Information Science"), P2 physics, P3 engineering; Neuroscience is unprioritized 'rest'. Library grew to 13,239 (owner's uploads landed); 10,267 await the engine.
+
+**Owner decisions (via structured questions):** (1) "Enigma" = the in-house :8100 inference server (§45 endgame). (2) STRICT ENIGMA-ONLY: no interim Ollama; learning stays dark until Monday's rig; the Ollama provisioner script written this session was DELETED from scripts/ (rm provision-engine.ps1) so the strict path is what exists on disk. Zero-cloud doctrine: never re-instate the transition engine.
+
+**What must be procured from Google (verified against Sentinari-server/convert_to_onnx.py):** exactly ONE artifact — the Gemma weights, repo `google/gemma-4-12B-it`, ~24 GB fp16, from Hugging Face (converter's record: un-gated, no token; contingency: if HF prompts, accept the Gemma Terms of Use / paste a token into .env). NOTHING else from Google: no API key, no Gemini, no Vertex, no Google account service — Enigma never talks to Google; it inherits weights once and runs forever local. Supporting (not Google, free from PyPI, already pinned in requirements-inference.txt): onnxruntime-genai==0.17.0 + onnxruntime==1.30.0 (CPU now; onnxruntime-genai-cuda on the rig), fastapi/uvicorn/pydantic/PyYAML/numpy, huggingface_hub/datasets for the download. Disk ample (C: 365 GB, D: 732 GB free).
+
+**Rig-day path (already built, Phase 0 runbook):** Step A on THIS connected box: `python convert_to_onnx.py --download-only --model google/gemma-4-12B-it --snapshot-dir ./carry/gemma-4-12B-it` → Step B: carry ./carry to the rig by hand → Step C on the rig offline: convert `--input ./carry/... --output ./models/gemma-12b-onnx --precision int4 --execution-provider cuda` (~40-50 GB RAM peak; int4 lands ~7-8 GB) → flip inference_settings.yaml model.path + execution_provider → POST /api/inference/model/load → verify first real generation → wire the gateway to :8100 (provider slot exists: http_json_provider; Phase 5 per §45) → learning worker wakes on its own, P1 AI & Information Science first.
+
+**State at close:** §70 pending commit. Stack up on 8099; 8100 up degraded (by design); learning dark by owner decision until rig day. Open offer logged: run Step A (download-only) on this connected box NOW so Monday starts with weights in hand instead of a 24 GB download.
