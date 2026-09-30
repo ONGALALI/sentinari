@@ -19,7 +19,9 @@ from mimimul_engine_Init import CustomGemmaEngine  # noqa: E402
 
 
 def main() -> int:
-    weights = os.path.join(HERE, "custom_engine_weights")
+    # Optional argv[1] override lets the fixture smoke-test (and the owner)
+    # point the report at any artifact dir without touching the real one.
+    weights = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "custom_engine_weights")
     engine = CustomGemmaEngine(weights, device="cpu")
 
     n = engine.layer_count
