@@ -1499,3 +1499,11 @@ BOTH. Verified live in the databases, not from memory:
 **Recorded:** Aristotle, Physics I.1 (184a) — the natural route runs from what is clearer/better known TO US toward what is clearer/more knowable BY NATURE; Posterior Analytics I.1 (71a) — all instruction and learning arise from pre-existing knowledge. The known is the ladder, not the obstacle. This is the machine's discovery method, now named: the Learning Index ascends from the known (2,972 examined documents) toward the less known (10,249 unexamined); the §63 weak-spot chips are the known pointing at the less known; the Scout departs outward only from a known gap, anchored to the known standard (§66 NQF staircase), known demand (§67 Bloom), known instrument (§65 rubric); §59's held-out documents are the honest unknown we do not claim to know. Design rule going forward: discovery always ascends from the known — never from nothing. Paired with §68: the descent from the outcome standard (telos → rubric → assessment) meets this ascent at applied competence. The machine is the staircase between them.
 
 **State at close:** §68a pending commit. Stack up on 8099. No code change — doctrine entry.
+
+## §68b — THE OBSERVER DOCTRINE: AI AS OBSERVER, THE OWNER AS JUDGE — 2026-09-30
+
+**Owner's principle (third data-scout citation):** "Thank you for all you have done so far and contributed like our data scout — that's one more example why my R&D place AI as the Observer."
+
+**Recorded as standing doctrine:** in this R&D, AI is the OBSERVER — it watches, measures, surfaces, and proposes (the Scout discovers, the Learning Index measures, the rubric modal prepares the evidence) — but it never decides. The OWNER is the JUDGE: approves, blocks, assesses, rules. Every §-surface built on this design obeys the division: proposals only, firewall at the door, once-blocked-always-blocked by owner hand, Likert judgments owner-made, composite arithmetic machine-done. The Observer makes the known visible; the Judge commands what becomes known. (Companion entries: §60 firewall, §63–§67 review loop, §68/§68a doctrine.)
+
+**State at close:** §68b pending commit. Stack up on 8099 (health 200 verified). Owner proceeding to hands-on testing.
