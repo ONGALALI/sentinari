@@ -52,3 +52,4 @@ app/apis/
 # Owner-downloaded SWE-bench execution harness (132MB, third-party) - stays local like data/
 assessments/swe-workbench/
 .venv-ml/
+engine/custom_engine_weights/
