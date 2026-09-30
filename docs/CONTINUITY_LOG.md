@@ -1180,3 +1180,27 @@ BOTH. Verified live in the databases, not from memory:
 **Verification:** py_compile on 10 touched files OK; servers cycled (launch-all.bat); 8099 ok:true name=Sentinari; served title/h1/brand checks pass; main_model API returns "Sentinari 12B"; banner mapping code served; .env + app/apis/ confirmed ignored; boundary + in-tree key resolution tested green.
 
 **State at close:** §46 committed on main. Servers green. Remaining open item from §45: owner ruling on the model-lab "Gemini 2.0" paste-slot label (research content). Next block: rig-day migration walk (§47 candidate).
+
+## §47 — LAUNCH MENU, VICTUS CONSOLE, ASSESSMENT LADDER (HLE → SWE-BENCH PRO) — 2026-09-30
+
+**Owner directives (§47):** (1) launch-menu landing page, pastel blocks + icons, seven named entries wired to their workspaces; (2) Victus wired (read-only); (3) New Pattern Discoveries → patterns workspace; (4) Sentinari Learning → the future ML-progress workspace; (5) assessment pipeline added AFTER dataset digestion: Data Parsing → Training Phase 1 → HLE Assessment → Re-learning/Fine-tuning → SWE-bench Pro, with SWE-bench Pro qualifying only at HLE ≥ 65%; (6) download + integrate HLE and SWE-bench Pro; (7) `pip install datasets`; use both HF and GitHub (owner downloaded swe-workbench to assessments/swe-workbench).
+
+**What landed:**
+- `assessments/` package: hle.py + swe_pro.py refactored from the owner's pull scripts into importable loaders; shared `_hf.py` pins HF_HOME to data/hf_cache (in-tree) and reads HF_TOKEN from .env; __init__.py.
+- `pip install datasets` → datasets 5.0.1 (+pyarrow stack) into the runtime venv; pinned `datasets>=5.0` in Sentinari-server/requirements-inference.txt (rig rebuild gets it).
+- **SWE-bench Pro: DOWNLOADED & CACHED** — 642 tasks (config 'default'; the owner script's 'v2' is the harness generation, hub configs are default|hard|v1), cache data/hf_cache, first instance matches the workbench zip's NodeBB dockerfiles (dataset ↔ harness aligned).
+- **HLE: GATED** — cais/hle requires owner license acceptance on the hub + HF_TOKEN in the in-tree .env (placeholder comment added). Owner action pending; datasets API reports gated:true with exact instructions.
+- `app/assessment_pipeline.py`: persisted 5-stage state machine (data/assessment_pipeline.sqlite3), fail-closed 65% gate (swe_gate_open only on HLE ≥ 0.65), honest LOCAL grader (exact/normalized + token-overlap ≥0.8), run_hle_sample() refuses honestly when the local engine is offline, learning_index snapshot for training telemetry.
+- APIs: GET /api/assessment/status, POST /api/assessment/run (start_run | advance | run_hle_sample), GET /api/assessment/datasets; GET /api/victus/status — STRICTLY READ-ONLY (no arm/probe/kill over HTTP ever).
+- **Launch menu**: sentinari_start_console.html rebuilt as 7 pastel blocks with icons — Scientific Curated Sources (/ui/playground), Sentinari Task Lab (/ui/direct), Sentinari Search Index (/ui/search), Pseudo Dynamics Lab (/ui/qualia), Victus (/ui/victus), New Pattern Discoveries (/ui/patterns), Sentinari Learning (/ui/learning) — plus an Assessment Pipeline card; status pills + engine-start preserved.
+- **Victus console** (templates/victus_console.html): /ui/victus route, pastel rose, live DORMANT state/gates/rules, doctrine banner; the challenger cannot be armed from any browser.
+- **Learning workspace**: Assessment Ladder card added (stage/HLE-score/SWE-gate pills, run-sample + dataset-check buttons, 65% rule displayed).
+- Containment: assessments/swe-workbench/ (132MB third-party harness + zip) gitignored — stays local like data/ but rides along in the folder copy; docs/architecture.md + README updated.
+
+**Doctrine notes:** zero-cloud governs INFERENCE; dataset pulls are owner-ordered assessment materials cached in-tree. The HF warning about unauthenticated downloads is expected until the owner's token lands.
+
+**Verification:** py_compile on 7 new/touched modules OK; servers cycled; 8099 ok:true; /api/victus/status returns DORMANT + gates all OFF; /api/assessment/status shows the ladder + locked gate; /api/assessment/datasets reports SWE-bench Pro 642 items, HLE gated with owner instructions; /ui/start serves all 7 named blocks; /ui/victus + /ui/learning 200; Victus self-test 13/13.
+
+**Owner to-do (one step):** accept cais/hle license on the hub, paste HF_TOKEN into Sentinari/.env, re-run `python -m assessments.hle` — then the ladder's stage 3 can grade on the local engine after rig day.
+
+**State at close:** §47 committed on main. Servers green (8099+8100). The Learning workspace now hosts the assessment ladder UI; the ML training loop itself remains the declared future work (stage 2, rig day, QLoRA-capable).

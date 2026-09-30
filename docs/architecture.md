@@ -39,6 +39,7 @@ Sentinari/
 │   │                              #   SENTINEL verification pipeline (DARPA project 1)
 │   ├── external_validation.py     #   Four-stage verification support
 │   ├── victus.py                  #   Dormant challenger (state machine, kill switch, audit)
+│   ├── assessment_pipeline.py     #   5-stage ladder: HLE gate at 65% → SWE-bench Pro (§47)
 │   ├── escalation_queue.py        #   Local ticket queue — manual answers only, zero network
 │   ├── task_worker / load_queue / load_progress
 │   │                              #   Background work routing
@@ -94,6 +95,12 @@ Sentinari/
 │   └── RIG_DAY_RUNBOOK.md         #   The migration-day script (mirrored in docs/)
 │
 ├── scripts/                       # One-shot maintenance utilities
+│
+├── assessments/                   # ASSESSMENT LADDER (§47)
+│   ├── hle.py                     #   cais/hle loader (GATED — owner HF token in .env)
+│   ├── swe_pro.py                 #   ScaleAI/SWE-bench_Pro loader (642 tasks, cached)
+│   ├── _hf.py                     #   Shared HF token/cache plumbing (in-tree cache)
+│   └── swe-workbench/             #   Owner-downloaded execution harness (untracked, 132MB)
 │
 ├── tests/                         # Self-verifying test modules
 │   └── test_sentinel.py           #   python -m tests.test_sentinel

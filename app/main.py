@@ -49,9 +49,12 @@ from .escalation_queue import (
     list_escalations,
     submit_escalation,
 )
+from . import assessment_pipeline
+from . import victus as victus_module
 from .models import (
     AdminLoginRequest,
     ChatRequest,
+    AssessmentRunRequest,
     EscalationQueryRequest,
     IngestFilesRequest,
     IngestUrlRequest,
@@ -819,6 +822,16 @@ def ui_direct(request: Request) -> HTMLResponse:
 def ui_direct_legacy_redirect(request: Request) -> HTMLResponse:
     """§45: legacy bookmarks keep working — they land on the canonical route."""
     return HTMLResponse("", status_code=307, headers={"Location": "/ui/direct"})
+
+
+@app.get("/ui/victus", response_class=HTMLResponse)
+def ui_victus(request: Request) -> HTMLResponse:
+    return _render_authed_ui_template(
+        request,
+        template_name="victus_console.html",
+        next_path="/ui/victus",
+        missing_detail="victus_console.html template not found.",
+    )
 
 
 @app.get("/ui/model-lab", response_class=HTMLResponse)
@@ -2320,6 +2333,47 @@ def api_escalation_status(request: Request) -> dict[str, Any]:
         "status": status,
         "queue_count": queue_count,
         "recent": list_escalations(limit=20),
+    }
+
+
+@app.get("/api/assessment/status")
+def api_assessment_status() -> dict[str, Any]:
+    state = assessment_pipeline.get_state()
+    state["runtime"] = assessment_pipeline.settings_snapshot()
+    return state
+
+
+@app.post("/api/assessment/run")
+def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
+    try:
+        if payload.action == "start_run":
+            return assessment_pipeline.start_run(notes=payload.notes)
+        if payload.action == "advance":
+            return assessment_pipeline.advance(payload.stage, notes=payload.notes)
+        if payload.action == "run_hle_sample":
+            return assessment_pipeline.run_hle_sample(sample_size=payload.sample_size)
+        raise ValueError(
+            "Unknown action. Valid: start_run | advance | run_hle_sample."
+        )
+    except ValueError as ex:
+        raise HTTPException(status_code=400, detail=str(ex))
+
+
+@app.get("/api/assessment/datasets")
+def api_assessment_datasets() -> dict[str, Any]:
+    return assessment_pipeline.datasets_status()
+
+
+@app.get("/api/victus/status")
+def api_victus_status() -> dict[str, Any]:
+    """READ-ONLY by design: no arm, no probe, no kill over HTTP.
+    The challenger stays dormant unless the operator acts in-process (§42)."""
+    return {
+        "ok": True,
+        "status": victus_module.status(),
+        "gates": victus_module.gate_report(),
+        "rules": victus_module.rules_snapshot(),
+        "doctrine": "Victus is permanently dormant over HTTP; fail-closed by §42 design.",
     }
 
 

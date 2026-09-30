@@ -87,6 +87,19 @@
     </div>
 
     <div class="card">
+      <h2>Assessment Ladder <span id="apGate" class="pill" style="margin-left:8px;">…</span></h2>
+      <div class="hint">Data Parsing &rarr; Training Phase 1 &rarr; HLE Assessment &rarr; Re-learning / Fine-tuning &rarr; SWE-bench Pro. SWE-bench Pro unlocks only at HLE &ge; 65%.</div>
+      <div class="row" style="margin-top:10px;">
+        <span class="pill" id="apStage">stage: …</span>
+        <span class="pill" id="apHle">HLE: …</span>
+        <button id="apHleBtn">Run HLE sample (10)</button>
+        <button id="apDataBtn" class="ghost">Check datasets</button>
+      </div>
+      <div id="apStatus" class="status"></div>
+      <div id="apData" class="soft-panel" style="margin-top:10px;">Dataset status not loaded yet.</div>
+    </div>
+
+    <div class="card">
       <h2>Exam Log</h2>
       <div class="hint">The most recent exams, as graded.</div>
       <table style="margin-top:8px;">
@@ -194,9 +207,47 @@
     } catch (_) { byId('liExamRows').innerHTML = '<tr><td colspan="5" class="hint">Exam log unavailable.</td></tr>'; }
   };
 
+  // ---- Assessment ladder (§47) ----
+  const loadAssessment = async () => {
+    try {
+      const res = await fetch('/api/assessment/status');
+      const d = await res.json();
+      byId('apStage').textContent = 'stage: ' + String(d.stage || '?').replace(/_/g, ' ');
+      const scorePct = (d.hle_score === null || d.hle_score === undefined) ? 'not run' : (100 * d.hle_score).toFixed(1) + '%';
+      byId('apHle').textContent = 'HLE: ' + scorePct + (d.hle_qualified ? ' · QUALIFIED' : ' · gate closed (65% to open)');
+      byId('apGate').textContent = d.swe_pro_gate && d.swe_pro_gate.open ? 'SWE-bench Pro: OPEN' : 'SWE-bench Pro: LOCKED';
+    } catch (_) {
+      byId('apStage').textContent = 'stage: unavailable';
+    }
+  };
+
+  byId('apHleBtn').addEventListener('click', async () => {
+    const st = byId('apStatus');
+    st.textContent = 'Running local HLE sample… (requires the local engine online)';
+    try {
+      const res = await fetch('/api/assessment/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run_hle_sample', sample_size: 10 }) });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || d.reason || 'HLE sample failed.');
+      st.textContent = `HLE sample graded: ${d.sample.correct}/${d.sample.graded} correct.`;
+    } catch (e) { st.textContent = 'HLE sample failed: ' + (e.message || e); }
+    loadAssessment();
+  });
+
+  byId('apDataBtn').addEventListener('click', async () => {
+    const el = byId('apData');
+    el.textContent = 'Checking dataset caches…';
+    try {
+      const res = await fetch('/api/assessment/datasets');
+      const d = await res.json();
+      el.textContent = JSON.stringify(d, null, 2);
+    } catch (e) { el.textContent = 'Dataset check failed: ' + (e.message || e); }
+  });
+
+  loadAssessment();
   poll();
   loadExams();
   window.setInterval(poll, 20000);
+  window.setInterval(loadAssessment, 30000);
 })();
 </script>
 </body>

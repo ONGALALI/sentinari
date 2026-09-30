@@ -236,6 +236,13 @@ class TutorEvaluateRequest(BaseModel):
     answer: str
 
 
+class AssessmentRunRequest(BaseModel):
+    action: str = Field(default="status")
+    sample_size: int = Field(default=10, ge=1, le=100)
+    stage: str = Field(default="", max_length=40)
+    notes: str = Field(default="", max_length=500)
+
+
 class EscalationQueryRequest(BaseModel):
     query: str = Field(min_length=3, max_length=12000)
     mode: Literal["knowledge", "coding", "autonomous"] = "coding"

@@ -48,3 +48,6 @@ pubmedprocess.md
 
 # Live API key notes stay local-only (sanitized copies live in docs/)
 app/apis/
+
+# Owner-downloaded SWE-bench execution harness (132MB, third-party) - stays local like data/
+assessments/swe-workbench/

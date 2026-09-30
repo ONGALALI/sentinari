@@ -29,7 +29,8 @@ launch-sentinari.bat
 | `app/` | FastAPI core: conversation, playground, retrieval, ingestion, Qualia, examiner, firewall |
 | `sentinel/` | Guardian layer: domains, gateway guardian, relationships, benchmarks |
 | `config/` | `settings.yaml` (single source of runtime config), `persona_sentinari.yaml` (canonical persona seed) |
-| `templates/` | User consoles (start, playground, qualia lab, direct chat, admin, learning, patterns, search, video) |
+| `templates/` | User consoles (start menu, playground, qualia lab, direct chat, admin, learning, patterns, search, victus, video) |
+| `assessments/` | Assessment ladder: HLE + SWE-bench Pro loaders (HF cache in data/), execution harness local-only |
 | `Sentinari-server/` | ONNX inference server (:8100), converter kit, `launch-all.bat`, rig-day runbook |
 | `scripts/` | One-shot maintenance scripts |
 | `docs/` | Continuity log, validation protocol, SENTINEL review, credits, rig-day runbook |

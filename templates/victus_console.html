@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Victus — Dormant Challenger</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --line: #d8dee8;
+      --text: #151b28;
+      --muted: #667184;
+      --rose: #f8d7dd;
+      --rose-border: #e3b8c2;
+      --green: #15734f;
+      --red: #a33232;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Segoe UI, Arial, sans-serif; }
+    header {
+      background: var(--panel); border-bottom: 1px solid var(--line);
+      padding: 16px 22px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 22px; display: flex; gap: 10px; align-items: center; }
+    a { color: #195bbf; text-decoration: none; }
+    main { max-width: 1100px; margin: 0 auto; padding: 18px; display: grid; gap: 14px; }
+    .card {
+      background: var(--rose); border: 1px solid var(--rose-border); border-radius: 12px; padding: 16px;
+    }
+    .card h2 { margin: 0 0 8px; font-size: 16px; }
+    .banner {
+      background: var(--panel); border: 1px dashed var(--rose-border); border-radius: 10px;
+      padding: 12px 14px; font-size: 13.5px; color: #5a3a44;
+    }
+    .pills { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+    .pill {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px;
+    }
+    .pill b { font-weight: 600; color: var(--muted); }
+    .ok { color: var(--green); font-weight: 700; }
+    .off { color: var(--red); font-weight: 700; }
+    .val { text-align: right; overflow-wrap: anywhere; }
+    ul.rules { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; }
+    .status-line { font-size: 12.5px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>&#128737;&#65039; Victus — Dormant Challenger</h1>
+    <nav><a href="/ui/start">&larr; Launch Menu</a></nav>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Doctrine</h2>
+      <div class="banner">
+        This console is <strong>read-only by design</strong>. Victus never arms, probes, or kills from a
+        browser — every gate is fail-closed and arming requires the operator in-process (§42). What you
+        see here is the challenger's honest state: asleep, audited, and refusing everything.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Live State <span class="status-line" id="refreshedAt"></span></h2>
+      <div class="pills" id="statusPills"></div>
+    </div>
+
+    <div class="card">
+      <h2>Config Gates (all must be explicitly ON — none are)</h2>
+      <div class="pills" id="gatePills"></div>
+    </div>
+
+    <div class="card">
+      <h2>Engagement Rules (fail-closed)</h2>
+      <ul class="rules" id="rulesList"></ul>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[<>&]/g, (ch) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[ch]));
+
+    function pill(label, value, cls) {
+      return `<div class="pill"><b>${esc(label)}</b><span class="val ${cls || ""}">${esc(value)}</span></div>`;
+    }
+
+    const isOff = (v) => v === false || v === "false" || v === 0 || v === "off" || v === "disabled";
+
+    function renderStatus(status) {
+      const pills = [];
+      for (const [key, value] of Object.entries(status || {})) {
+        if (value && typeof value === "object") continue;
+        const label = key.replace(/_/g, " ");
+        pills.push(pill(label, String(value), isOff(value) ? "off" : "ok"));
+      }
+      $("statusPills").innerHTML = pills.join("") || pill("state", "unavailable", "off");
+    }
+
+    function renderGates(gates) {
+      const pills = [];
+      const walk = (obj, prefix) => {
+        for (const [key, value] of Object.entries(obj || {})) {
+          if (value && typeof value === "object") { walk(value, `${prefix}${key}.`); continue; }
+          if (typeof value === "boolean" || ["enabled", "allow_", "state"].some((t) => key.toLowerCase().includes(t))) {
+            pills.push(pill(prefix + key.replace(/_/g, " "), value ? "ON" : "OFF", value ? "ok" : "off"));
+          }
+        }
+      };
+      walk(gates, "");
+      $("gatePills").innerHTML = pills.join("") || pill("gates", "unavailable", "off");
+    }
+
+    function renderRules(rules) {
+      const items = (Array.isArray(rules) ? rules : []).map((rule) => {
+        if (typeof rule === "string") return `<li>${esc(rule)}</li>`;
+        const name = rule.name || rule.rule_name || rule.id || "rule";
+        const detail = rule.rule || rule.detail || rule.description || rule.behavior || "";
+        return `<li><strong>${esc(name)}</strong>${detail ? " — " + esc(detail) : ""}</li>`;
+      });
+      $("rulesList").innerHTML = items.join("") || "<li>Rules unavailable.</li>";
+    }
+
+    async function refresh() {
+      try {
+        const res = await fetch("/api/victus/status");
+        const data = await res.json();
+        renderStatus(data.status);
+        renderGates(data.gates);
+        renderRules(data.rules);
+        $("refreshedAt").textContent = `· refreshed ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        $("statusPills").innerHTML = pill("api", "not answering", "off");
+      }
+    }
+
+    refresh();
+    window.setInterval(refresh, 15000);
+  </script>
+</body>
+</html>

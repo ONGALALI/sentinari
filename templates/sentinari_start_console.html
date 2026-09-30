@@ -11,11 +11,16 @@
       --line: #d8dee8;
       --text: #151b28;
       --muted: #667184;
-      --blue: #195bbf;
-      --green: #15734f;
-      --red: #a33232;
-      --amber: #8a5d00;
       --ink: #2d374b;
+      /* §47 pastel menu palette */
+      --pastel-rose: #f8d7dd;
+      --pastel-peach: #fde4d0;
+      --pastel-butter: #faf0c8;
+      --pastel-mint: #d6f0dd;
+      --pastel-sky: #d7e9fa;
+      --pastel-lilac: #e6def5;
+      --pastel-sand: #efe7d8;
+      --pastel-border: #c9d6e8;
     }
     * { box-sizing: border-box; }
     body {
@@ -34,30 +39,53 @@
       gap: 14px;
       flex-wrap: wrap;
     }
-    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    h1 { margin: 0; font-size: 24px; }
     main { max-width: 1400px; margin: 0 auto; padding: 18px; }
-    .toolbar {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     button, a.button {
-      border: 0;
-      border-radius: 6px;
-      background: var(--blue);
-      color: #fff;
-      min-height: 42px;
-      padding: 10px 14px;
-      font: inherit;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
+      border: 0; border-radius: 6px; background: #195bbf; color: #fff;
+      min-height: 42px; padding: 10px 14px; font: inherit; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
     }
     button.secondary, a.secondary { background: var(--ink); }
     button:disabled { opacity: .62; cursor: wait; }
+
+    .menu {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .menu-card {
+      border: 1px solid var(--pastel-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 150px;
+      text-decoration: none;
+      color: var(--text);
+      transition: transform .06s ease, box-shadow .06s ease;
+    }
+    .menu-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(21,27,40,.10); }
+    .menu-card h2 { margin: 0; font-size: 17px; display: flex; align-items: center; gap: 10px; }
+    .menu-card .icon { font-size: 22px; line-height: 1; }
+    .menu-card p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 13.5px; }
+    .menu-card .tag {
+      margin-top: auto; font-size: 11.5px; color: #4c5a72;
+      background: rgba(255,255,255,.65); border-radius: 999px; padding: 3px 10px;
+      align-self: flex-start; border: 1px solid rgba(255,255,255,.9);
+    }
+    /* §47 pastel block assignments */
+    .b-rose   { background: var(--pastel-rose); }
+    .b-peach  { background: var(--pastel-peach); }
+    .b-butter { background: var(--pastel-butter); }
+    .b-mint   { background: var(--pastel-mint); }
+    .b-sky    { background: var(--pastel-sky); }
+    .b-lilac  { background: var(--pastel-lilac); }
+    .b-sand   { background: var(--pastel-sand); }
+
     .status {
       display: grid;
       grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -65,59 +93,22 @@
       margin-bottom: 16px;
     }
     .pill {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px;
-      background: var(--panel);
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 14px;
+      border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+      background: var(--panel); display: flex; justify-content: space-between; gap: 10px; font-size: 14px;
     }
-    .ok { color: var(--green); font-weight: 700; }
-    .bad { color: var(--red); font-weight: 700; }
-    .warn { color: var(--amber); font-weight: 700; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(260px, 1fr));
-      gap: 14px;
-    }
+    .ok { color: #15734f; font-weight: 700; }
+    .bad { color: #a33232; font-weight: 700; }
+    .warn { color: #8a5d00; font-weight: 700; }
     .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      min-height: 210px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 120px;
     }
-    .card.feature {
-      grid-column: 1 / -1;
-      min-height: 150px;
-      border-color: #aebfda;
-      background: #f8fbff;
-    }
-    .card.feature h2 { font-size: 21px; }
     .card h2 { margin: 0; font-size: 18px; }
     .card p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 14px; }
     .actions { margin-top: auto; display: flex; gap: 9px; flex-wrap: wrap; }
-    .backup {
-      margin-top: 16px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-    }
     .command {
-      font-family: Consolas, monospace;
-      font-size: 12px;
-      background: #f2f4f8;
-      border: 1px solid var(--line);
-      padding: 8px;
-      border-radius: 6px;
-      overflow-wrap: anywhere;
-      margin: 7px 0;
+      font-family: Consolas, monospace; font-size: 12px; background: #f2f4f8;
+      border: 1px solid var(--line); padding: 8px; border-radius: 6px; overflow-wrap: anywhere; margin: 7px 0;
     }
     .meta { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
     @media (max-width: 980px) {
@@ -130,87 +121,75 @@
 <body>
   <header>
     <div>
-      <h1>Sentinari Start</h1>
-      <div class="meta">One browser page for Sentinel, Qualia, and model comparison.</div>
+      <h1>Sentinari</h1>
+      <div class="meta">One browser page for every Sentinari workspace, lab, and assessment.</div>
     </div>
     <div class="toolbar">
       <button id="refresh">Refresh Status</button>
-      <button class="secondary" id="startGemma">Start Sentinel</button>
+      <button class="secondary" id="startGemma">Start Engine</button>
     </div>
   </header>
 
   <main>
     <div class="status" id="status"></div>
 
-    <section class="grid">
-      <div class="card feature">
-        <h2>Scientific Fields + Sentinel Test Run</h2>
-        <p>Start here when you want Sentinel to learn from a new scientific field. Open the Sentinel domain grid first, discover and load datasets into the field, then use the Qualia lab to test whether Sentinel can answer from that new knowledge.</p>
-        <div class="actions">
-          <a class="button" href="/ui/playground">Open Sentinel Domains</a>
-          <a class="button secondary" href="/ui/document-layouts">Document Layouts</a>
-          <a class="button secondary" href="/ui/qualia">Test in Qualia</a>
-          <a class="button secondary" href="/ui/admin">Check Learning Fields</a>
-        </div>
-      </div>
+    <section class="menu" aria-label="Sentinari workspaces">
+      <a class="menu-card b-sky" href="/ui/playground">
+        <h2><span class="icon">&#127758;</span> Scientific Curated Sources</h2>
+        <p>The Playground: curated scientific domains, dataset discovery, and ingest runs feeding the knowledge grid.</p>
+        <span class="tag">/ui/playground &middot; domains + ingestion</span>
+      </a>
 
-      <div class="card">
-        <h2>Sentinel Direct Chat</h2>
-        <p>Plain local Sentinel discussion with minimal wrapping and response logging. Use this when you want to talk to her without the Sentinari knowledge pipeline.</p>
-        <div class="actions">
-          <a class="button" href="/ui/direct">Open Chat</a>
-        </div>
-      </div>
+      <a class="menu-card b-mint" href="/ui/direct">
+        <h2><span class="icon">&#128172;</span> Sentinari Task Lab</h2>
+        <p>Direct discussion with Sentinari. Tasking, drafting, and reasoning in a minimal wrap with full logging.</p>
+        <span class="tag">wired to Sentinari Chat Lab &middot; /ui/direct</span>
+      </a>
 
-      <div class="card">
-        <h2>Sentinel Qualia Lab</h2>
-        <p>Sentinel linked to the Qualia state model. Use this when you want response logs plus the Qualia parameters and history entry.</p>
-        <div class="actions">
-          <a class="button" href="/ui/qualia">Open Qualia</a>
-        </div>
-      </div>
+      <a class="menu-card b-butter" href="/ui/search">
+        <h2><span class="icon">&#128269;</span> Sentinari Search Index</h2>
+        <p>The digested library, grouped by scientific field. Every source parsed, chunked, and embedded is searchable here.</p>
+        <span class="tag">wired to search workspace + digested sources</span>
+      </a>
 
-      <div class="card">
-        <h2>Model Deviation Lab</h2>
-        <p>Compare Sentinel against Gemini, Grok, Claude, DeepSeek, and pasted model answers using the same prompt and scoring sheet.</p>
-        <div class="actions">
-          <a class="button" href="/ui/model-lab">Open Lab</a>
-        </div>
-      </div>
+      <a class="menu-card b-lilac" href="/ui/qualia">
+        <h2><span class="icon">&#127756;</span> Pseudo Dynamics Lab</h2>
+        <p>The Qualia state model: S/A/Q vectors, stability, gamma fields, and trajectory history over every reply.</p>
+        <span class="tag">wired to Qualia Lab &middot; /ui/qualia</span>
+      </a>
 
-      <div class="card">
-        <h2>Sentinari Playground</h2>
-        <p>The Sentinari Playground and training controls. Dedicated to Sentinari with scientific fields, tutor runs, and Qualia metrics.</p>
-        <div class="actions">
-          <a class="button secondary" href="/ui/playground">Open Sentinari</a>
-        </div>
-      </div>
+      <a class="menu-card b-rose" href="/ui/victus">
+        <h2><span class="icon">&#128737;&#65039;</span> Victus</h2>
+        <p>The dormant challenger: state, gates, and engagement rules. Read-only console — the challenger never arms from a browser.</p>
+        <span class="tag">wired to Victus &middot; fail-closed &middot; read-only</span>
+      </a>
 
-      <div class="card">
-        <h2>Admin Console</h2>
-        <p>Learning fields, seeded quantities, profile settings, guardrails, and operator state views.</p>
-        <div class="actions">
-          <a class="button secondary" href="/ui/admin">Open Admin</a>
-        </div>
-      </div>
+      <a class="menu-card b-peach" href="/ui/patterns">
+        <h2><span class="icon">&#128300;</span> New Pattern Discoveries</h2>
+        <p>Pattern Discovery workspace: cross-domain regularities, candidate scoring, and the discovery log.</p>
+        <span class="tag">wired to new pattern discovery workspace</span>
+      </a>
 
-      <div class="card">
-        <h2>Quick Sanity</h2>
-        <p>Use the direct chat page and ask: “Which is the largest continent on Earth?” If she answers Asia, the model path is alive.</p>
-        <div class="actions">
-          <a class="button secondary" href="/ui/direct">Run Manual Test</a>
-        </div>
+      <a class="menu-card b-sand" href="/ui/learning">
+        <h2><span class="icon">&#127891;</span> Sentinari Learning</h2>
+        <p>Machine-learning progress: % Learned, exams, the assessment ladder, and (in development) the training loop.</p>
+        <span class="tag">wired to learning workspace + assessment pipeline</span>
+      </a>
+    </section>
+
+    <section class="card">
+      <h2>Assessment Pipeline</h2>
+      <p>Data Parsing &rarr; Training Phase 1 &rarr; HLE Assessment &rarr; Re-learning / Fine-tuning &rarr; SWE-bench Pro.
+      SWE-bench Pro unlocks only when HLE reaches 65%. Progress lives in the Learning workspace.</p>
+      <div class="actions">
+        <a class="button secondary" href="/ui/learning">Open Learning &amp; Assessment</a>
       </div>
     </section>
 
-    <section class="backup">
+    <section class="card" style="margin-top:14px;">
       <h2>Backup Launch Files</h2>
-      <p class="meta">You should not need these from day to day. They are here only if the browser page is unavailable.</p>
+      <p class="meta">Only if the browser page is unavailable.</p>
       <div class="command">D:\Inpirari\START-HERE.bat</div>
-      <div class="command">D:\Inpirari\Launch-Gemma.bat</div>
-      <div class="command">D:\Inpirari\Launch-Gemma-Direct-Page.bat</div>
-      <div class="command">D:\Inpirari\Launch-Gemma-Qualia-Lab.bat</div>
-      <div class="command">D:\Inpirari\Launch-Model-Deviation-Lab.bat</div>
       <p class="meta" id="logs"></p>
     </section>
   </main>
@@ -234,7 +213,7 @@
           pill("Active Library", "library_gemma.db", "ok"),
           pill("Isolation Guard", "Strict On (No Mismatch)", "ok"),
           pill("Sentinari Web Host", data.smi_reachable ? "running" : "offline", data.smi_reachable ? "ok" : "bad"),
-          pill("Ollama / Sentinel", (data.gemma_reachable || data.SMI_reachable) ? "running" : "offline", (data.gemma_reachable || data.SMI_reachable) ? "ok" : "bad"),
+          pill("Model Engine", (data.gemma_reachable || data.SMI_reachable) ? "running" : "offline", (data.gemma_reachable || data.SMI_reachable) ? "ok" : "bad"),
           pill("Active Model", personaInfo.active_model || data.gemma_model || "not found", "ok"),
           pill("Base URL", data.gemma_base_url || data.SMI_base_url || "", (data.gemma_base_url || data.SMI_base_url) ? "ok" : "bad")
         ].join("");
@@ -244,7 +223,7 @@
       }
     }
 
-    async function startGemma() {
+    async function startEngine() {
       $("startGemma").disabled = true;
       $("startGemma").textContent = "Starting...";
       try {
@@ -252,14 +231,13 @@
         setTimeout(refreshStatus, 3500);
       } finally {
         $("startGemma").disabled = false;
-        $("startGemma").textContent = "Start Sentinel";
+        $("startGemma").textContent = "Start Engine";
       }
     }
 
     $("refresh").addEventListener("click", refreshStatus);
-    $("startGemma").addEventListener("click", startGemma);
+    $("startGemma").addEventListener("click", startEngine);
     refreshStatus();
   </script>
 </body>
 </html>
-
