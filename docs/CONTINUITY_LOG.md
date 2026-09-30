@@ -1281,3 +1281,13 @@ BOTH. Verified live in the databases, not from memory:
 **Verification:** rail count 1 on all four pages; admin page contains 0 `Sentinel|learning-fields|learningPie` strings; `/ui/qualia` serves 6× "Sentinari 12B", 0× gemma; cache headers confirmed on /ui/start; /api/direct/status returns engine_state=dark with model_label plumbing; persona API shows Sentinari.
 
 **State at close:** §52 pending commit. Core up via launcher. Owner guidance given on the Freebuff "limited access / verify country" nag (desktop-app side, not Sentinari): full tray-quit restart, then OS reboot if it persists; Sentinari unaffected either way. Lesson recorded: UI pages are no-store from now on; shared rail means nav changes land everywhere at once.
+
+## §53 — FREEBUFF LAUNCH MYSTERY SOLVED: SHORTCUTS CREATED — 2026-09-30
+
+**Owner report:** Freebuff does not appear under installed apps/programs; no desktop icon; every launch required a reinstall.
+
+**Diagnosis (probed, not guessed):** Freebuff IS installed and IS registered — `%LOCALAPPDATA%\Programs\@codebufffreebuff-desktop\Freebuff.exe` (v0.0.154, Electron, uninstaller present, "Freebuff 0.0.154" in HKCU uninstall registry, so it should appear in Settings → Apps as "Freebuff" — searchability trap: searching "Codebuff" finds nothing). The REAL defect: the installer/updater created NO desktop shortcut and NO Start Menu shortcut (both verified False), so Start-menu search had nothing to find and the owner's only launch path was reinstalling. Root cause sits with the app's installer, not the owner's machine.
+
+**Fix (verified):** proper `.lnk` shortcuts created via WScript.Shell to `Freebuff.exe` (icon, working directory, description) in both the Desktop and `%APPDATA%\Microsoft\Windows\Start Menu\Programs`. Both verified True. The re-install cycle is over — one icon, always.
+
+**State at close:** §53 pending commit. Stack relaunched after the Freebuff restart (8099 healthy, / → /ui/start 307). No Sentinari code touched; this entry records environment work so the pattern is never re-diagnosed. Lesson recorded: Electron Squirrel-style installers can skip shortcut creation on updates — check `%LOCALAPPDATA%\Programs\<app>` + the uninstall registry before believing "it's not installed".
