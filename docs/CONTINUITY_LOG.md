@@ -1220,3 +1220,15 @@ BOTH. Verified live in the databases, not from memory:
 **New files:** ml/requirements-ml.txt (day-1, exact pin), ml/environment.yml (rig-day miniconda: python 3.12, conda-forge, same cu128 exact pin), ml/README.md (layout, verified results, day-1 + rig-day commands, ladder linkage), architecture.md updated with the ml/ block. .gitignore += .venv-ml/. Rig note in README: install NVIDIA driver only (570+); wheels bundle CUDA; bump index cu129/cu130 if newer ships.
 
 **State at close:** §48 committed on main. .venv-ml verified end-to-end on GPU. Servers untouched and green. Next blocks: rig day (§ migration), Training Phase 1 design (ml/ + learning_index feed the HLE stage), owner's HLE token still pending.
+
+## §49 — HOTFIX: LAUNCH-SENTINARI.BAT PROBE REGRESSION (BROWSER NEVER OPENED) — 2026-09-30
+
+**Owner report:** launch-sentinari.bat halts at "Waiting for Sentinari core to answer" and never launches the browser.
+
+**Root cause (§45 regression, mine):** the rebranded root launcher was written with a PURE REST health probe. This box intermittently refuses loopback connects from fresh processes (endpoint-protection quirk — the exact reason 0fc32c1 gave launch-all.bat a netstat fallback). The wait loop then exhausted its 25s window WHILE Uvicorn was already running (launcher log proved it: "Uvicorn running on http://127.0.0.1:8099"), printed the failure message, and skipped `start ... http://127.0.0.1:8099/ui/playground`. The server itself was healthy — only the launcher was deaf.
+
+**Hotfix (verified live):** both probes (pre-check + wait loop) now carry the proven robust pattern from launch-all.bat: REST health first with DefaultWebProxy=$null, then Get-NetTCPConnection listener fallback — if the port LISTENS but REST is refused, sleep 1.5s and re-check both before continuing the loop. Wait window raised 25s → 45s (cold boots run auto-ingest startup work; launch-all parity). In-file REM header documents the regression and the commit lineage.
+
+**Verification:** servers were down at test time (clean conditions); launched via Start-Process exactly like a double-click; core came up ok:true name=Sentinari; launcher log shows "GET /health 200 OK" — the loop succeeded and the browser-open path executed.
+
+**State at close:** §49 committed on main. Core running on 8099 via the fixed launcher. (8100 not started by the root launcher by design — launch-all.bat starts the full stack.) Lesson recorded: every future launcher change must port the robust probe as a unit; REST-only loopback probes are prohibited on this box.
