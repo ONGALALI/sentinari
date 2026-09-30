@@ -34,6 +34,14 @@
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th { text-align: left; color: #52657e; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #e2eaf4; }
   td { padding: 6px 8px; border-bottom: 1px solid #eef2f8; }
+  /* §58 per-field progress bars + priority badges */
+  .liFieldRow { margin: 10px 0; padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; }
+  .liFieldHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; }
+  .liFieldHead strong { font-variant-numeric: tabular-nums; }
+  .liBar { height: 10px; background: #e6edf6; border-radius: 6px; overflow: hidden; margin-top: 5px; }
+  .liBar span { display: block; height: 100%; border-radius: 6px; transition: width .4s ease; }
+  .liMeta { font-size: 12px; color: #5b6b7d; margin-top: 3px; }
+  .liPrio { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; color: #103c6b; background: #dcebf9; border: 1px solid #b9d4ee; border-radius: 999px; padding: 1px 8px; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -121,8 +129,21 @@
     const pct = Number(d.percent || 0);
     byId('liFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
     byId('liLabel').innerHTML = `<strong>% Learned: ${pct}%</strong> — ${fmt(d.assessed)} of ${fmt(d.total)} ingested documents examined.`;
-    byId('liFields').innerHTML = (d.fields || []).slice(0, 10).map((f) =>
-      `<div>• ${esc(f.field)}: <strong>${Number(f.percent || 0).toFixed(1)}%</strong> (${fmt(f.assessed)}/${fmt(f.total)})</div>`).join('');
+    const PRIORITY_LABELS = {
+      0: 'P1 · AI & Information Science',
+      1: 'P1 · AI & Information Science',
+      2: 'P2 · Physics',
+      3: 'P3 · Engineering',
+    };
+    byId('liFields').innerHTML = (d.fields || []).map((f) => {
+      const p = Math.max(0, Math.min(100, Number(f.percent || 0)));
+      const band = PRIORITY_LABELS[f.priority_rank];
+      const badge = band ? `<span class="liPrio">${band}</span>` : '';
+      const color = p >= 60 ? '#2e7d32' : p >= 20 ? '#ef8f00' : '#c62828';
+      return `<div class="liFieldRow">${badge}<div class="liFieldHead"><span>${esc(f.field)}</span><strong>${p.toFixed(1)}%</strong></div>` +
+        `<div class="liBar"><span style="width:${p}%;background:${color};"></span></div>` +
+        `<div class="liMeta">${fmt(f.assessed)}/${fmt(f.total)} documents examined</div></div>`;
+    }).join('') || '<div class="hint">No fields yet.</div>';
     byId('liLatest').innerHTML = (d.latest || []).slice(0, 3).map((l) =>
       `<div>• [${esc(l.verdict)}] ${esc(String(l.title || '').slice(0, 70))}</div>`).join('');
     learnOn = Boolean(d.enabled);

@@ -2949,8 +2949,13 @@ def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
                 "probe_present": (ml_pipeline.PROBE_PATH).exists(),
                 "runner": "scripts/run_training_phase1.py under .venv-ml (stage 2 stays off the API server)",
             }
+        if payload.action == "open_functional_gate":
+            # §58 owner override — opens SWE-bench for a FUNCTIONAL CHECK only.
+            return assessment_pipeline.open_functional_gate(notes=payload.notes)
+        if payload.action == "swe_functional_check":
+            return assessment_pipeline.swe_functional_check()
         raise ValueError(
-            "Unknown action. Valid: start_run | advance | run_hle_sample | run_data_parsing | ml_status."
+            "Unknown action. Valid: start_run | advance | run_hle_sample | run_data_parsing | ml_status | open_functional_gate | swe_functional_check."
         )
     except ValueError as ex:
         raise HTTPException(status_code=400, detail=str(ex))

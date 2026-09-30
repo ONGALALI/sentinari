@@ -28,6 +28,7 @@ import json
 import re
 import sqlite3
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -80,6 +81,9 @@ def _latest_run() -> dict[str, Any] | None:
 def get_state() -> dict[str, Any]:
     run = _latest_run()
     gate_open = bool(run and run.get("swe_gate_open"))
+    functional_open = False
+    with _connect() as conn:
+        functional_open = _get_flag(conn, "swe_gate_functional_open").startswith("owner_ordered")
     hle_score = float(run.get("hle_score")) if run and run.get("hle_score") is not None and run.get("hle_score") >= 0 else None
     return {
         "ok": True,
@@ -92,7 +96,8 @@ def get_state() -> dict[str, Any]:
         "hle_qualified": bool(hle_score is not None and hle_score >= QUALIFY_THRESHOLD),
         "swe_pro_gate": {
             "open": gate_open,
-            "rule": f"HLE >= {int(QUALIFY_THRESHOLD * 100)}% unlocks SWE-bench Pro",
+            "functional_open": functional_open,
+            "rule": f"HLE >= {int(QUALIFY_THRESHOLD * 100)}% unlocks SWE-bench Pro (functional check: owner override, §58)",
             "workbench_present": (ROOT / "assessments" / "swe-workbench").exists(),
             "dataset_zip_present": (ROOT / "assessments" / "swe-workbench" / "SWE-bench_Pro-os-main.zip").exists(),
         },
@@ -124,6 +129,120 @@ def advance(stage: str, status: str = "running", notes: str = "") -> dict[str, A
         )
         conn.commit()
     return get_state()
+
+
+def _flag(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pipeline_flags (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO pipeline_flags (key, value, updated_at) VALUES (?, ?, ?)"
+        " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        (key, value, _now()),
+    )
+
+
+def _get_flag(conn: sqlite3.Connection, key: str) -> str:
+    try:
+        row = conn.execute("SELECT value FROM pipeline_flags WHERE key = ?", (key,)).fetchone()
+        return str(row[0]) if row else ""
+    except sqlite3.OperationalError:
+        return ""
+
+
+def open_functional_gate(notes: str = "") -> dict[str, Any]:
+    """§58 OWNER OVERRIDE — explicitly authorized by the owner.
+
+    Opens the SWE-bench stage for a FUNCTIONAL CHECK (does the machinery
+    work?) WITHOUT an HLE score. This is honest bookkeeping: the flag
+    records that the owner opened the gate by name; the 65% qualification
+    bar remains unmet and still governs any real qualification claim.
+    """
+    run = _latest_run()
+    if not run:
+        start_run(notes="auto-created on functional gate open")
+        run = _latest_run()
+    with _connect() as conn:
+        _flag(conn, "swe_gate_functional_open", f"owner_ordered|{str(notes or '')[:300]}")
+        conn.execute(
+            "UPDATE pipeline_runs SET stage = 'swe_bench_pro', status = 'functional_check', updated_at = ?, notes = ? WHERE id = ?",
+            (_now(), str(notes or "")[:500], run["id"]),
+        )
+        conn.commit()
+    state = get_state()
+    state["functional_gate"] = {"open": True, "authorized_by": "owner (§58)", "notes": str(notes or "")[:300]}
+    return state
+
+
+def swe_functional_check() -> dict[str, Any]:
+    """Prove the SWE-bench stage machinery works — dataset loads, harness
+    present, one task instance parses. NO score is produced or claimed."""
+    run = _latest_run()
+    functional_open = False
+    with _connect() as conn:
+        functional_open = _get_flag(conn, "swe_gate_functional_open").startswith("owner_ordered")
+    checks: dict[str, Any] = {}
+    ok_all = True
+    try:
+        sys.path.insert(0, str(ROOT))
+        from assessments.swe_pro import load_swe_pro
+
+        t0 = time.time()
+        tasks = load_swe_pro()
+        checks["dataset"] = {"ok": len(tasks) > 0, "items": len(tasks), "load_seconds": round(time.time() - t0, 1)}
+        first = tasks[0] if tasks else None
+        if isinstance(first, dict):
+            checks["task_parse"] = {
+                "ok": bool(str(first.get("instance_id") or first.get("id") or "").strip()),
+                "instance_id": str(first.get("instance_id") or first.get("id") or "")[:80],
+            }
+        else:
+            checks["task_parse"] = {"ok": False, "detail": "unexpected task type"}
+    except Exception as ex:
+        ok_all = False
+        checks["dataset"] = {"ok": False, "error": str(ex)[:300]}
+    workbench = ROOT / "assessments" / "swe-workbench"
+    checks["workbench"] = {
+        "present": workbench.exists(),
+        "zip_present": (workbench / "SWE-bench_Pro-os-main.zip").exists(),
+        "note": "Execution grading (docker) waits for the rig; this check is data+plumbing only.",
+    }
+    ok_all = ok_all and checks["dataset"].get("ok", False) and checks["task_parse"].get("ok", False)
+    result = {
+        "ok": ok_all,
+        "functional_gate_open": functional_open,
+        "claim": "functional machinery check only — no benchmark score",
+        "checks": checks,
+    }
+    if ok_all:
+        advance("swe_bench_pro", status="functional_check_ok", notes="dataset+harness plumbing verified (no score)")
+    _persist_flag_report("swe_functional_check", result)
+    return result
+
+
+def _persist_flag_report(stage: str, report: dict[str, Any]) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stage_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stage TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                report_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO stage_reports (stage, created_at, report_json) VALUES (?, ?, ?)",
+            (stage, _now(), json.dumps(report)[:20000]),
+        )
+        conn.commit()
 
 
 def record_hle_run(correct: int, total: int, detail: list[dict] | None = None) -> dict[str, Any]:

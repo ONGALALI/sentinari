@@ -1343,3 +1343,19 @@ BOTH. Verified live in the databases, not from memory:
 **API:** `/api/assessment/run` gained `run_data_parsing` and `ml_status` actions; `ml_status` returns both stage reports + probe presence. Ladder state now reads `training_phase_1 / trained` end-to-end through the API.
 
 **State at close:** §57 pending commit. Stack up on 8099; first two ladder stages functional at five mph; HLE still awaits owner's HF license acceptance; stages 4–5 wait on the rig. Lesson recorded: the fastest path to "functional" was finding the training material already inside the walls — no downloads, no new data, just honest use of what she already owns.
+
+## §58 — OWNER ASKS DELIVERED: PROGRESS BARS, LEARNING PRIORITIES, FUNCTIONAL GATE PAST HLE, ENGINE-OFF LEARNING BUG FIXED — 2026-09-30
+
+**Owner asks:** per-field % learned progress bars; open the pipeline past HLE as a functional check; learning priority 1) AI & Information Science 2) Physics 3) Engineering, rest any order; full VRAM/CPU to Sentinari. Owner also asked how learning persists — answer recorded: everything lives in SQLite (learning_assessments rows in the main DB; domain probe weights in data/ml/domain_probe.pt); nothing is written into chat-model code; the Learning worker is active while the server runs and the toggle is on, pausing safely on shutdown, resuming on relaunch.
+
+**Hardware reality (Cyborg 15 A1V):** no MUX — display is wired through the Intel iGPU, so the 4050's 6 GB is already effectively Sentinari's during torch runs; nothing competes on VRAM except desktop composition (dwm ~147 MB). Resource audit: RAM top consumers are Freebuff (~430 MB total), chrome, WhatsApp, endpoint protection — all owner-side; VRAM shows only ~350 MB dedicated in use at idle. Windows/Power plan tuning left to the owner; the ML runner already hogs CUDA exclusively when it runs.
+
+**Learning priority (owner-set, §58):** `LEARNING_PRIORITY_FIELDS` in learning_index.py — computer-and-information-sciences + information-science (P1), physics (P2), engineering (P3); `_candidate_documents` now sorts pending exams by (priority band, newest-first) in both the recent window and the deep sweep. Live status proves the ordering (P0: AI/InfoSci 28.3% examined, P2 physics, P3 engineering next). `learning_status` gained priority_rank per field + a priority_note.
+
+**Progress bars:** Learning workspace now renders every scientific field as a labelled bar (color-graded red/amber/green by coverage) with assessed/total counts and P1/P2/P3 badges — replacing the old top-10 text list.
+
+**Functional gate past HLE (owner override, honest):** `open_functional_gate` records an owner-authorized flag (`swe_gate_functional_open`) and moves the ladder to `swe_bench_pro / functional_check` WITHOUT faking an HLE score — the 65% bar still governs any qualification claim. `swe_functional_check` proves the machinery: **dataset 642 tasks loads in 2.4s, first task parses (NodeBB instance), workbench + zip present — ok:true, "functional machinery check only — no benchmark score".** Execution grading (docker) still waits for the rig.
+
+**Bug found by the owner's question (engine-off learning):** with the chat engine dark, the Learning worker's failure path was marking unassessable documents `skipped` — silently consuming library documents without exams. Fixed: the worker now idles unless `gateway.describe().available` is true; 'skipped' is only written for genuinely unloadable material after a real exam attempt. Before the fix the 10s tick could have burned through the recent window; after it, progress is exam-genuine only.
+
+**State at close:** §58 pending commit. Stack up on 8099. Learning worker idle-until-engine (correct); priority queue armed for the moment an engine exists (rig day, or any local engine). Lesson recorded: when the owner asks "where does learning live", audit the failure path too — the honest answer exposed a silent document-consumer.

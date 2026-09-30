@@ -41,6 +41,10 @@ from .llm_gateway import LLMGatewayError, get_gateway
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
 # Gentle-by-design pacing: one document per tick, tick every 10s (~6 exams/min).
+# §58 engine-off guard: when the LLM gateway is dark, the worker must IDLE —
+# the old failure path marked documents 'skipped' (consuming them without
+# exams). A skipped document is only legitimate when the exam itself ran and
+# the material was unloadable — never when the engine is simply offline.
 POLL_INTERVAL_SECONDS = 10.0
 CHUNKS_PROBED = 3
 MAX_CHARS_PER_CHUNK = 3500
@@ -50,6 +54,17 @@ LLM_MAX_TOKENS = 600
 # Documents are scanned newest-first; this window keeps each tick cheap while
 # the index sweeps the whole library over time.
 RECENT_WINDOW = 400
+
+# §58 — Owner-set learning priority (1 = examined first, rest follow in any
+# order). Exact-name first, then prefix match, so 'computer-and-information-'
+# hits 'computer-and-information-sciences'. Applied in _candidate_documents.
+LEARNING_PRIORITY_FIELDS: tuple[str, ...] = (
+    "computer-and-information-sciences",  # 1) AI and Information Science
+    "information-science",
+    "artificial-intelligence",
+    "physics",                             # 2) Physics
+    "engineering",                         # 3) Engineering
+)
 
 EXAM_SYSTEM_PROMPT = """You are Sentinel. You are being examined on knowledge you have ingested. \
 Write ONE exam question grounded ONLY in the provided text, then answer it from your own understanding. \
@@ -342,17 +357,34 @@ def _persist(record: dict[str, Any]) -> None:
     _db_write_retry(_write)
 
 
+def _priority_rank(scientific_field: str) -> int:
+    """0 = highest priority (examined first); large = unprioritised rest."""
+    key = _norm_field(scientific_field)
+    for i, p in enumerate(LEARNING_PRIORITY_FIELDS):
+        if key == _norm_field(p):
+            return i
+    for i, p in enumerate(LEARNING_PRIORITY_FIELDS):
+        if key.startswith(_norm_field(p)):
+            return i
+    return len(LEARNING_PRIORITY_FIELDS)
+
+
 def _candidate_documents() -> list[int]:
-    """Unassessed library documents, newest first. The recent window is
-    checked first (cheap); when it is exhausted, the sweep continues into
-    the rest of the library — the 10s exam pacing is the real throttle."""
+    """Unassessed library documents, newest first — but ordered by the
+    owner's learning priority first (§58): priority-1 fields are examined
+    before priority-2, before priority-3, before everything else.
+    The recent window is checked first (cheap); when it is exhausted, the
+    sweep continues into the rest of the library — the 10s exam pacing is
+    the real throttle."""
     with library_connection("gemma") as conn:
         rows = conn.execute(
-            "SELECT id FROM documents ORDER BY id DESC LIMIT ?", (RECENT_WINDOW,)
+            "SELECT id, IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f"
+            " FROM documents ORDER BY id DESC LIMIT ?", (RECENT_WINDOW,)
         ).fetchall()
-    library_ids = [int(r["id"]) for r in rows]
-    if not library_ids:
+    entries = [(int(r["id"]), str(r["f"])) for r in rows]
+    if not entries:
         return []
+    library_ids = [doc_id for doc_id, _ in entries]
     placeholders = ",".join("?" for _ in library_ids)
     with get_connection() as conn:
         assessed = {
@@ -362,18 +394,22 @@ def _candidate_documents() -> list[int]:
                 library_ids,
             ).fetchall()
         }
-    pending = [i for i in library_ids if i not in assessed]
+    pending = [(doc_id, field) for doc_id, field in entries if doc_id not in assessed]
     if pending:
-        return pending
-    # Recent window fully assessed — continue the sweep deeper, newest first,
-    # so the whole library is eventually examined (gently, one per tick).
+        pending.sort(key=lambda item: (_priority_rank(item[1]), -item[0]))
+        return [doc_id for doc_id, _ in pending]
+    # Recent window fully assessed — continue the sweep deeper, priority
+    # first, newest first within each band, so the whole library is
+    # eventually examined (gently, one per tick).
     with library_connection("gemma") as conn:
         all_rows = conn.execute(
-            "SELECT id FROM documents ORDER BY id DESC"
+            "SELECT id, IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f"
+            " FROM documents ORDER BY id DESC"
         ).fetchall()
-    all_ids = [int(r["id"]) for r in all_rows]
-    if not all_ids:
+    all_entries = [(int(r["id"]), str(r["f"])) for r in all_rows]
+    if not all_entries:
         return []
+    all_ids = [doc_id for doc_id, _ in all_entries]
     placeholders = ",".join("?" for _ in all_ids)
     with get_connection() as conn:
         assessed_all = {
@@ -383,7 +419,9 @@ def _candidate_documents() -> list[int]:
                 all_ids,
             ).fetchall()
         }
-    return [i for i in all_ids if i not in assessed_all]
+    pending_all = [(doc_id, field) for doc_id, field in all_entries if doc_id not in assessed_all]
+    pending_all.sort(key=lambda item: (_priority_rank(item[1]), -item[0]))
+    return [doc_id for doc_id, _ in pending_all]
 
 
 def probe_next() -> dict[str, Any] | None:
@@ -468,6 +506,15 @@ def learning_status() -> dict[str, Any]:
                 "percent": round(100.0 * assessed / total, 1) if total else 0.0,
             }
         )
+    for f in fields:
+        f["priority_rank"] = _priority_rank(f["field"])
+    fields.sort(key=lambda f: (f["priority_rank"], -f["total"]))
+    priority_fields = {
+        0: "1 — AI and Information Science",
+        1: "1 — AI and Information Science",
+        2: "2 — Physics",
+        3: "3 — Engineering",
+    }
     return {
         "ok": True,
         "enabled": learning_enabled(),
@@ -476,6 +523,8 @@ def learning_status() -> dict[str, Any]:
         "assessed": total_assessed,
         "percent": round(100.0 * total_assessed / total_docs, 1) if total_docs else 0.0,
         "fields": fields,
+        "priority_order": [priority_fields.get(i, f"rest") for i in range(len(LEARNING_PRIORITY_FIELDS))] or [],
+        "priority_note": "Examination order: 1) AI and Information Science, 2) Physics, 3) Engineering — the rest follow in any order (§58).",
         "latest": [dict(r) for r in latest],
     }
 
@@ -499,8 +548,16 @@ class LearningWorker:
     def _loop(self) -> None:
         while not self._stop.wait(POLL_INTERVAL_SECONDS):
             try:
-                if learning_enabled():
-                    probe_next()
+                if not learning_enabled():
+                    continue
+                # §58: engine dark → idle, never consume documents as 'skipped'.
+                try:
+                    gateway_ready = bool(get_gateway().describe().get("available"))
+                except Exception:
+                    gateway_ready = False
+                if not gateway_ready:
+                    continue
+                probe_next()
             except Exception:
                 # A background index must never take the app down.
                 time.sleep(POLL_INTERVAL_SECONDS)
