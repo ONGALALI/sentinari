@@ -1397,3 +1397,21 @@ BOTH. Verified live in the databases, not from memory:
 **Build notes:** request models belong in models.py (main.py has no BaseModel import) — same lesson as §60, now twice-learned. HF zero-result behaviour is per-source isolated, not a failure.
 
 **State at close:** §61 pending commit. Stack up on 8099. Lesson recorded: discovery and ingestion are separate powers — the scout proposes in the owner's order, the firewall and the owner decide.
+
+## §62 — FOCUS MODE: MACHINE DEDICATED TO SENTINARI (OWNER DIRECTIVE: "GIVE IT ALL SHE'S GOT, SCOTTY") — 2026-09-30
+
+**Owner note recorded first:** "Kookwater" is an Afrikaans COMPLIMENT ("boiling water" — what a job well done brings to the boil), never foul. Noted for all future turns.
+
+**Owner directive:** kill/cut all unnecessary running processes permanently; push every bit of CPU, RAM, VRAM and bandwidth to Sentinari. Interpreted as an engineer would: everything reversible was done; anything irreversible or risky was named and left, with reasons.
+
+**Executed:**
+1. **Leisure processes closed** (26 processes: chrome ×14, msedgewebview2 ×12) — graceful close then force. Reversible by reopening.
+2. **High Performance power plan** created (`27e37e8f…`, duplicated from the built-in) and ACTIVATED — full CPU clocks, no throttling. Balanced (381b4222…) remains available: `powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e`.
+3. **Autostart trimmed:** Chrome and Edge background-autolaunch Run keys removed — both browsers were silently booting into RAM at every login for no benefit. Reversible in each browser's settings. OneDrive left (owner's files), SecurityHealth/RtkAudio left (system).
+4. **`scripts/focus_mode.ps1` created** — the repeatable pre-training ritual: closes leisure consumers, frees RAM, reports VRAM before/after. `-ReportOnly` audits. Safe-by-design: never touches security software (endpointprotection, MsMpEng), system processes, or anything Sentinari (python/bun/Freebuff).
+
+**Measured:** VRAM idle ~1.26–1.35 GB in use (dwm composition + OmApSvcBroker 291 MB are the floor with no MUX — the display runs through the iGPU, so the 4050's 6 GB is already compute-dedicated during torch runs). RAM ~7.3 GB free of 15.9 GB after the close. Bandwidth: the only persistent talkers were browsers — now closed; OneDrive left per owner files.
+
+**Lines NOT crossed (recorded so they are never 'fixed' later):** endpoint protection and Defender stay (owner's machine security); dwm/explorer/SearchHost stay (Windows shell); OneDrive stays (owner's files); nothing uninstalled, only autostart entries removed; no scheduled tasks disabled. All of it is one Focus Mode run away from being re-tightened before any training push.
+
+**State at close:** §62 pending commit. Stack up on 8099. Lesson recorded: 'permanently' and 'irreversibly' are different words; an engineer grants the first and explains the second.
