@@ -1327,3 +1327,19 @@ BOTH. Verified live in the databases, not from memory:
 **Rig news:** the RTX 5070 Ti build slips to **Monday** — the only in-stock GPU in the city got mismatched to the owner's machine, replacement ships from Cape Town. Sentinari's dark-core status continues until then; HLE gate, SWE-bench Pro, and the conversion venv all wait on the rig per plan. Contingency unaffected: everything on this laptop keeps running exactly as-is.
 
 **State at close:** §56 pending commit. System state: IPv6 restored, TAP adapter still disabled (from §54, kept), shortcuts live (§53), stack up on 8099. Lesson recorded: run elimination experiments with paired scripts and record the before/after — a dead hypothesis is progress.
+
+## §57 — ML LADDER MADE REAL: STAGES 1+2 EXECUTE, DOMAIN PROBE TRAINED ON THE 4050 AT 97.7% — 2026-09-30
+
+**Owner directive:** "Can we try and get the machine learning pipeline functional, even if we go 5 miles per hour?" (machine's days numbered; rig Monday). Before this entry, ladder stages 1–2 were bookkeeping only — `advance()` moved them but nothing executed.
+
+**Discovered training material (was there all along):** `sentinari.db` carries 445,279 chunks with real 768-d embeddings (65.6% of 678k) and 13,220 labelled documents across the five domains. That is a genuine supervised dataset — the raw material for real local training without the chat engine.
+
+**Stage 1 — Data Parsing (executes now):** `app/ml_pipeline.run_data_parsing()` audits the library (docs/chunks/embedded ratio/per-domain coverage/FTS integrity), persists a full report into `stage_reports` in the ladder DB, and advances the ladder honestly ("parsed" only if chunks + embeddings + FTS all pass). Live result: docs=13,239, chunks=678,443, embedded=445,279 (65.6%), 34 scientific fields, FTS alive — verdict pass. Also surfaced an honest gap: 233k chunks unembedded (the §45 re-embed deferral) and the autonomous-coding-agent-training domain (104k chunks, 0 embedded).
+
+**Stage 2 — Training Phase 1 (executes now, on the GPU):** the **Sentinari Domain Probe** — MLP 768→256→64→5 trained on REAL stored embeddings to predict document domain. Runs via `scripts/run_training_phase1.py` under `.venv-ml` (torch 2.11.0+cu128, CUDA on the RTX 4050) so heavy work never blocks the API server. Memory-safe batched tensor loading (no list-of-lists blow-up), fixed seed 47, AdamW, 12 epochs, 32,400 train / 3,600 val real chunks. **Honest result: loss 0.615→0.042, val accuracy 97.7%, 99 seconds on the 4050.** Artifact `data/ml/domain_probe.pt` + full metadata JSON. The probe is a progress instrument (like the local HLE grader) — it proves the training loop/data plumbing/GPU path and sets a baseline that improves as coverage grows; it is NOT the qualification benchmark, and the ladder says so.
+
+**Honest failure paths:** stage 2 under the app venv returns ok:false torch_unavailable (never fakes); blocked states recorded on the ladder; `pip install pyyaml` added to `.venv-ml` (app package import needs it outside the server).
+
+**API:** `/api/assessment/run` gained `run_data_parsing` and `ml_status` actions; `ml_status` returns both stage reports + probe presence. Ladder state now reads `training_phase_1 / trained` end-to-end through the API.
+
+**State at close:** §57 pending commit. Stack up on 8099; first two ladder stages functional at five mph; HLE still awaits owner's HF license acceptance; stages 4–5 wait on the rig. Lesson recorded: the fastest path to "functional" was finding the training material already inside the walls — no downloads, no new data, just honest use of what she already owns.

@@ -2937,8 +2937,20 @@ def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
             return assessment_pipeline.advance(payload.stage, notes=payload.notes)
         if payload.action == "run_hle_sample":
             return assessment_pipeline.run_hle_sample(sample_size=payload.sample_size)
+        if payload.action == "run_data_parsing":
+            from . import ml_pipeline
+            return ml_pipeline.run_data_parsing()
+        if payload.action == "ml_status":
+            from . import ml_pipeline
+            return {
+                "ok": True,
+                "data_parsing": ml_pipeline.last_stage_report("data_parsing"),
+                "training_phase_1": ml_pipeline.last_stage_report("training_phase_1"),
+                "probe_present": (ml_pipeline.PROBE_PATH).exists(),
+                "runner": "scripts/run_training_phase1.py under .venv-ml (stage 2 stays off the API server)",
+            }
         raise ValueError(
-            "Unknown action. Valid: start_run | advance | run_hle_sample."
+            "Unknown action. Valid: start_run | advance | run_hle_sample | run_data_parsing | ml_status."
         )
     except ValueError as ex:
         raise HTTPException(status_code=400, detail=str(ex))
