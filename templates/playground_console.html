@@ -489,6 +489,8 @@
     .rubricBadge.rbGood { background: #e2f3ea; color: #1d5c34; border-color: #b8ddc6; }
     .rubricBadge.rbMid { background: #fdf1dc; color: #7a5200; border-color: #eeddb0; }
     .rubricBadge.rbLow { background: #fbe4e4; color: #7a1f1f; border-color: #eec3c3; }
+    .bloomTag { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px; margin-left: 4px; background: #eef1f6; color: #55606e; border: 1px solid #d9dfe8; }
+    .bloomTag.bFocus { background: #efe7fb; color: #4b2a86; border-color: #d7c4f2; }
 
     /* §63: Scientific Dataset Discovery & Review — weak spots, scout row, candidate rows. */
     .weakChip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: #f2f6fc; border: 1px solid #d5e2f2; color: #1c3d5f; cursor: pointer; }
@@ -562,6 +564,12 @@
             <input id="dsScoutQuery" placeholder="Or type a topic she should know — e.g. transformer interpretability">
             <button id="dsScoutBtn">Search sources</button>
           </div>
+          <div class="hint" style="margin-top:6px;"><strong>Cognitive lens (Bloom)</strong> — enriches the search with the level's verbs and tags every candidate with the levels it reaches for. Focus: <strong>Evaluate · Create</strong> (NQF 10 = Create):</div>
+          <select id="dsLens" style="margin-top:4px; max-width:340px;">
+            <option value="">— no lens —</option>
+            <option value="create">Create — invent · design · synthesize · hypothesize</option>
+            <option value="evaluate">Evaluate — critique · judge · justify · validate</option>
+          </select>
           <div id="dsScoutStatus" class="hint" style="margin-top:6px;"></div>
           <div id="dsScoutResults" style="margin-top:6px;"></div>
           <div class="hint" style="margin-top:8px;"><span id="dsBlockCount"></span> <a href="#" id="dsBlocksLink" style="display:none;">View blocked sources</a></div>
@@ -3983,6 +3991,7 @@
     const runDashboardScout = async (opts = {}) => {
       const btn = byId('dsScoutBtn');
       const q = String(byId('dsScoutQuery').value || '').trim();
+      const lens = String(byId('dsLens') ? byId('dsLens').value : '').trim();
       if (!q) { byId('dsScoutStatus').textContent = 'Type a topic to search for — or click a weak spot above.'; return; }
       if (!opts.silent) {
         btn.disabled = true;
@@ -3990,7 +3999,7 @@
       }
       byId('dsScoutResults').innerHTML = '';
       try {
-        const res = await fetch('/api/datasets/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, limit_per_source: 6 }) });
+        const res = await fetch('/api/datasets/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, limit_per_source: 6, lens }) });
         const d = await res.json();
         if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Scout failed.');
         const blockNote = Number(d.blocked_count || 0) ? ` (${d.blocked_count} hidden by your blocklist)` : (Number(d.blocks_active || 0) ? ' (blocklist active — nothing blocked this time)' : '');
@@ -4011,8 +4020,12 @@
           const blockBtn = origin
             ? ` <button type="button" class="ghost dsBlockBtn" data-origin="${escapeHtml(origin)}" data-source="${escapeHtml(c.source || '')}" title="Block this origin everywhere — once blocked, always blocked">⌀ Block ${escapeHtml(origin)}</button>`
             : '';
+          const bloom = (c.bloom_levels || []);
+          const bloomTags = bloom.length
+            ? bloom.map((lv) => `<span class="bloomTag ${lv === 'evaluate' || lv === 'create' ? 'bFocus' : ''}">${lv === 'evaluate' ? 'EVAL' : lv === 'create' ? 'CREATE' : lv.slice(0, 4).toUpperCase()}</span>`).join('')
+            : '';
           return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
-            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>${badge}${assessBtn}${blockBtn}` +
+            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>${badge}${bloomTags}${assessBtn}${blockBtn}` +
             `<div class="liMeta">${escapeHtml(c.detail || '')}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</div></div>`;
         }).join('') || '<div class="hint">No candidates found for that query.</div>';
         byId('dsScoutResults').querySelectorAll('.dsBlockBtn').forEach((b) => {

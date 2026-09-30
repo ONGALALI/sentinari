@@ -153,18 +153,27 @@ def discover(
     limit_per_source: int = 8,
     sources: list[str] | None = None,
     bypass_blocks: bool = False,
+    lens: str | None = None,
 ) -> dict[str, Any]:
     """Search candidate sources in owner priority order; proposals only.
 
     §64: sources on the owner blocklist are filtered out BEFORE the response
     is built — blocked items never reach the review surface. bypass_blocks
     (owner-only audit) skips the filter but reports that it was bypassed.
+    §67: an optional Bloom cognitive lens enriches the query with focus-level
+    verbs (Evaluate/Create doctrine), and every candidate is auto-tagged
+    with the Bloom levels its text demonstrates.
     """
     q = str(query or "").strip()
     if not q:
         return {"ok": False, "error": "query is required"}
     wanted = [s.strip().lower() for s in (sources or [s["id"] for s in SOURCE_PRIORITY])]
     ordered = [s for s in SOURCE_PRIORITY if s["id"] in wanted]
+
+    from . import cognitive_taxonomy
+
+    lens_clean = str(lens or "").strip().lower() or None
+    q_search = cognitive_taxonomy.enrich_query(q, lens_clean) if lens_clean else q
 
     blocked_origins, hf_exact = _load_blocks()
 
@@ -174,7 +183,7 @@ def discover(
     blocked_total = 0
     for source in ordered:
         fn = _SOURCES.get(source["id"])
-        outcome = fn(q, max(1, min(25, int(limit_per_source)))) if fn else {"ok": False, "error": "unknown source", "items": []}
+        outcome = fn(q_search, max(1, min(25, int(limit_per_source)))) if fn else {"ok": False, "error": "unknown source", "items": []}
         kept: list[dict[str, Any]] = []
         dropped = 0
         for item in outcome.get("items", []):
@@ -183,6 +192,9 @@ def discover(
                 dropped += 1
                 if not bypass_blocks:
                     continue  # §64: hidden from the review surface unless owner audits
+            det = cognitive_taxonomy.detect_levels(f"{item.get('title', '')} {item.get('detail', '')}")
+            item["bloom_levels"] = det["levels"]
+            item["bloom_focus_hits"] = det["focus_hits"]
             kept.append(item)
         results.append({
             "rank": source["rank"],
@@ -199,7 +211,7 @@ def discover(
         total += len(kept)
         blocked_total += dropped
 
-    return {
+    response: dict[str, Any] = {
         "ok": total > 0,
         "query": q,
         "priority_note": " → ".join(s["label"] for s in ordered),
@@ -212,6 +224,14 @@ def discover(
         "blocks_active": len(blocked_origins) + len(hf_exact),
         "blocks_bypassed": bool(bypass_blocks),
     }
+    if lens_clean:
+        response["lens"] = lens_clean
+        response["lens_query"] = q_search
+    return response
+    if lens_clean:
+        response["lens"] = lens_clean
+        response["lens_query"] = q_search
+    return response
 
 
 # ---------------------------------------------------------------------------

@@ -3037,6 +3037,7 @@ def api_datasets_discover(
         limit_per_source=payload.limit_per_source,
         sources=payload.sources or None,
         bypass_blocks=bool(payload.bypass_blocks),
+        lens=payload.lens or None,
     )
     if not result.get("ok") and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
@@ -3151,6 +3152,14 @@ def api_sources_assess_delete(
     if not result.get("ok") or not result.get("removed"):
         raise HTTPException(status_code=404, detail="no such assessment")
     return result
+
+
+@app.get("/api/taxonomy/bloom")
+def api_taxonomy_bloom() -> dict[str, Any]:
+    """67: Bloom's cognitive domain as tag families (owner focus: Evaluate, Create)."""
+    from . import cognitive_taxonomy
+
+    return cognitive_taxonomy.get_taxonomy()
 
 
 @app.get("/api/victus/status")

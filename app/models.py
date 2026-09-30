@@ -146,6 +146,7 @@ class ScoutRequest(BaseModel):
     limit_per_source: int = Field(default=8, ge=1, le=25)
     sources: list[str] = Field(default_factory=list)
     bypass_blocks: bool = False  # §64: owner-only audit view — show blocklist-hidden candidates
+    lens: str = Field(default="", max_length=20)  # §67: Bloom cognitive lens (focus: evaluate/create)
 
 
 class ScoutBlockRequest(BaseModel):
