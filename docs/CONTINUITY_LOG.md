@@ -1291,3 +1291,15 @@ BOTH. Verified live in the databases, not from memory:
 **Fix (verified):** proper `.lnk` shortcuts created via WScript.Shell to `Freebuff.exe` (icon, working directory, description) in both the Desktop and `%APPDATA%\Microsoft\Windows\Start Menu\Programs`. Both verified True. The re-install cycle is over — one icon, always.
 
 **State at close:** §53 pending commit. Stack relaunched after the Freebuff restart (8099 healthy, / → /ui/start 307). No Sentinari code touched; this entry records environment work so the pattern is never re-diagnosed. Lesson recorded: Electron Squirrel-style installers can skip shortcut creation on updates — check `%LOCALAPPDATA%\Programs\<app>` + the uninstall registry before believing "it's not installed".
+
+## §54 — FREEBUFF "LIMITED ACCESS / VERIFY COUNTRY" INVESTIGATED — OWNER'S NETWORK IS CLEAN — 2026-09-30
+
+**Owner report:** Freebuff shows "limited access, verify country"; no VPN running; verification won't complete.
+
+**Evidence gathered (all clean):** public IPv4 102.32.94.58 geolocates to Johannesburg, Gauteng, ZA (Metro Fibre Networx); IPv6 path also reports ZA. No VPN connections configured, no proxy anywhere (WinINET off, WinHTTP direct, no env vars, no PAC). Windows region en-ZA, timezone Africa/Johannesburg. Freebuff's own backend (freebuff.com, Cloudflare) reachable.
+
+**One genuine find:** a leftover "Phantom TAP-Windows Adapter V9" virtual adapter (Disconnected). VPN-detection heuristics commonly flag ANY TAP adapter as a VPN regardless of state. Disabled with owner approval (verified Disconnected → Disabled); real adapters untouched.
+
+**The policy reality (researched):** Freebuff's docs state full access is limited to ~25 supported regions (US/Canada/UK/EU + select others); "other regions and VPN users receive limited access" — and there is an open GitHub feature request from a South African user asking for SA full access. So "limited access" for ZA may be published policy, not a fault on this box. Paid plans unlock full models regardless of region (e.g. GPT-6.1 Sol "US, or paid plans elsewhere"), so if the owner's paid account is signed in, the tier should follow the account.
+
+**Resolution path:** restart Freebuff fully (tray quit) after the TAP disable; confirm the signed-in account shows the subscription; if the badge still reads limited on a paid account, escalate to Freebuff support/Discord with this evidence pack (ZA geo ×2 stacks, zero proxy/VPN config, TAP disabled). No Sentinari code touched.
