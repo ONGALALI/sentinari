@@ -1551,3 +1551,13 @@ BOTH. Verified live in the databases, not from memory:
 **Status at logging:** all six small files DOWN; `model.safetensors` (HEAD-declared 22.28 GB — full fp16 including vision tower) flowing at ~2.4 MB/s, ETA ~2.5 h. Resume-safe: re-running the script skips complete files and continues the big one from existing bytes. BACKGROUND process_type is not implemented in this Freebuff build — detached Start-Process with log files is the working pattern.
 
 **State at close:** §71a pending commit (fetch tooling). Download running detached; loader proven; next session verifies size + runs the loader's weight-index report against the real artifact.
+
+## §71b — EYES ON THE DOWNLOAD: STATUS VIEWER (OWNER VISIBILITY) — 2026-09-30
+
+**Owner report:** "I have no eyes/visibility on the download to confirm its progress or where it takes place."
+
+**Answered first with facts:** the detached fetcher SURVIVED the app close (file timestamped after exit; growth sampled: +16.8 MB/12s at check time). Where it lives: `engine\custom_engine_weights\` (gitignored), logged to `engine\fetch_weights.log` / `.err.log`. At first viewing: 3.4-3.5 GiB of 20.75 GiB (16.6-16.9%), ~1.2-1.3 MB/s live, ETA ~4 h.
+
+**Built:** `engine/download_status.ps1` + double-click wrapper `download_status.bat` — lists every file with size, big-file progress vs the HEAD-declared total, a 5-second live growth sample (RATE line says LIVE vs fetcher-paused-or-dead), ETA, and the standing fix instruction (re-run fetch_weights.ps1 — it resumes from current bytes). Locale-hardened: invariant-culture dot decimals (owner's locale rendered comma decimals) and honest GiB labelling (the 22.28 decimal-GB total = 20.75 GiB).
+
+**State at close:** §71b pending commit. Download LIVE (detached, survives app closes); viewer committed; next session: verify completion, run the loader weight-index report.
