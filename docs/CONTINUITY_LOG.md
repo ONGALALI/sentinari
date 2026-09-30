@@ -1603,3 +1603,13 @@ BOTH. Verified live in the databases, not from memory:
 **Unchanged:** §73 rules (nothing live on SMR; V: never the only instance of anything irreplaceable; ritual verifies counts+bytes; C: interim target already proven). Wireless remains a future option for an OFF-SITE COLD COPY only, if the owner ever wants disaster-grade separation.
 
 **State at close:** §73a pending commit. Weights download LIVE (~30%+). Storage architecture final pending hardware arrival.
+
+## §73b — THE AIRLOCK: ALWAYS-DOCKED, LOGICALLY OFFLINE (RANSOMWARE-GRADE BACKUP DESIGN) — 2026-09-30
+
+**Owner's security instinct:** an always-connected backup "can become a target for hacking too if my machine is targeted." Correct and professional: ransomware hunts backups FIRST — an always-mounted vault dies together with the working store, so the recovery path must not live in the same blast radius.
+
+**Design adopted — docked physically, OFFLINE logically (the airlock):** (1) the vault drive never leaves the port — mating-cycle wear stays solved; (2) Windows Set-Disk -IsOffline makes the disk logically nonexistent (no letter, no volume, invisible to every process) for ~23h45m a day; (3) the nightly ritual becomes an airlock cycle: ONLINE → backup → verify (counts+bytes) → prune → OFFLINE again, exposure ~15 min/night unattended; (4) BitLocker on V: covers physical theft (vault is ciphertext without the key); (5) one of the five spare SSDs becomes the WEEKLY OFFLINE ROTATION — newest backup copied, drive unplugged into the drawer: true air gap. Together with D: this is proper 3-2-1: live (D:) + airlocked vault (V:) + drawer (SSD).
+
+**Built:** backup_sentinari.ps1 extended with -VaultDiskNumber: brings the designated disk online, backs up, verifies, takes it OFFLINE again (confirmation printed). HARD GUARDS by design: refuses to ever airlock the disk hosting the live library or the system disk — only the dedicated vault disk number may be used, and a missing vault disk aborts (safer to do nothing). Default path (no vault attached) unchanged and re-verified live: third backup taken, VERIFY PASSED (26,651 files / 18.35 GiB), retention at 3 of 3. PowerShell syntax validated via Parser.ParseFile after the usual bash-ate-inline-vars detour.
+
+**State at close:** §73b pending commit. Backup architecture: live (D:) + airlocked vault (V:, on arrival) + offline drawer rotation (spare SSD) — 3-2-1 complete. Weights download LIVE.
