@@ -357,6 +357,14 @@ def _persist(record: dict[str, Any]) -> None:
     _db_write_retry(_write)
 
 
+def _is_held_out(scientific_field: str) -> bool:
+    """§59 owner rule: documents without a scientific field are NOT learning
+    material. The owner manually approves datasets and by default does not
+    approve untitled/unclassified ones. They stay searchable in the library,
+    but are never examined and never counted toward % learned."""
+    return _norm_field(scientific_field) == "unclassified"
+
+
 def _priority_rank(scientific_field: str) -> int:
     """0 = highest priority (examined first); large = unprioritised rest."""
     key = _norm_field(scientific_field)
@@ -382,6 +390,7 @@ def _candidate_documents() -> list[int]:
             " FROM documents ORDER BY id DESC LIMIT ?", (RECENT_WINDOW,)
         ).fetchall()
     entries = [(int(r["id"]), str(r["f"])) for r in rows]
+    entries = [(doc_id, f) for doc_id, f in entries if not _is_held_out(f)]
     if not entries:
         return []
     library_ids = [doc_id for doc_id, _ in entries]
@@ -407,6 +416,7 @@ def _candidate_documents() -> list[int]:
             " FROM documents ORDER BY id DESC"
         ).fetchall()
     all_entries = [(int(r["id"]), str(r["f"])) for r in all_rows]
+    all_entries = [(doc_id, f) for doc_id, f in all_entries if not _is_held_out(f)]
     if not all_entries:
         return []
     all_ids = [doc_id for doc_id, _ in all_entries]
@@ -469,6 +479,8 @@ def _field_totals() -> dict[str, int]:
         totals: dict[str, int] = {}
         for r in rows:
             key = _norm_field(r["f"])
+            if key == "unclassified":
+                continue  # §59 held out from learning accounting
             totals[key] = totals.get(key, 0) + int(r["n"])
         return totals
     except Exception:

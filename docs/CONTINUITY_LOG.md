@@ -1359,3 +1359,15 @@ BOTH. Verified live in the databases, not from memory:
 **Bug found by the owner's question (engine-off learning):** with the chat engine dark, the Learning worker's failure path was marking unassessable documents `skipped` — silently consuming library documents without exams. Fixed: the worker now idles unless `gateway.describe().available` is true; 'skipped' is only written for genuinely unloadable material after a real exam attempt. Before the fix the 10s tick could have burned through the recent window; after it, progress is exam-genuine only.
 
 **State at close:** §58 pending commit. Stack up on 8099. Learning worker idle-until-engine (correct); priority queue armed for the moment an engine exists (rig day, or any local engine). Lesson recorded: when the owner asks "where does learning live", audit the failure path too — the honest answer exposed a silent document-consumer.
+
+## §59 — UNCLASSIFIED DOCS AUDITED: GATEWAY INNOCENT, 19 SIDE-DOOR ENTRIES HELD OUT OF LEARNING PER OWNER RULE — 2026-09-30
+
+**Owner question:** the Learning Index shows an "unclassified" field — either the gateway filter is ineffective or datasets must be named; the owner manually approves datasets and by default does NOT approve untitled ones.
+
+**Audit verdict: the gateway/domain filter is NOT leaking.** Of 13,239 documents only **19 (0.14%)** lack a scientific field, and all 19 entered through side doors that never attach one: **11× `instructions_2026-09-XX`** (daily operational notes auto-ingested from the taxonomy log folder — system paperwork, not science) and **8× owner chat uploads** (Quantum Doctrine ×4, Organisation Design ×4, the qualia docx — ingested from chat sessions without a field). The two Quantum Doctrine PDFs also sit as pre-rebrand duplicates in the SMI_Core tree. 1,865 chunks belong to these docs; one already has a learning row.
+
+**Fix (owner rule encoded):** documents with no scientific field are now HELD OUT of learning — `_is_held_out()` excludes them from the exam picker (both sweep windows) and from per-field/overall accounting in `_field_totals`. They remain fully searchable in the library (that is what they are for) but can never inflate or dilute % learned. Verified live: total dropped 13,239 → 13,220 (exactly 19), no 'unclassified' field rendered, overall 22.4% → 22.5% (denominator corrected), priority order intact, Learning still enabled.
+
+**Path for the 19 (owner decides later):** label them via admin/ingestion with a proper scientific field to enroll them, or leave them as searchable reference. The Quantum Doctrine / Organisation Design documents are owner-authored strategic material — likely worth a domain of their own one day, not science fields.
+
+**State at close:** §59 pending commit. Stack up on 8099. Lesson recorded: an 'unclassified' bucket in any index is either a filter leak or an intake path without metadata — audit the provenance before blaming the filter; here the front door was clean, two side doors were unlabeled.
