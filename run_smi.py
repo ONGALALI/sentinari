@@ -1,4 +1,4 @@
-"""SMI_Core launcher.
+"""Sentinari core launcher (entrypoint name kept for data-coupled tooling).
 
 USAGE:
 
@@ -9,9 +9,8 @@ which launches uvicorn app.main:app on 127.0.0.1:8099.
 No passphrase, no sealed vault, nothing to unlock — the qualia mathematics
 (app.qualia, app.qualia_recommendation) lives as plain source files in app/.
 
-The old name ``run_locked.py`` is kept working via a thin shim so existing
-launch scripts (launch-smi-core.bat, 1-run-key.txt) continue to run unchanged;
-they are updated to call run_smi.py directly.
+The filename predates the §45 rebrand; renaming it would touch launchers,
+1-run-key.txt and muscle memory, so it stays until the migration-day sweep.
 """
 from __future__ import annotations
 
@@ -34,6 +33,7 @@ def main() -> int:
 
         if args.config:
             import os
+            os.environ["SENTINARI_CONFIG_PATH"] = args.config
             os.environ["SMI_CONFIG_PATH"] = args.config
 
         uvicorn.run("app.main:app", host="127.0.0.1", port=args.port, log_level="info")

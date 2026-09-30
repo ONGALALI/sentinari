@@ -137,7 +137,7 @@
             </div>
             <div class="field" style="flex:1 1 220px;">
               <label for="hybridFileHint">Filename Hint</label>
-              <input id="hybridFileHint" type="text" value="smi-cpu-video">
+              <input id="hybridFileHint" type="text" value="sentinari-cpu-video">
             </div>
           </div>
           <div class="row" style="margin-top:10px;">
@@ -181,7 +181,7 @@
             </div>
             <div class="field" style="flex:1 1 180px;">
               <label for="stitchFileHint">Filename Hint</label>
-              <input id="stitchFileHint" type="text" value="smi-image-stitch">
+              <input id="stitchFileHint" type="text" value="sentinari-image-stitch">
             </div>
           </div>
           <div class="row" style="margin-top:10px;">
@@ -229,11 +229,11 @@
       player.src = videoUrl;
       wrap.style.display = 'block';
       dl.href = String(data.file_url || '#');
-      dl.download = String(data.file_name || 'smi-video.mp4');
+      dl.download = String(data.file_name || 'sentinari-video.mp4');
       if (data.subtitle_url) {
         srt.style.display = 'inline';
         srt.href = String(data.subtitle_url);
-        srt.download = String(data.subtitle_name || 'smi-video.srt');
+        srt.download = String(data.subtitle_name || 'sentinari-video.srt');
       } else {
         srt.style.display = 'none';
         srt.href = '#';
@@ -338,7 +338,7 @@
         language: String(plan.language || byId('hybridLanguage').value || 'English'),
         fps: Math.max(8, Math.min(32, Math.trunc(asNum(byId('hybridFps').value, 24)))),
         scenes: plan.scenes,
-        filename_hint: String(byId('hybridFileHint').value || 'smi-cpu-video').trim() || 'smi-cpu-video',
+        filename_hint: String(byId('hybridFileHint').value || 'sentinari-cpu-video').trim() || 'sentinari-cpu-video',
       };
       const res = await fetch('/api/playground/video/render-job', {
         method: 'POST',
@@ -362,7 +362,7 @@
         fps: Number(byId('stitchFps').value || 24),
         width: Number(byId('stitchWidth').value || 1280),
         height: Number(byId('stitchHeight').value || 720),
-        filename_hint: String(byId('stitchFileHint').value || 'smi-image-stitch').trim() || 'smi-image-stitch',
+        filename_hint: String(byId('stitchFileHint').value || 'sentinari-image-stitch').trim() || 'sentinari-image-stitch',
       };
       setStatus('videoStatus', inputDir ? 'Submitting image stitch job...' : 'Submitting image stitch job using default folder...', true);
       const res = await fetch('/api/playground/video/stitch-images-job', {

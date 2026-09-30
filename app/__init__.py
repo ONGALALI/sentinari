@@ -6,7 +6,7 @@ is unavailable or corrupted. This ensures imports like `from .config import ...`
 do not raise ModuleNotFoundError during early startup.
 
 If a real app.config file exists, Python's import system will override this shim
-with the real module. The shim uses safe defaults sufficient for SMI startup.
+with the real module. The shim uses safe defaults sufficient for Sentinari startup.
 """
 
 import sys

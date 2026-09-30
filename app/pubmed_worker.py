@@ -112,7 +112,7 @@ def _eget(url: str, params: dict[str, Any], timeout: int = 40) -> requests.Respo
     return _retry_get(
         url,
         params=params,
-        headers={"User-Agent": "SMi-Sentinel/1.0 (dataset sourcing)"},
+        headers={"User-Agent": "Sentinari-Sentinel/1.0 (dataset sourcing)"},
         timeout=timeout,
         attempts=3,
     )

@@ -1,24 +1,30 @@
-"""Provider-agnostic LLM gateway for Sentinel.
+"""Provider-agnostic LLM gateway for Sentinari.
 
-Today Sentinel talks straight to a local Ollama server. This gateway cuts the
-umbilical cord: the rest of the app calls ``llm_gateway.chat()`` /
-``llm_gateway.embed()`` without knowing (or caring) whether the model lives in
-local Ollama, Google Gemini, an OpenAI-compatible endpoint, or any future
-provider. Switching providers is a settings change, not a code change.
+Zero-cloud doctrine (§41, reaffirmed §45): the only supported runtime today is
+the local Ollama server; the local Sentinari ONNX inference server (:8100) joins
+via the 'sentinari' provider on rig day. The former Gemini cloud provider and
+the generic OpenAI-compatible provider were REMOVED in §45 — the gateway keeps
+its provider registry shape so the local :8100 provider can slot in without
+touching any caller.
+
+The rest of the app calls ``llm_gateway.chat()`` / ``llm_gateway.embed()``
+without knowing (or caring) where the model lives. Switching providers is a
+settings change, not a code change — but the firewall (app/llm_firewall.py)
+polices which providers are authorized at all.
 
 Provider config lives in ``config/settings.yaml`` under ``llm.provider``:
 
     llm:
-      provider: ollama            # ollama | gemini | openai_compatible
+      provider: ollama            # ollama | http_json_provider (local only)
       base_url: http://127.0.0.1:11434
       chat_model: gemma4:12B
       embedding_model: nomic-embed-text
-    # gemini:
-    #   api_key_env: GEMINI_API_KEY        (key itself stays in .env)
-    #   chat_model: gemini-flash-latest
-    #   embedding_model: gemini-embedding-001
+    # http_json_provider:
+    #   base_url: http://127.0.0.1:9000/v1
+    #   chat_model: <local model>
+    #   api_key_env: <optional, for a local key only>
     # runtime_llm:
-    #   client_backend: gateway            # ollama_client | gateway
+    #   client_backend: gateway     # ollama_client | gateway
 
 API keys are read from environment variables only — never hard-coded.
 """
@@ -51,8 +57,8 @@ def _settings_llm() -> dict[str, Any]:
 def _env_key(env_var: str) -> str:
     """Read an API key from the environment, falling back to the project .env.
 
-    The app does not load .env automatically, so providers that keep their key
-    there (like the user's OpenAlex/Gemini setup) still resolve.
+    Only ever used for LOCAL endpoints (e.g. a local proxy that issues its own
+    keys). Cloud vendors cannot be configured through this gateway anymore.
     """
     value = str(os.environ.get(str(env_var or "")) or "").strip()
     if value:
@@ -135,152 +141,20 @@ class OllamaProvider:
             return None
 
 
-class GeminiProvider:
-    """Google Gemini via the generative REST API (cloud)."""
+class HTTPJSONProvider:
+    """Any local HTTP JSON endpoint speaking the OpenAI chat wire format.
 
-    name = "gemini"
+    Renamed from openai_compatible (§45): the name described a wire format,
+    not a vendor. Use it only for endpoints on this machine or the LAN —
+    the zero-cloud doctrine forbids pointing it at a cloud vendor.
+    """
 
-    def __init__(self, config: dict[str, Any]) -> None:
-        gemini = dict(config.get("gemini") or {})
-        self.api_key = _env_key(str(gemini.get("api_key_env") or "GEMINI_API_KEY"))
-        # Gemini model names never inherit the global chat_model — that holds
-        # the Ollama model (e.g. "gemma4:12B"), which Gemini would reject.
-        # Rolling aliases ("...-latest") do not age out the way dated models
-        # did (gemini-2.0-flash etc. are retired as of Sep 2026).
-        self.chat_model = str(gemini.get("chat_model") or "gemini-flash-latest")
-        # Chat fallbacks (same vendor, different alias tier) tried in order
-        # when the primary is overloaded/unavailable. All verified live.
-        self.chat_fallback_models = [
-            str(m).strip()
-            for m in (gemini.get("chat_fallback_models") or ["gemini-flash-lite-latest"])
-            if str(m).strip()
-        ]
-        # gemini-embedding-001 outputs 3072 dims natively and accepts
-        # outputDimensionality truncation (Matryoshka) — 768 matches the
-        # library's existing nomic-embed-text vector schema exactly.
-        self.embedding_model = str(gemini.get("embedding_model") or "gemini-embedding-001")
-        self.embedding_dims = int(gemini.get("embedding_dimensions") or 768)
-        self.timeout = max(10, int(config.get("chat_timeout_seconds") or 120))
-        self.base = "https://generativelanguage.googleapis.com/v1beta"
-
-    def is_available(self) -> bool:
-        return bool(self.api_key)
-
-    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.1, max_tokens: int = 768) -> str:
-        import time as _time
-
-        last_error: Exception | None = None
-        for attempt in range(3):
-            try:
-                return self._chat_once(messages, temperature=temperature, max_tokens=max_tokens)
-            except requests.HTTPError as ex:
-                status = getattr(ex.response, "status_code", 0)
-                # 429/5xx are transient cloud throttling — back off and retry.
-                if status not in (429, 500, 503, 504) or attempt == 2:
-                    raise
-                last_error = ex
-                _time.sleep(2.0 * (attempt + 1))
-        if last_error is not None:
-            raise last_error
-        raise LLMGatewayError("Gemini chat failed after retries.")
-
-    def _gemini_post(self, path: str, payload: dict[str, Any], timeout: int) -> requests.Response:
-        """POST to the Gemini REST API using header-based auth.
-
-        Header auth (``x-goog-api-key``) is the canonical scheme for Google's
-        new AQ…-format keys; the legacy ``?key=`` query parameter can 503 on
-        the same request. Verified live 2026-09.
-        """
-        return requests.post(
-            f"{self.base}{path}",
-            headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
-            json=payload,
-            timeout=timeout,
-        )
-
-    def _chat_once(self, messages: list[dict[str, str]], *, temperature: float, max_tokens: int) -> str:
-        system_text = "\n".join(
-            str(m.get("content") or "") for m in messages if str(m.get("role") or "") == "system"
-        ).strip()
-        contents = []
-        for message in messages:
-            role = str(message.get("role") or "user")
-            content = str(message.get("content") or "").strip()
-            if not content or role == "system":
-                continue
-            contents.append(
-                {
-                    "role": "model" if role == "assistant" else "user",
-                    "parts": [{"text": content}],
-                }
-            )
-        payload: dict[str, Any] = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": max_tokens,
-                # Structured extraction does not need hidden reasoning; without
-                # this the thinking budget consumes maxOutputTokens and the
-                # reply comes back empty.
-                "thinkingConfig": {"thinkingBudget": 0},
-            },
-        }
-        if system_text:
-            payload["systemInstruction"] = {"parts": [{"text": system_text}]}
-        last_error: Exception | None = None
-        # Primary model first, then the fallback aliases (high-demand 503s on
-        # one alias should not stall Sentinel when a sibling alias is healthy).
-        for model in [self.chat_model, *self.chat_fallback_models]:
-            resp = self._gemini_post(f"/models/{model}:generateContent", payload, self.timeout)
-            if resp.status_code == 400 and "thinkingConfig" in payload.get("generationConfig", {}):
-                # The lite-tier aliases reject thinkingConfig — retry this
-                # model without it before moving on.
-                retry_payload = json.loads(json.dumps(payload))
-                retry_payload["generationConfig"].pop("thinkingConfig", None)
-                resp = self._gemini_post(f"/models/{model}:generateContent", retry_payload, self.timeout)
-            if resp.status_code in (429, 500, 502, 503, 504):
-                last_error = requests.HTTPError(f"{model}: {resp.status_code}", response=resp)
-                continue
-            resp.raise_for_status()
-            data = resp.json() or {}
-            candidates = data.get("candidates") or []
-            if not candidates:
-                last_error = LLMGatewayError(f"{model}: empty candidates")
-                continue
-            parts = (candidates[0].get("content") or {}).get("parts") or []
-            return " ".join(str(part.get("text") or "") for part in parts).strip()
-        if last_error is not None:
-            raise last_error
-        raise LLMGatewayError("Gemini chat returned no usable response.")
-
-    def embed(self, text: str) -> list[float] | None:
-        if not self.api_key or not self.embedding_model:
-            return None
-        try:
-            payload: dict[str, Any] = {
-                "content": {"parts": [{"text": str(text or "")[:8000]}]}
-            }
-            if self.embedding_dims:
-                payload["outputDimensionality"] = self.embedding_dims
-            resp = self._gemini_post(
-                f"/models/{self.embedding_model}:embedContent", payload, 30
-            )
-            resp.raise_for_status()
-            values = ((resp.json() or {}).get("embedding") or {}).get("values")
-            return [float(v) for v in values] if isinstance(values, list) else None
-        except Exception:
-            return None
-
-
-class OpenAICompatibleProvider:
-    """Any OpenAI-compatible endpoint (vLLM, LM Studio, OpenRouter, ...)."""
-
-    name = "openai_compatible"
+    name = "http_json_provider"
 
     def __init__(self, config: dict[str, Any]) -> None:
-        compatible = dict(config.get("openai_compatible") or {})
+        compatible = dict(config.get("http_json_provider") or {})
         self.base_url = str(compatible.get("base_url") or "").rstrip("/")
-        self.api_key = _env_key(str(compatible.get("api_key_env") or "OPENAI_API_KEY"))
+        self.api_key = _env_key(str(compatible.get("api_key_env") or ""))
         self.chat_model = str(compatible.get("chat_model") or config.get("chat_model") or "")
         self.embedding_model = str(compatible.get("embedding_model") or "")
         self.timeout = max(10, int(config.get("chat_timeout_seconds") or 120))
@@ -333,8 +207,7 @@ class OpenAICompatibleProvider:
 
 _PROVIDERS: dict[str, type] = {
     "ollama": OllamaProvider,
-    "gemini": GeminiProvider,
-    "openai_compatible": OpenAICompatibleProvider,
+    "http_json_provider": HTTPJSONProvider,
 }
 
 
@@ -442,7 +315,7 @@ class GatewayBackedClient:
     Implements the exact client surface the app consumes — chat(), embed(),
     is_available(), list_models(), get_runtime_diagnostics() — so callers
     (conversation, ingestion, playground, session_memory) need no changes
-    when Sentinel's LLM moves off the local Ollama server.
+    when Sentinari's LLM moves to a different local provider.
 
     The diagnostics payload keeps the Ollama-runtime shape (the UI renders
     it) but honestly reports the gateway's real provider and models.
@@ -478,7 +351,7 @@ class GatewayBackedClient:
     # -- core operations -------------------------------------------------
 
     def chat(self, messages: list[dict[str, str]], *, num_ctx: int | None = None) -> str:
-        # num_ctx is an Ollama-specific window hint; cloud providers manage
+        # num_ctx is an Ollama-specific window hint; other providers manage
         # their own context. Temperature/max tokens come from settings.
         return self._gateway.chat(
             messages,

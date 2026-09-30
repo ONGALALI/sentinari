@@ -5,10 +5,10 @@ from pathlib import Path
 def get_settings():
     """
     Loads settings from the settings.yaml file.
-    Provides a unified configuration interface for the VocationalLLM app.
+    Provides a unified configuration interface for the Sentinari app.
     """
     # Check for environment variable override first
-    env_config = os.environ.get("SMI_CONFIG_PATH")
+    env_config = os.environ.get("SENTINARI_CONFIG_PATH") or os.environ.get("SMI_CONFIG_PATH")
     if env_config:
         config_path = Path(env_config).resolve()
         if config_path.exists():

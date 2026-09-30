@@ -545,7 +545,7 @@ def _bytes_to_mb(num_bytes: float) -> float:
 
 
 def _github_headers() -> dict[str, str]:
-    headers = {"User-Agent": "SMi-Sentinel-Domains/1.0", "Accept": "application/vnd.github+json"}
+    headers = {"User-Agent": "Sentinari-Sentinel-Domains/1.0", "Accept": "application/vnd.github+json"}
     token = str(os.environ.get("GITHUB_TOKEN") or "").strip()
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -677,7 +677,7 @@ def ingest_github_dataset_to_field(
     items: list[dict[str, Any]] = []
     remaining_paths: list[str] = []
 
-    headers = {"User-Agent": "SMi-Sentinel-Domains/1.0", "Accept": "application/vnd.github+json"}
+    headers = {"User-Agent": "Sentinari-Sentinel-Domains/1.0", "Accept": "application/vnd.github+json"}
 
     for repo_url in [str(u or "").strip() for u in repo_urls if str(u or "").strip()]:
         started = time.perf_counter()

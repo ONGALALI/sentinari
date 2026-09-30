@@ -83,7 +83,7 @@ def build_mutation_block_reason(governance: dict[str, Any] | None) -> str:
     chief = cfg["chief_engineer_name"]
     role = cfg["chief_engineer_role"]
     owner = cfg["owner_label"]
-    parts = ["Direct workspace mutation is blocked for SMi."]
+    parts = ["Direct workspace mutation is blocked for Sentinari."]
     if bool(cfg.get("require_chief_engineer_consultation", True)):
         parts.append(f"Consult {chief}, the {role}, before any code change.")
     if bool(cfg.get("require_owner_approval_for_code_changes", True)):

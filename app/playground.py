@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from .auto_ingest import AutoIngestService
 from .coding_corpus import get_coding_corpus_progress
-from .SMI_tunnel import should_autonomous_SMI_query, submit_SMI_query
+from .escalation_queue import should_autonomously_escalate, submit_escalation
 from .coding_governance import (
     build_coding_governance_capability_lines,
     build_runtime_coding_notice,
@@ -1180,7 +1180,7 @@ def run_autonomous_chat(
             "answer": answer,
             "citations": citations,
             "retrieved_chunks": retrieved_chunks,
-            "SMI_tunnel": delegated.get("SMI_tunnel"),
+            "escalation_queue": delegated.get("escalation_queue"),
             "qualia": delegated_qualia,
             "timestamp_utc": timestamp,
         }
@@ -1286,27 +1286,27 @@ def run_autonomous_chat(
             delay_seconds = (float(backoff_ms) / 1000.0) * float(attempt + 1)
             time.sleep(delay_seconds)
 
-    SMI_tunnel_result: dict[str, Any] | None = None
-    if should_autonomous_SMI_query(question=question, mode="autonomous", session_id=sid, settings=settings):
-        SMI_context_lines: list[str] = []
+    escalation_result: dict[str, Any] | None = None
+    if should_autonomously_escalate(question=question, mode="autonomous", session_id=sid, settings=settings):
+        escalation_context_lines: list[str] = []
         if answer:
-            SMI_context_lines.append("SMi provisional answer:\n" + _normalize_space(answer)[:2600])
+            escalation_context_lines.append("Provisional local answer:\n" + _normalize_space(answer)[:2600])
         if rows:
-            SMI_context_lines.append("Top retrieved evidence:")
+            escalation_context_lines.append("Top retrieved evidence:")
             for row in rows[:3]:
                 source_id = str(row.get("source_id") or "").strip() or "SRC-UNKNOWN"
                 excerpt = _normalize_space(str(row.get("content") or ""))[:260]
                 if excerpt:
-                    SMI_context_lines.append(f"- [{source_id}] {excerpt}")
+                    escalation_context_lines.append(f"- [{source_id}] {excerpt}")
         try:
-            SMI_tunnel_result = submit_SMI_query(
+            escalation_result = submit_escalation(
                 {
                     "query": question,
                     "mode": "autonomous",
                     "session_id": sid,
                     "requested_by": DEVELOPER_NAME,
-                    "source": "smi_autonomous_playground",
-                    "context": "\n".join(SMI_context_lines).strip(),
+                    "source": "sentinari_autonomous_playground",
+                    "context": "\n".join(escalation_context_lines).strip(),
                     "citations": citations,
                     "metadata": {
                         "channel": "playground",
@@ -1316,20 +1316,16 @@ def run_autonomous_chat(
                     "title": _normalize_space(question)[:120],
                 }
             )
-            SMI_answer = str(SMI_tunnel_result.get("answer") or "").strip()
-            if SMI_answer:
-                SMI_answer = sanitize_user_facing_text(SMI_answer, settings=settings)
-                answer = (answer.rstrip() + "\n\n[SMI Tunnel]\n" + SMI_answer).strip()
-                append_discussion_log(
-                    session_id=sid or f"playground-transient-{uuid4().hex}",
-                    role="assistant",
-                    content=f"[SMI Tunnel answer]\n{SMI_answer[:6000]}",
-                    mode="autonomous",
-                    channel="playground",
-                    citations=citations,
-                )
+            append_discussion_log(
+                session_id=sid or f"playground-transient-{uuid4().hex}",
+                role="assistant",
+                content=f"[Escalation ticket filed: {escalation_result.get('ticket_id', '')}]",
+                mode="autonomous",
+                channel="playground",
+                citations=citations,
+            )
         except Exception as ex:
-            SMI_tunnel_result = {"ok": False, "error": str(ex)}
+            escalation_result = {"ok": False, "error": str(ex)}
 
     answer = sanitize_user_facing_text(answer, settings=settings)
 
@@ -1342,7 +1338,7 @@ def run_autonomous_chat(
         "answer": answer,
         "citations": citations,
         "retrieved_chunks": _serialize_retrieved_chunks(rows, max_items=limit),
-        "SMI_tunnel": SMI_tunnel_result,
+        "escalation_queue": escalation_result,
         "qualia": {
             "enabled": bool(qualia.get("enabled")),
             "controls_enabled": bool(qualia.get("controls_enabled", True)),

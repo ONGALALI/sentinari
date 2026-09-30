@@ -25,22 +25,24 @@ def get_admin_auth_settings(settings: dict[str, Any]) -> dict[str, Any]:
         admin_auth = {}
 
     enabled = _env_flag("SMI_ADMIN_AUTH_ENABLED", bool(admin_auth.get("disabled", False)))
-    username = (os.environ.get("SMI_ADMIN_USERNAME") or str(admin_auth.get("username") or "smi")).strip() or "smi"
-    password_env = str(admin_auth.get("password_env") or "SMI_ADMIN_PASSWORD").strip() or "SMI_ADMIN_PASSWORD"
+    username = (os.environ.get("SENTINARI_ADMIN_USERNAME") or os.environ.get("SMI_ADMIN_USERNAME") or str(admin_auth.get("username") or "smi")).strip() or "smi"
+    password_env = str(admin_auth.get("password_env") or "SENTINARI_ADMIN_PASSWORD").strip() or "SENTINARI_ADMIN_PASSWORD"
     configured_password = (
         os.environ.get(password_env)
+        or os.environ.get("SENTINARI_ADMIN_PASSWORD")
         or os.environ.get("SMI_ADMIN_PASSWORD")
         or str(admin_auth.get("password") or "").strip()
     )
     session_cookie_name = (
-        os.environ.get("SMI_ADMIN_SESSION_COOKIE")
+        os.environ.get("SENTINARI_ADMIN_SESSION_COOKIE")
+        or os.environ.get("SMI_ADMIN_SESSION_COOKIE")
         or str(admin_auth.get("session_cookie_name") or "smi_admin_session").strip()
         or "smi_admin_session"
     )
     ttl_hours = int(admin_auth.get("session_ttl_hours") or 12)
     ttl_hours = max(1, min(168, ttl_hours))
 
-    explicit_secret = (os.environ.get("SMI_ADMIN_SESSION_SECRET") or "").strip()
+    explicit_secret = (os.environ.get("SENTINARI_ADMIN_SESSION_SECRET") or os.environ.get("SMI_ADMIN_SESSION_SECRET") or "").strip()
     if explicit_secret:
         secret = explicit_secret
     else:

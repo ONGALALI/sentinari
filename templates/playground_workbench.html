@@ -129,7 +129,7 @@
             </div>
             <div class="field" style="flex:1 1 220px;">
               <label for="personaName">Persona Name</label>
-              <input id="personaName" type="text" placeholder="SMi">
+              <input id="personaName" type="text" placeholder="Sentinari">
             </div>
             <div class="field" style="flex:2 1 260px;">
               <label for="personaTone">Persona Tone</label>
@@ -167,10 +167,10 @@
 
   <script>
     const STORAGE_PREFIX = '__WORKBENCH_STORAGE__';
-    const SESSION_KEY = `smi_${STORAGE_PREFIX}_session_id`;
-    const BRIEF_KEY = `smi_${STORAGE_PREFIX}_brief`;
-    const CONTEXT_KEY = `smi_${STORAGE_PREFIX}_context`;
-    const OUTPUT_KEY = `smi_${STORAGE_PREFIX}_output`;
+    const SESSION_KEY = `sentinari_${STORAGE_PREFIX}_session_id`;
+    const BRIEF_KEY = `sentinari_${STORAGE_PREFIX}_brief`;
+    const CONTEXT_KEY = `sentinari_${STORAGE_PREFIX}_context`;
+    const OUTPUT_KEY = `sentinari_${STORAGE_PREFIX}_output`;
     const state = {
       sessionId: String(window.localStorage.getItem(SESSION_KEY) || ''),
       chatInFlight: false,
@@ -191,7 +191,7 @@
       }
       return false;
     };
-    const currentPersonaLabel = () => String(byId('personaName').value || '').trim() || 'SMi';
+    const currentPersonaLabel = () => String(byId('personaName').value || '').trim() || 'Sentinari';
     const appendMessage = (from, text, meta) => {
       const box = byId('chatBox');
       const div = document.createElement('div');
@@ -284,7 +284,7 @@
       if (redirectIfUnauthorized(res)) return;
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.detail || data.error || 'Failed to load config.');
-      byId('personaName').value = String(data.defaults?.persona_name || 'SMi');
+      byId('personaName').value = String(data.defaults?.persona_name || 'Sentinari');
       byId('personaTone').value = String(data.defaults?.persona_tone || '');
       byId('variant').value = String(data.defaults?.behavior_variant ?? 0.1);
       byId('topK').value = String(data.defaults?.top_k ?? 6);

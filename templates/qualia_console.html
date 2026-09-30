@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SMI Qualia Lab</title>
+  <title>Sentinari Qualia Lab</title>
   <style>
     :root {
       --bg: #eef3f8;
@@ -440,14 +440,14 @@
 <body>
   <header>
     <div>
-      <h1>SMI Qualia Lab</h1>
-      <div class="hint">SMI direct bridge wrapped in the same pseudodynamic vector lab.</div>
+      <h1>Sentinari Qualia Lab</h1>
+      <div class="hint">Sentinari direct bridge wrapped in the same pseudodynamic vector lab.</div>
     </div>
     <div class="row">
       <button class="secondary" id="refreshStatus">Refresh Status</button>
       <a href="/ui/start">Start</a>
       <a href="/ui/a1-logs">A1 Logs</a>
-      <a href="/ui/SMI-direct">Direct Chat</a>
+      <a href="/ui/direct">Direct Chat</a>
       <a href="/ui/playground">Old Sentinari Lab</a>
     </div>
   </header>
@@ -463,11 +463,11 @@
       </section>
 
       <section>
-        <h2>SMI Prompt</h2>
+        <h2>Sentinari Prompt</h2>
         <label for="message">Prompt</label>
         <textarea id="message">Which is the largest continent on Earth? Answer clearly and explain in two sentences.</textarea>
         <div class="row" style="margin-top:10px">
-          <button id="send">Send to SMI + Qualia</button>
+          <button id="send">Send to Sentinari + Qualia</button>
           <button class="secondary" id="simulate">Simulate Only</button>
           <button class="ghost" id="factTest">Fact test</button>
           <button class="ghost" id="scienceTest">Science test</button>
@@ -476,7 +476,7 @@
           <div>
             <label for="model">Model</label>
             <select id="model">
-              <option value="SMI4:26b">SMI4:26b</option>
+              <option value="SMI4:26b">Sentinari 26B</option>
             </select>
           </div>
           <div>
@@ -491,7 +491,7 @@
         <p class="hint">Select local Ollama models. Press Run Model 1 first, wait for the result, then press Run Model 2.</p>
         <label for="compareModels">Models to assess</label>
         <select id="compareModels" multiple>
-          <option value="SMI4:26b" selected>SMI4:26b</option>
+          <option value="SMI4:26b" selected>Sentinari 26B</option>
         </select>
         <div class="row" style="margin-top:10px">
           <button class="ghost" id="syncModelVectors">Copy global vector to selected</button>
@@ -575,7 +575,7 @@
       </section>
 
       <section>
-        <h2>SMI Answer</h2>
+        <h2>Sentinari Answer</h2>
         <div class="answer" id="answer">Ready.</div>
         <p class="meta" id="answerMeta"></p>
       </section>
@@ -647,7 +647,7 @@
           </div>
         </div>
         <div id="modelQualiaBreakdown" class="model-qualia-stack">
-          <div class="hint">Run Model 1 and Model 2 to show SMI Qualia and PHI-4 Qualia summaries here.</div>
+          <div class="hint">Run Model 1 and Model 2 to show Sentinari Qualia and PHI-4 Qualia summaries here.</div>
         </div>
         <h3>Vector Score Bars</h3>
         <div id="modelComparisonBars" class="comparison-bars"></div>
@@ -675,7 +675,7 @@
 
       <section>
         <h2>Pseudodynamic Summary</h2>
-        <pre id="qualiaSummary">Run a simulation or send a SMI prompt.</pre>
+        <pre id="qualiaSummary">Run a simulation or send a Sentinari prompt.</pre>
       </section>
 
       <section>
@@ -1126,7 +1126,7 @@
 
     function modelDisplayName(model, index) {
       const lower = String(model || "").toLowerCase();
-      if (lower.includes("SMI")) return "SMI Qualia profile";
+      if (lower.includes("SMI")) return "Sentinari Qualia profile";
       if (lower.includes("phi")) return "PHI-4 Qualia profile";
       return `Model ${index + 1} Qualia`;
     }
@@ -1141,7 +1141,7 @@
       const box = $("modelQualiaBreakdown");
       if (!box) return;
       if (!outputs.length) {
-        box.innerHTML = '<div class="hint">Run Model 1 and Model 2 to show SMI Qualia and PHI-4 Qualia summaries here.</div>';
+        box.innerHTML = '<div class="hint">Run Model 1 and Model 2 to show Sentinari Qualia and PHI-4 Qualia summaries here.</div>';
         return;
       }
       const scored = compactScoreMetrics(outputs);
@@ -1498,13 +1498,13 @@
     async function refreshStatus() {
       $("statusGrid").innerHTML = statusPill("Runtime", "checking", "");
       try {
-        const res = await fetch("/api/playground/SMI-qualia/status");
+        const res = await fetch("/api/playground/qualia/status");
         const data = await res.json();
         $("statusGrid").innerHTML = [
           statusPill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "err"),
           statusPill("Model", data.model || "not set", data.model ? "ok" : "err"),
           statusPill("Old Sentinari boundary", data.boundary_disabled_in_normal_playground ? "blocks old chat" : "open", data.boundary_disabled_in_normal_playground ? "err" : "ok"),
-          statusPill("SMI Qualia logs", String(data.SMI_qualia_chat_count || 0), "ok")
+          statusPill("Sentinari Qualia logs", String(data.qualia_chat_count || 0), "ok")
         ].join("");
         const currentModel = $("model").value || data.model;
         populateModelSelectors(data.available_models || [], currentModel || data.model);
@@ -1519,7 +1519,7 @@
       const box = $("recentLogs");
       if (!box) return;
       if (!logs.length) {
-        box.innerHTML = '<p class="meta">No SMI Qualia chat logs yet.</p>';
+        box.innerHTML = '<p class="meta">No Sentinari Qualia chat logs yet.</p>';
         return;
       }
       box.innerHTML = logs.slice().reverse().map((item) => {
@@ -1549,7 +1549,7 @@
 
     async function sendPrompt() {
       $("send").disabled = true;
-      $("answer").textContent = "SMI is thinking through the Qualia bridge...";
+      $("answer").textContent = "Sentinari is thinking through the Qualia bridge...";
       $("answerMeta").textContent = "";
       setStatus("qualiaStatus", "Sending prompt with active vector controls...", true);
       try {
@@ -1559,7 +1559,7 @@
           behavior_variant: asNum($("variant").value, 4.8),
           qualia_control: getControlPayload()
         };
-        const res = await fetch("/api/playground/SMI-qualia/chat", {
+        const res = await fetch("/api/playground/qualia/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -1570,14 +1570,14 @@
         renderQualia(data.qualia_full || data.qualia || {});
         lastQuestion = $("message").value;
         lastAnswer = data.answer || "";
-        setStatus("qualiaStatus", `SMI response mapped to Qualia history #${data.history_entry_id || ""}.`, !data.error);
+        setStatus("qualiaStatus", `Sentinari response mapped to Qualia history #${data.history_entry_id || ""}.`, !data.error);
         if (lastAnswer) {
           await requestRecommendation(lastQuestion, lastAnswer, data.qualia_full || data.qualia || {});
         }
         await refreshStatus();
         await loadContinuityLog();
       } catch (err) {
-        $("answer").textContent = "The dashboard could not reach the SMI Qualia bridge.";
+        $("answer").textContent = "The dashboard could not reach the Sentinari Qualia bridge.";
         setStatus("qualiaStatus", err.message || String(err), false);
       } finally {
         $("send").disabled = false;
@@ -1648,7 +1648,7 @@
           behavior_variant: vector.variant,
           qualia_control: modelQualiaControl
         };
-        const res = await fetch("/api/playground/SMI-qualia/chat", {
+        const res = await fetch("/api/playground/qualia/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

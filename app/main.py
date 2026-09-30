@@ -43,10 +43,16 @@ from .skills_store import (
 )
 from .ingestion import build_ollama_client, ingest_files, ingest_url
 from .llm_boundary import build_ollama_boundary_runtime, is_ollama_runtime_probe_disabled
+from .escalation_queue import (
+    get_escalation_queue_settings,
+    get_escalation_queue_runtime_status,
+    list_escalations,
+    submit_escalation,
+)
 from .models import (
     AdminLoginRequest,
     ChatRequest,
-    SMITunnelQueryRequest,
+    EscalationQueryRequest,
     IngestFilesRequest,
     IngestUrlRequest,
     OpenAlexToggleRequest,
@@ -159,7 +165,7 @@ from .video_jobs import create_video_job, get_video_job, list_video_jobs, update
 
 
 _settings = get_settings()
-_OPENALEX_MANIFEST_PATH = get_project_root() / "data" / "source_manifests" / "smi_source_manifest.json"
+_OPENALEX_MANIFEST_PATH = get_project_root() / "data" / "source_manifests" / "sentinari_source_manifest.json"
 _RUNTIME_MODE_STUDIO = "studio"
 _RUNTIME_MODE_RUNTIME = "runtime"
 _RUNTIME_COMPUTE_ALLOWED_PATHS = {
@@ -191,7 +197,13 @@ def _normalize_runtime_mode(raw: Any) -> str:
 
 
 def _get_runtime_mode(settings: dict[str, Any] | None = None) -> str:
-    env_raw = (os.environ.get("SMI_RUNTIME_MODE") or os.environ.get("SMI_APP_MODE") or "").strip()
+    env_raw = (
+        os.environ.get("SENTINARI_RUNTIME_MODE")
+        or os.environ.get("SENTINARI_APP_MODE")
+        or os.environ.get("SMI_RUNTIME_MODE")
+        or os.environ.get("SMI_APP_MODE")
+        or ""
+    ).strip()
     if env_raw:
         return _normalize_runtime_mode(env_raw)
 
@@ -265,7 +277,7 @@ def _requires_interactive_admin_auth(path: str) -> bool:
 _boot_runtime_mode = _get_runtime_mode(_settings)
 _boot_is_runtime = _boot_runtime_mode == _RUNTIME_MODE_RUNTIME
 app = FastAPI(
-    title=f"{_settings.get('project_name', 'SMi')} Knowledge API",
+    title=f"{_settings.get('project_name', 'Sentinari')} Knowledge API",
     version="0.2.0",
     docs_url=None if _boot_is_runtime else "/docs",
     redoc_url=None if _boot_is_runtime else "/redoc",
@@ -344,8 +356,8 @@ def _build_login_page(next_path: str) -> str:
         html = page.read_text(encoding="utf-8-sig", errors="replace")
     else:
         html = (
-            "<!doctype html><html><head><meta charset='utf-8'><title>SMi Login</title></head>"
-            "<body><h1>SMi Admin Login</h1><p>Template missing: admin_login.html</p></body></html>"
+            "<!doctype html><html><head><meta charset='utf-8'><title>Sentinari Login</title></head>"
+            "<body><h1>Sentinari Admin Login</h1><p>Template missing: admin_login.html</p></body></html>"
         )
     return html.replace("__NEXT_PATH__", next_path)
 
@@ -387,9 +399,7 @@ def _warmup_llm_async(settings: dict[str, Any]) -> None:
                 ]
             )
         except Exception:
-            return
-
-    threading.Thread(target=_run_warmup, name="smi-llm-warmup", daemon=True).start()
+            return        threading.Thread(target=_run_warmup, name="sentinari-llm-warmup", daemon=True).start()
 
 
 def _is_ollama_autostart_disabled() -> bool:
@@ -410,8 +420,7 @@ def _apply_ollama_boundary_status(llm_runtime: dict[str, Any]) -> dict[str, Any]
         return llm_runtime
 
     warnings = [
-        "Ollama autostart is intentionally disabled by local boundary control.",
-        "Start Ollama manually only when local SMI chat or embedding generation is explicitly required.",
+        "Ollama autostart is intentionally disabled by local boundary control.",                "Start Ollama manually only when local Sentinari chat or embedding generation is explicitly required.",
     ]
     llm_runtime["warnings"] = warnings
     llm_runtime["requires_attention"] = False
@@ -451,16 +460,16 @@ def _require_admin_auth(request: Request) -> None:
         raise HTTPException(
             status_code=503,
             detail=(
-                "SMi admin login is enabled but no password is configured. "
-                "Set SMI_ADMIN_PASSWORD (or configured password_env) before accessing admin routes."
+                "Sentinari admin login is enabled but no password is configured. "
+                "Set SENTINARI_ADMIN_PASSWORD (or configured password_env) before accessing admin routes."
             ),
         )
     if _is_admin_authenticated(request):
         return
     raise HTTPException(
         status_code=401,
-        detail="SMi admin authentication required.",
-        headers={"WWW-Authenticate": 'Basic realm="SMi Admin"'},
+        detail="Sentinari admin authentication required.",
+        headers={"WWW-Authenticate": 'Basic realm="Sentinari Admin"'},
     )
 
 
@@ -499,7 +508,7 @@ async def localhost_access_guard(request: Request, call_next):
             status_code=403,
             content={
                 "ok": False,
-                "detail": "Remote access is blocked. SMi is restricted to localhost.",
+                "detail": "Remote access is blocked. Sentinari is restricted to localhost.",
             },
         )
     return await call_next(request)
@@ -544,7 +553,7 @@ async def runtime_mode_guard(request: Request, call_next):
         status_code=404,
         content={
             "ok": False,
-            "detail": "SMi runtime mode exposes compute endpoints only.",
+            "detail": "Sentinari runtime mode exposes compute endpoints only.",
             "runtime_mode": _RUNTIME_MODE_RUNTIME,
         },
     )
@@ -565,7 +574,7 @@ def startup_event() -> None:
 
         if not policy_report.get("ok"):
             detail = "; ".join(policy_report.get("violations") or []) or "LLM firewall policy validation failed."
-            raise RuntimeError(f"SMi startup blocked by LLM firewall: {detail}")
+            raise RuntimeError(f"Sentinari startup blocked by LLM firewall: {detail}")
 
         ensure_protected_dirs(settings)
         ensure_shell_policy_dirs(get_shell_policy(settings, get_project_root()))
@@ -643,12 +652,12 @@ def health() -> dict[str, Any]:
         if is_ollama_runtime_probe_disabled()
         else client.get_runtime_diagnostics()
     )
-    SMI_runtime = {}
+    extra_runtime = {}
     return {
         "ok": bool(_STARTUP_STATE.get("ready")),
         "startup_ready": bool(_STARTUP_STATE.get("ready")),
         "startup_error": str(_STARTUP_STATE.get("error") or ""),
-        "name": settings.get("project_name", "SMi"),
+        "name": settings.get("project_name", "Sentinari"),
         "runtime_mode": runtime_mode,
         "interactive_enabled": runtime_mode != _RUNTIME_MODE_RUNTIME,
         "project_root": str(get_project_root()),
@@ -665,13 +674,10 @@ def health() -> dict[str, Any]:
         "llm_firewall_ok": bool(llm_policy.get("ok")),
         "llm_firewall_violations": llm_policy.get("violations") or [],
         "llm_runtime": llm_runtime,
-        "SMI_tunnel_enabled": False,
-        "SMI_tunnel_autonomous_enabled": False,
-        "SMI_tunnel_provider": "disabled",
-        "SMI_tunnel_openai_ready": False,
-        "SMI_tunnel_credential_source": "disabled",
-        "SMI_tunnel_credential_checked_envs": [],
-        "SMI_tunnel_credential_checked_files": [],
+        "escalation_queue_enabled": False,
+        "escalation_queue_autonomous_enabled": False,
+        "escalation_queue_provider": "manual",
+        "escalation_queue_queue_dir": "",
     }
 
 
@@ -715,9 +721,9 @@ def ui_start(request: Request) -> HTMLResponse:
     if auth["enabled"] and not _is_admin_authenticated(request):
         return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/start"})
 
-    page = get_project_root() / "templates" / "inpirari_start_console.html"
+    page = get_project_root() / "templates" / "sentinari_start_console.html"
     if not page.exists():
-        raise HTTPException(status_code=500, detail="inpirari_start_console.html template not found.")
+        raise HTTPException(status_code=500, detail="sentinari_start_console.html template not found.")
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
@@ -771,15 +777,21 @@ def ui_patterns(request: Request) -> HTMLResponse:
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
-@app.get("/ui/gemma-qualia", response_class=HTMLResponse)
-@app.get("/ui/SMI-qualia", response_class=HTMLResponse)
-def ui_gemma_qualia(request: Request) -> HTMLResponse:
+@app.get("/ui/qualia", response_class=HTMLResponse)
+def ui_qualia(request: Request) -> HTMLResponse:
     return _render_authed_ui_template(
         request,
-        template_name="gemma_qualia_console.html",
-        next_path="/ui/gemma-qualia",
-        missing_detail="gemma_qualia_console.html template not found.",
+        template_name="qualia_console.html",
+        next_path="/ui/qualia",
+        missing_detail="qualia_console.html template not found.",
     )
+
+
+@app.get("/ui/gemma-qualia", response_class=HTMLResponse)
+@app.get("/ui/SMI-qualia", response_class=HTMLResponse)
+def ui_qualia_legacy_redirect(request: Request) -> HTMLResponse:
+    """§45: legacy bookmarks keep working — they land on the canonical route."""
+    return HTMLResponse("", status_code=307, headers={"Location": "/ui/qualia"})
 
 
 @app.get("/ui/a1-logs", response_class=HTMLResponse)
@@ -792,15 +804,21 @@ def ui_a1_logs(request: Request) -> HTMLResponse:
     )
 
 
-@app.get("/ui/gemma-direct", response_class=HTMLResponse)
-@app.get("/ui/SMI-direct", response_class=HTMLResponse)
-def ui_gemma_direct(request: Request) -> HTMLResponse:
+@app.get("/ui/direct", response_class=HTMLResponse)
+def ui_direct(request: Request) -> HTMLResponse:
     return _render_authed_ui_template(
         request,
-        template_name="gemma_direct_console.html",
-        next_path="/ui/gemma-direct",
-        missing_detail="gemma_direct_console.html template not found.",
+        template_name="direct_console.html",
+        next_path="/ui/direct",
+        missing_detail="direct_console.html template not found.",
     )
+
+
+@app.get("/ui/gemma-direct", response_class=HTMLResponse)
+@app.get("/ui/SMI-direct", response_class=HTMLResponse)
+def ui_direct_legacy_redirect(request: Request) -> HTMLResponse:
+    """§45: legacy bookmarks keep working — they land on the canonical route."""
+    return HTMLResponse("", status_code=307, headers={"Location": "/ui/direct"})
 
 
 @app.get("/ui/model-lab", response_class=HTMLResponse)
@@ -861,7 +879,7 @@ def ui_playground_workbench_a(request: Request) -> HTMLResponse:
         next_path="/ui/playground/workbench-a",
         missing_detail="playground_workbench.html template not found.",
         replacements={
-            "__WORKBENCH_TITLE__": "SMi Workbench A",
+            "__WORKBENCH_TITLE__": "Sentinari Workbench A",
             "__WORKBENCH_SUBTITLE__": "Blank task sandbox for focused prompting, drafts, and execution planning.",
             "__WORKBENCH_STORAGE__": "workbench_a",
             "__WORKBENCH_PROMPT__": "Use this page for a dedicated task stream, prompt chain, or structured experiment.",
@@ -879,7 +897,7 @@ def ui_playground_workbench_b(request: Request) -> HTMLResponse:
         next_path="/ui/playground/workbench-b",
         missing_detail="playground_workbench.html template not found.",
         replacements={
-            "__WORKBENCH_TITLE__": "SMi Workbench B",
+            "__WORKBENCH_TITLE__": "Sentinari Workbench B",
             "__WORKBENCH_SUBTITLE__": "Second blank sandbox for separate workflows, evaluations, or operator experiments.",
             "__WORKBENCH_STORAGE__": "workbench_b",
             "__WORKBENCH_PROMPT__": "Keep this page independent from Workbench A when you need a clean parallel track.",
@@ -917,13 +935,13 @@ def api_admin_login_status() -> dict[str, Any]:
 def api_admin_login(payload: AdminLoginRequest, response: Response) -> dict[str, Any]:
     auth = get_admin_auth_settings(get_settings())
     if not auth["enabled"]:
-        return {"ok": True, "enabled": False, "detail": "SMi admin login is disabled by configuration."}
+        return {"ok": True, "enabled": False, "detail": "Sentinari admin login is disabled by configuration."}
     if not auth["configured"]:
         raise HTTPException(
             status_code=503,
             detail=(
-                "SMi admin login is enabled but no password is configured. "
-                "Set SMI_ADMIN_PASSWORD (or configured password_env) before login."
+                "Sentinari admin login is enabled but no password is configured. "
+                "Set SENTINARI_ADMIN_PASSWORD (or configured password_env) before login."
             ),
         )
 
@@ -978,7 +996,7 @@ def api_admin_config(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any
         "ok": True,
         "config_path": str(get_config_path()),
         "sqlite_db_path": str(((settings.get("paths", {}) if isinstance(settings.get("paths", {}), dict) else {}).get("sqlite_db") or "")),
-        "project_name": settings.get("project_name", "SMi"),
+        "project_name": settings.get("project_name", "Sentinari"),
         "paths": settings.get("paths", {}),
         "ingestion": settings.get("ingestion", {}),
         "unsupervised": settings.get("unsupervised", {}),
@@ -997,7 +1015,7 @@ def api_admin_config(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any
             "llm_firewall_violations": llm_policy.get("violations") or [],
         },
         "personality": {
-            "name": str(personality.get("name") or "SMi"),
+            "name": str(personality.get("name") or "Sentinari"),
             "tone": str(personality.get("tone") or ""),
             "purpose": str(personality.get("purpose") or ""),
             "default_language": default_language,
@@ -1028,7 +1046,7 @@ def api_admin_personality(
         personality = {}
         raw["personality"] = personality
 
-    name = (payload.name or "").strip() or "SMi"
+    name = (payload.name or "").strip() or "Sentinari"
     tone = (payload.tone or "").strip()
     purpose = (
         (payload.purpose or "").strip()
@@ -1293,8 +1311,8 @@ def api_admin_tasks(
 @app.get("/api/admin/service-logs")
 def api_admin_service_logs(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
     log_root = (get_project_root() / "data" / "logs").resolve()
-    stdout_log = _tail_text_file(log_root / "smi.stdout.log")
-    stderr_log = _tail_text_file(log_root / "smi.stderr.log")
+    stdout_log = _tail_text_file(log_root / "sentinari.stdout.log")
+    stderr_log = _tail_text_file(log_root / "sentinari.stderr.log")
     return {
         "ok": True,
         "log_root": str(log_root),
@@ -1348,8 +1366,8 @@ def api_admin_tasks_update(
     return {"ok": True, "task": item}
 
 
-@app.post("/api/admin/tasks/{task_id}/ask-smi")
-def api_admin_tasks_ask_smi(
+@app.post("/api/admin/tasks/{task_id}/ask-sentinari")
+def api_admin_tasks_ask_sentinari(
     task_id: int,
     _: None = Depends(_admin_auth_dependency),
 ) -> dict[str, Any]:
@@ -2258,41 +2276,41 @@ def api_playground_video_file(
     return FileResponse(path=file_path, filename=file_path.name, media_type=media_type)
 
 
-@app.post("/api/SMI/query")
-def api_SMI_query(payload: SMITunnelQueryRequest, request: Request) -> dict[str, Any]:
+@app.post("/api/escalation/query")
+def api_escalation_query(payload: EscalationQueryRequest, request: Request) -> dict[str, Any]:
     settings = get_settings()
-    SMI_cfg = get_SMI_tunnel_settings(settings)
-    if bool(SMI_cfg.get("require_admin_auth_for_api", True)):
+    queue_cfg = get_escalation_queue_settings(settings)
+    if bool(queue_cfg.get("require_admin_auth_for_api", True)):
         _require_admin_auth(request)
     try:
-        return submit_SMI_query(payload.model_dump())
+        return submit_escalation(payload.model_dump())
     except PermissionError as ex:
         raise HTTPException(status_code=403, detail=str(ex))
     except Exception as ex:
         raise HTTPException(status_code=400, detail=str(ex))
 
 
-@app.get("/api/SMI/queries")
-def api_SMI_queries(
+@app.get("/api/escalation/queries")
+def api_escalation_queries(
     request: Request,
     limit: int = Query(default=50, ge=1, le=500),
 ) -> dict[str, Any]:
     settings = get_settings()
-    SMI_cfg = get_SMI_tunnel_settings(settings)
-    if bool(SMI_cfg.get("require_admin_auth_for_api", True)):
+    queue_cfg = get_escalation_queue_settings(settings)
+    if bool(queue_cfg.get("require_admin_auth_for_api", True)):
         _require_admin_auth(request)
-    items = list_SMI_queries(limit=limit)
+    items = list_escalations(limit=limit)
     return {"ok": True, "count": len(items), "items": items}
 
 
-@app.get("/api/SMI/status")
-def api_SMI_status(request: Request) -> dict[str, Any]:
+@app.get("/api/escalation/status")
+def api_escalation_status(request: Request) -> dict[str, Any]:
     settings = get_settings()
-    SMI_cfg = get_SMI_tunnel_settings(settings)
-    if bool(SMI_cfg.get("require_admin_auth_for_api", True)):
+    queue_cfg = get_escalation_queue_settings(settings)
+    if bool(queue_cfg.get("require_admin_auth_for_api", True)):
         _require_admin_auth(request)
 
-    status = get_SMI_tunnel_runtime_status(settings)
+    status = get_escalation_queue_runtime_status(settings)
     queue_dir = Path(str(status.get("queue_dir") or ""))
     queue_count = 0
     if queue_dir.exists():
@@ -2301,7 +2319,7 @@ def api_SMI_status(request: Request) -> dict[str, Any]:
         "ok": True,
         "status": status,
         "queue_count": queue_count,
-        "recent": list_SMI_queries(limit=20),
+        "recent": list_escalations(limit=20),
     }
 
 
@@ -2559,7 +2577,7 @@ def api_diagnostics_architecture(_: None = Depends(_admin_auth_dependency)) -> d
     auth_ok = (not auth["enabled"]) or auth["configured"]
     if auth["enabled"] and not auth["configured"]:
         auth_detail = (
-            f"Enabled but not configured. Set {auth['password_env']} or SMI_ADMIN_PASSWORD before using admin routes."
+            f"Enabled but not configured. Set {auth['password_env']} or SENTINARI_ADMIN_PASSWORD before using admin routes."
         )
     elif auth["enabled"]:
         auth_detail = f"Enabled and configured for user '{auth['username']}'."

@@ -1,0 +1,60 @@
+# Sentinari by Inspirari
+
+A sovereign, zero-cloud AI research platform: a grounded knowledge library, a
+Qualia state model over the conversation engine, an examiner that grades
+applied knowledge, scientific pattern discovery, and an ONNX inference server
+for the rig-day cutover.
+
+## Quickstart
+
+```
+:: double-click (starts the inference server on :8100 and the core on :8099)
+Sentinari-server\launch-all.bat
+
+:: or, core only
+launch-sentinari.bat
+```
+
+- Core (FastAPI + SQLite): `http://127.0.0.1:8099` — health at `/health`
+- Inference server (ONNX): `http://127.0.0.1:8100` — `degraded:true` is the
+  correct resting state until the ONNX engine is configured (see
+  [docs/RIG_DAY_RUNBOOK.md](docs/RIG_DAY_RUNBOOK.md))
+- The chat surface stays dark until a local model engine is present. That is
+  the zero-cloud doctrine (§41), not a fault: nothing may call the cloud.
+
+## Layout
+
+| Path | Contents |
+| --- | --- |
+| `app/` | FastAPI core: conversation, playground, retrieval, ingestion, Qualia, examiner, firewall |
+| `sentinel/` | Guardian layer: domains, gateway guardian, relationships, benchmarks |
+| `config/` | `settings.yaml` (single source of runtime config), `persona_sentinari.yaml` (canonical persona seed) |
+| `templates/` | User consoles (start, playground, qualia lab, direct chat, admin, learning, patterns, search, video) |
+| `Sentinari-server/` | ONNX inference server (:8100), converter kit, `launch-all.bat`, rig-day runbook |
+| `scripts/` | One-shot maintenance scripts |
+| `docs/` | Continuity log, validation protocol, SENTINEL review, credits, rig-day runbook |
+| `tests/` | Self-verifying test modules (run with `python -m tests.<name>`) |
+| `data/` | Runtime databases and artifacts (git-ignored; never commit) |
+
+See [docs/architecture.md](docs/architecture.md) for the full tree with
+annotations, suitable for the documentation image.
+
+## Doctrine
+
+- **Zero cloud.** All inference and embedding is local. Cloud providers are
+  deleted from the code, not merely disabled; the LLM firewall polices the
+  provider allowlist in `config/settings.yaml`.
+- **The continuity log is the memory.** Every working session appends a `§`
+  entry to [docs/CONTINUITY_LOG.md](docs/CONTINUITY_LOG.md) and commits it.
+  Agents hold no memory between sessions; the log and git history do.
+- **Fail closed.** Victus (the dormant challenger), the escalation queue, and
+  every autonomous loop sit behind explicit config gates, all OFF by default.
+
+## Verification
+
+```
+.venv\Scripts\python.exe -m app.victus        :: 13/13 self-test
+.venv\Scripts\python.exe -m tests.test_sentinel
+```
+
+Owned and operated by Inspirari.

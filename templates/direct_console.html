@@ -146,7 +146,7 @@
     <h1>Sentinel Direct Chat</h1>
     <div class="row">
       <button class="secondary" id="refresh">Refresh</button>
-      <a href="/ui/gemma-qualia">Sentinel Qualia Lab</a>
+      <a href="/ui/qualia">Sentinel Qualia Lab</a>
       <a href="/ui/playground">Sentinari Playground</a>
     </div>
   </header>
@@ -208,7 +208,7 @@
     async function refreshStatus() {
       $("status").innerHTML = pill("Sentinel", "checking", "warn");
       try {
-        const res = await fetch("/api/playground/gemma-direct/status");
+        const res = await fetch("/api/playground/direct/status");
         const data = await res.json();
         $("status").innerHTML = [
           pill("Ollama", data.ollama_reachable ? "reachable" : "offline", data.ollama_reachable ? "ok" : "bad"),
@@ -238,7 +238,7 @@
           temperature: Number($("temperature").value || 0.45),
           max_output_tokens: Number($("tokens").value || 900)
         };
-        const res = await fetch("/api/playground/gemma-direct/chat", {
+        const res = await fetch("/api/playground/direct/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

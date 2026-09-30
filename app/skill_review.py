@@ -35,7 +35,8 @@ class FindRequest(BaseModel):
 def _root() -> Path:
     root = Path(
         str(
-            __import__("os").environ.get("SMI_SHARED_SKILLS_ROOT")
+            __import__("os").environ.get("SENTINARI_SHARED_SKILLS_ROOT")
+            or __import__("os").environ.get("SMI_SHARED_SKILLS_ROOT")
             or get_project_root() / "data" / "skills"
         )
     ).resolve()

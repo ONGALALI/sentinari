@@ -676,7 +676,7 @@ def ingest_url(url: str, metadata: dict[str, Any] | None = None) -> dict[str, An
     resp = requests.get(
         url,
         timeout=45,
-        headers={"User-Agent": "VocationalLLM/1.0 (local)"},
+        headers={"User-Agent": "Sentinari/1.0 (local)"},
     )
     resp.raise_for_status()
     html = resp.text[: int(settings.get("ingestion", {}).get("max_url_fetch_chars") or 250000)]

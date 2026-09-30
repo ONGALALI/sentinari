@@ -492,8 +492,8 @@
       <div class="sidecopy">Landing dashboard for the main playground workflow.</div>
       <nav class="nav">
         <a href="/ui/playground" class="active">Dashboard Home<small>Summary, domains, and downloads.</small></a>
-        <a href="/ui/gemma-direct">Chat Lab<small>Dedicated conversation workspace.</small></a>
-        <a href="/ui/gemma-qualia">Qualia Lab<small>Dedicated qualia workspace.</small></a>
+        <a href="/ui/direct">Chat Lab<small>Dedicated conversation workspace.</small></a>
+        <a href="/ui/qualia">Qualia Lab<small>Dedicated qualia workspace.</small></a>
         <a href="/ui/learning">Learning Index<small>% Learned, exams, and calibration.</small></a>
         <a href="/ui/admin">Skills Manager<small>Skills moved to the Admin Console.</small></a>
         <a href="#sentinel-grid">Sentinel Domains<small>Scientific fields feeding the main LLM.</small></a>
@@ -526,7 +526,7 @@
         <div class="card" id="sentinel-grid" style="margin-top:14px;">
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
-              <h2>Sentinel Knowledge Grid &mdash; Datasets Feeding gemma4:12B</h2>
+              <h2>Sentinel Knowledge Grid &mdash; Datasets Feeding Sentinari</h2>
               <div class="hint">Five Sentinel domains hold the scientific fields. Upload PDFs or pull GitHub datasets into any field; data lands in its proper vector room for the main LLM. Limits: 100 files per upload; PDFs max 30 MB, other documents 80 MB. Bars fill toward a 1000 MB cap per field and turn red when full.</div>
             </div>
             <div class="row" style="gap:8px;">
@@ -617,8 +617,8 @@
   </div>
 
   <script>
-    const SESSION_KEY = 'smi_playground_session_id';
-    const DRAFT_KEY = 'smi_playground_chat_draft';
+    const SESSION_KEY = 'sentinari_playground_session_id';
+    const DRAFT_KEY = 'sentinari_playground_chat_draft';
     const state = {
       sessionId: String(window.localStorage.getItem(SESSION_KEY) || ''),
       modules: [],
@@ -628,7 +628,7 @@
       learningControl: null,
       serverOnline: null,
       lastSubjectProgress: null,
-      lastSMITrainingStatus: null,
+      lastSentinariTrainingStatus: null,
       lastQualiaRecommendation: null,
       lastQualiaState: null,
       lastPhenodynamicsProfile: null,
@@ -3626,7 +3626,7 @@
     };
 
     // ---------- Function 2: Skills manager ----------
-    const skillFallbackEnabled = () => window.localStorage.getItem('smi_skills_fallback') !== 'off';
+    const skillFallbackEnabled = () => window.localStorage.getItem('sentinari_skills_fallback') !== 'off';
 
     const loadSkills = async ({ silent = false } = {}) => {
       if (!silent) setStatus('skillsStatus', 'Loading skills...', true);
@@ -3685,7 +3685,7 @@
 
     const toggleSkillsFallback = async () => {
       const next = !skillFallbackEnabled();
-      window.localStorage.setItem('smi_skills_fallback', next ? 'on' : 'off');
+      window.localStorage.setItem('sentinari_skills_fallback', next ? 'on' : 'off');
       await fetch('/api/skills/fallback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3830,7 +3830,7 @@
     Sentinari by Inspirari — engineered with <strong>Codebuff</strong> by <strong>Buffy</strong>, the Codebuff coding agent.<br>
     Scientific field Guardians · tri-source dataset discovery &amp; review (GitHub · Hugging Face · OpenAlex) · ingestion gateway &amp; firewall ·
     provider-agnostic LLM gateway · Sentinel Pattern-Recognition MVP · 2026.<br>
-    Provenance: Sentinel currently runs on Google's Gemma-family open models, transitioning to Gemini — lineage stated honestly, identity her own.
+    Provenance: Sentinari runs on locally hosted open-weight models only — lineage stated honestly, identity her own. Zero-cloud doctrine (§41/§45).
   </footer>
 
   <div id="datasetPreviewModal" role="dialog" aria-modal="true" aria-label="Dataset preview">

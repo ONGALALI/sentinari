@@ -6,7 +6,7 @@ trajectories, trained one day on the logged Big-Tech exploitation runs.
 DARPA framing: an Autonomous Generative Adversarial Red-Team inside a
 self-contained, mathematically formal Sovereign Audit Engine.
 
-HARD RULES OF THIS FILE (owner-mandated, see CONTINUITY_LOG §42):
+HARD RULES OF THIS FILE (owner-mandated, see docs/CONTINUITY_LOG.md §42):
   1. Dormant by default. The module imports clean, holds zero model weights,
      spawns zero threads, opens zero sockets, writes nothing on import.
   2. Engine activation requires EVERY config gate true AND a live engine

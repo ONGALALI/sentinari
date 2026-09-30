@@ -16,7 +16,7 @@ from .coding_governance import (
     question_has_coding_intent,
 )
 from .skills_store import build_skills_fallback_block
-from .SMI_tunnel import should_autonomous_SMI_query, submit_SMI_query
+from .escalation_queue import should_autonomously_escalate, submit_escalation
 from .config import (
     clamp_behavior_variant,
     get_project_root,
@@ -792,7 +792,7 @@ def _build_direct_general_unavailable_answer(question: str) -> str:
     if re.search(r"\b(?:colou?r\s+of\s+an?\s+apple|what\s+colou?r\s+is\s+an?\s+apple)\b", question or "", re.IGNORECASE):
         return "Apples can be red, green, or yellow, depending on the variety. Many common apples are red."
     return (
-        "The local SMI model did not answer in time. I did not search unrelated uploaded documents for this "
+        "The local Sentinari model did not answer in time. I did not search unrelated uploaded documents for this "
         "general question, so please try the question again in a moment."
     )
 
@@ -855,7 +855,7 @@ def _build_identity_capability_answer(
     personality = settings.get("personality", {}) if isinstance(settings.get("personality"), dict) else {}
     runtime = settings.get("runtime", {}) if isinstance(settings.get("runtime"), dict) else {}
     unsupervised = settings.get("unsupervised", {}) if isinstance(settings.get("unsupervised"), dict) else {}
-    name = str(personality.get("name") or "SMi").strip() or "SMi"
+    name = str(personality.get("name") or "Sentinari").strip() or "Sentinari"
     domain_focus = (
         str(
             personality.get("domain_focus")
@@ -1006,7 +1006,7 @@ def run_chat(
                     "citations": [],
                     "retrieved_chunks": [],
                     "web_fetch_results": [],
-                    "SMI_tunnel": None,
+                    "escalation_queue": None,
                     "qualia": {},
                     "timestamp_utc": datetime.utcnow().isoformat(timespec="seconds") + "Z",
                 }
@@ -1094,7 +1094,7 @@ def run_chat(
             "citations": [],
             "retrieved_chunks": [],
             "web_fetch_results": [],
-            "SMI_tunnel": None,
+            "escalation_queue": None,
             "qualia": {
                 "enabled": bool(qualia.get("enabled")),
                 "controls_enabled": bool(qualia.get("controls_enabled", True)),
@@ -1137,7 +1137,12 @@ def run_chat(
             try:
                 direct_timeout = max(
                     30,
-                    int(os.environ.get("SMI_DIRECT_CHAT_TIMEOUT_SECONDS") or ollama.chat_timeout_seconds or 120),
+                    int(
+                        os.environ.get("SENTINARI_DIRECT_CHAT_TIMEOUT_SECONDS")
+                        or os.environ.get("SMI_DIRECT_CHAT_TIMEOUT_SECONDS")
+                        or ollama.chat_timeout_seconds
+                        or 120
+                    ),
                 )
                 ollama.chat_timeout_seconds = max(ollama.chat_timeout_seconds, direct_timeout)
                 ollama.max_output_tokens = max(ollama.max_output_tokens, 256)
@@ -1183,7 +1188,7 @@ def run_chat(
             "direct_file_context": [],
             "retrieved_chunks": [],
             "web_fetch_results": fetched,
-            "SMI_tunnel": None,
+            "escalation_queue": None,
             "qualia": {
                 "enabled": bool(qualia.get("enabled")),
                 "controls_enabled": bool(qualia.get("controls_enabled", True)),
@@ -1458,27 +1463,27 @@ def run_chat(
             delay_seconds = (float(chat_db_lock_backoff_ms) / 1000.0) * float(attempt + 1)
             time.sleep(delay_seconds)
 
-    SMI_tunnel_result: dict[str, Any] | None = None
-    if should_autonomous_SMI_query(question=question, mode=mode, session_id=sid, settings=settings):
-        SMI_context_lines: list[str] = []
+    escalation_result: dict[str, Any] | None = None
+    if should_autonomously_escalate(question=question, mode=mode, session_id=sid, settings=settings):
+        escalation_context_lines: list[str] = []
         if answer:
-            SMI_context_lines.append("SMi provisional answer:\n" + _clip_text(answer, max_chars=2600))
+            escalation_context_lines.append("Provisional local answer:\n" + _clip_text(answer, max_chars=2600))
         if rows:
-            SMI_context_lines.append("Top retrieved evidence:")
+            escalation_context_lines.append("Top retrieved evidence:")
             for row in rows[:3]:
                 excerpt = _clip_text(str(row.get("content") or ""), max_chars=260)
                 source_id = str(row.get("source_id") or "").strip() or "SRC-UNKNOWN"
                 if excerpt:
-                    SMI_context_lines.append(f"- [{source_id}] {excerpt}")
-        context_block = "\n".join(SMI_context_lines).strip()
+                    escalation_context_lines.append(f"- [{source_id}] {excerpt}")
+        context_block = "\n".join(escalation_context_lines).strip()
         try:
-            SMI_tunnel_result = submit_SMI_query(
+            escalation_result = submit_escalation(
                 {
                     "query": question,
                     "mode": mode,
                     "session_id": sid,
                     "requested_by": DEVELOPER_NAME,
-                    "source": "smi_autonomous_chat",
+                    "source": "sentinari_autonomous_chat",
                     "context": context_block,
                     "citations": citations,
                     "metadata": {
@@ -1488,23 +1493,16 @@ def run_chat(
                     "title": _clip_text(question, max_chars=120),
                 }
             )
-            SMI_answer = str(SMI_tunnel_result.get("answer") or "").strip()
-            if SMI_answer:
-                SMI_answer = sanitize_user_facing_text(SMI_answer, settings=settings)
-                if _is_fallback_answer(answer):
-                    answer = SMI_answer
-                else:
-                    answer = (answer.rstrip() + "\n\n[SMI Tunnel]\n" + SMI_answer).strip()
-                append_discussion_log(
-                    session_id=sid or f"session-transient-{uuid4().hex}",
-                    role="assistant",
-                    content=f"[SMI Tunnel answer]\n{_clip_text(SMI_answer, max_chars=6000)}",
-                    mode=mode,
-                    channel="chat",
-                    citations=citations,
-                )
+            append_discussion_log(
+                session_id=sid or f"session-transient-{uuid4().hex}",
+                role="assistant",
+                content=f"[Escalation ticket filed: {escalation_result.get('ticket_id', '')}]",
+                mode=mode,
+                channel="chat",
+                citations=citations,
+            )
         except Exception as ex:
-            SMI_tunnel_result = {"ok": False, "error": str(ex)}
+            escalation_result = {"ok": False, "error": str(ex)}
 
     answer = sanitize_user_facing_text(answer, settings=settings)
 
@@ -1517,7 +1515,7 @@ def run_chat(
         "direct_file_context": direct_file_references,
         "retrieved_chunks": _serialize_retrieved_chunks(rows, max_items=retrieval_limit),
         "web_fetch_results": fetched,
-        "SMI_tunnel": SMI_tunnel_result,
+        "escalation_queue": escalation_result,
         "qualia": {
             "enabled": bool(qualia.get("enabled")),
             "controls_enabled": bool(qualia.get("controls_enabled", True)),

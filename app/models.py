@@ -236,7 +236,7 @@ class TutorEvaluateRequest(BaseModel):
     answer: str
 
 
-class SMITunnelQueryRequest(BaseModel):
+class EscalationQueryRequest(BaseModel):
     query: str = Field(min_length=3, max_length=12000)
     mode: Literal["knowledge", "coding", "autonomous"] = "coding"
     session_id: str = Field(default="", max_length=120)

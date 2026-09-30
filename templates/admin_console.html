@@ -757,15 +757,15 @@ Environmental Science</textarea>
       const totals = payload?.totals || {};
       byId('learningTotals').textContent = [
         `${formatInt(totals.documents)} docs`,
-        `${formatInt(totals.SMI_samples)} SMI samples`,
-        `${formatInt(totals.SMI_samples)} SMI samples`,
+        `${formatInt(totals.sentinari_samples)} SMI samples`,
+        `${formatInt(totals.sentinari_samples)} SMI samples`,
       ].join(' | ');
 
       byId('learningBars').innerHTML = fields.map((item, index) => {
         const pct = Math.max(0, Math.min(100, Number(item.coverage || 0)));
         const seeded = formatInt(item.seeded_quantity);
         const docs = formatInt(item.documents);
-        const samples = formatInt(Number(item.SMI_samples || 0) + Number(item.SMI_samples || 0));
+        const samples = formatInt(Number(item.sentinari_samples || 0) + Number(item.sentinari_samples || 0));
         return `
           <div class="learning-row">
             <strong>${escapeHtml(item.field || 'Field')}</strong>
@@ -1123,17 +1123,17 @@ Environmental Science</textarea>
       }
     };
 
-    const askSmiForTask = async (taskId) => {
+    const askSentinariForTask = async (taskId) => {
       const resolvedId = String(taskId || state.currentTaskId || '').trim();
       if (!resolvedId) {
         const task = await persistTask();
         if (!task || !task.id) {
           throw new Error('Task could not be created before asking Sentinel.');
         }
-        return askSmiForTask(task.id);
+        return askSentinariForTask(task.id);
       }
       setMessage('taskMessage', `Sending task ${resolvedId} to Sentinel...`, true);
-      const res = await apiFetch(`/api/admin/tasks/${encodeURIComponent(resolvedId)}/ask-smi`, { method: 'POST' }, 'Sentinel task run failed.');
+      const res = await apiFetch(`/api/admin/tasks/${encodeURIComponent(resolvedId)}/ask-sentinari`, { method: 'POST' }, 'Sentinel task run failed.');
       if (redirectIfUnauthorized(res)) return;
       const data = await readApiJson(res, 'Sentinel task run failed.');
       if (!res.ok || !data.ok) {
@@ -1260,7 +1260,7 @@ Environmental Science</textarea>
 
     byId('btnTaskAsk').addEventListener('click', async () => {
       try {
-        await askSmiForTask();
+        await askSentinariForTask();
       } catch (e) {
         setMessage('taskMessage', e.message || String(e), false);
       }
@@ -1298,7 +1298,7 @@ Environmental Science</textarea>
       if (action === 'ask') {
         try {
           fillTaskForm(task || {});
-          await askSmiForTask(taskId);
+          await askSentinariForTask(taskId);
         } catch (e) {
           setMessage('taskMessage', e.message || String(e), false);
         }

@@ -58,7 +58,7 @@
     </div>
     <div class="row">
       <button id="refreshAll">Refresh All</button>
-      <a href="/ui/gemma-qualia">Sentinel Qualia Lab</a>
+      <a href="/ui/qualia">Sentinel Qualia Lab</a>
       <a href="/ui/start">Start</a>
     </div>
   </header>
@@ -151,7 +151,7 @@
     }
     async function loadRecentLogs() {
       try {
-        const res = await fetch("/api/playground/gemma-qualia/status");
+        const res = await fetch("/api/playground/qualia/status");
         const data = await res.json();
         const logs = Array.isArray(data.recent_logs) ? data.recent_logs : [];
         $("recentLogs").innerHTML = logs.slice().reverse().map((item) => `

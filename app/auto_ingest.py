@@ -71,7 +71,7 @@ class AutoIngestService:
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="vocationalllm-auto-ingest", daemon=True)
+        self._thread = threading.Thread(target=self._loop, name="sentinari-auto-ingest", daemon=True)
         self._thread.start()
 
     def stop(self, timeout_seconds: int = 4) -> None:

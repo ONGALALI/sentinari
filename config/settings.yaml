@@ -1,4 +1,4 @@
-project_name: SMI_Stand
+project_name: Sentinari
 environment: local
 paths:
   sqlite_db: ./data/smi_vocationalllm.db
@@ -17,9 +17,10 @@ paths:
   qualia_files: []
 llm:
   provider: ollama            # legacy value; runtime_llm.client_backend decides the real path
-  # §41 cloud-seal: fallback_providers emptied (was [gemini]) — NOTHING may
-  # call the cloud silently now that Ollama is gone; local inference only
-  # (Sentinari inference server :8100 via llm_gateway 'sentinari' provider).
+  # §41 cloud-seal + §45 purge: fallback_providers emptied (was [gemini]) and
+  # the Gemini provider class DELETED from llm_gateway. NOTHING may call the
+  # cloud; local inference only (Sentinari inference server :8100 joins as the
+  # 'sentinari' gateway provider on rig day).
   fallback_providers: []
   base_url: http://127.0.0.1:11434
   chat_model: gemma4:12B
@@ -34,23 +35,11 @@ llm:
   warmup_on_startup: false
   warmup_timeout_seconds: 120
   top_k_context_chunks: 4
-  # Gemini provider block (verified live 2026-09-21 with the AQ… key in .env).
-  # Chat: rolling aliases that do not age out; primary + lite fallback for
-  # high-demand 503s. Embeddings: gemini-embedding-001 truncated to 768 dims
-  # (Matryoshka) — exactly matches the library's nomic-embed vector schema.
-  gemini:
-    api_key_env: GEMINI_API_KEY
-    chat_model: gemini-flash-latest
-    chat_fallback_models:
-      - gemini-flash-lite-latest
-    embedding_model: gemini-embedding-001
-    embedding_dimensions: 768
 
 # §23 cord-cut switch: which backend builds the app-wide LLM client.
 #   ollama_client = legacy direct Ollama (current)
-#   gateway       = provider-agnostic client (no Ollama dependency)
-# Pair with llm.provider: gemini. After flipping, run scripts/reembed_gemini.py
-# to move the 186k-chunk library onto the new embedding space.
+#   gateway       = provider-agnostic client (local providers only — the
+#                   cloud providers were deleted in §45)
 runtime_llm:
   client_backend: ollama_client
 runtime:
@@ -87,17 +76,17 @@ security:
     enabled: false
   llm_firewall:
     enforce_ollama_provider: true
-    # §23 cord-cut: gemini is pre-authorized as a runtime provider, so the
-    # cut-over is a one-line flip of llm.provider (no firewall edit needed).
+    # §45: the gemini entry that pre-authorized the cloud cut-over is REMOVED.
+    # Only local providers may ever serve LLM traffic. When the :8100 ONNX
+    # engine lands (rig day), add 'sentinari' here in the same edit that flips
+    # llm.provider.
     allowed_runtime_providers:
     - ollama
-    - gemini
     allowed_chat_models:
     - SMI4:12b
     - SMI4:26b
-    - gemma4:31b-cloud
-    - gemma4:26B
     - gemma4:12B
+    - gemma4:26B
     - gemma2:9B
 playground:
   benchmark_baseline:
@@ -154,11 +143,29 @@ pdf_preprocess:
   ghostscript_flatten_first: false
   dangerzone_sanitize_first: false
 
+# §45 escalation queue (renamed from the SMI tunnel). Local ticket machinery
+# only — files request/response tickets under data/escalation_queue/ for a
+# human to answer. There is NO remote provider anymore: the former OpenAI
+# Responses caller was deleted with the §45 zero-cloud purge. Fail-closed.
+automation:
+  escalation_queue:
+    enabled: false                  # master gate (unchanged posture)
+    autonomous_enabled: false       # may chat/playground auto-file tickets?
+    queue_dir: data/escalation_queue
+    trigger_modes:
+    - coding
+    trigger_keywords: []
+    min_autonomous_interval_seconds: 30
+    autonomous_window_seconds: 3600
+    autonomous_max_queries_per_window: 10
+    max_prompt_chars: 6000
+    request_timeout_seconds: 45     # reserved (no remote caller today)
+
 # Owner directives (2026-09-22): load reliability + library hygiene.
 ingestion:
   # Hard per-document embed budget: no crawl can stall a load while the
   # ingest write-lock is held. Chunks that miss the budget are stored
-  # without vectors (scripts/reembed_gemini.py can fill them later).
+  # without vectors (a local re-embed pass can fill them later).
   embed_budget_seconds: 300
   # §31 (owner, lean-Sentinel): the Qwen-era coding-corpus sync swept
   # Sentinel's own source (app/scripts/templates/config) into the knowledge

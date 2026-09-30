@@ -14,7 +14,7 @@ _SKILL_TOKENS = re.compile(r"[a-z0-9]{3,}")
 
 def get_skills_root() -> Path:
     import os
-    configured = os.environ.get("SMI_SHARED_SKILLS_ROOT", "").strip()
+    configured = os.environ.get("SENTINARI_SHARED_SKILLS_ROOT", "").strip() or os.environ.get("SMI_SHARED_SKILLS_ROOT", "").strip()
     return Path(configured).resolve() if configured else (get_project_root() / "data" / "skills").resolve()
 
 

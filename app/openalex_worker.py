@@ -175,7 +175,7 @@ def load_openalex_api_key() -> str:
 
 
 def _openalex_headers() -> dict[str, str]:
-    return {"User-Agent": "SMi-Sentinel-Discovery/1.0 (mailto:smi@local)"}
+    return {"User-Agent": "Sentinari-Sentinel-Discovery/1.0 (mailto:operator@local)"}
 
 
 def _params(extra: dict[str, Any] | None = None) -> dict[str, Any]:
