@@ -48,6 +48,8 @@ if not errorlevel 1 (
 )
 
 REM ---- 2/2: Sentinari core (same never-duplicate logic as launch-sentinari.bat) ----
+REM NOTE: the bottom "Stack is up" open covers the already-running path too -
+REM keep exactly ONE browser-open in this file (§50: start "" silently no-ops).
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction SilentlyContinue) { exit 0 }; exit 1"
 if not errorlevel 1 (
     echo Sentinari core already running. Reusing the existing server...
@@ -72,6 +74,6 @@ if not errorlevel 1 (
 echo.
 echo Stack is up:
 echo   Inference   : http://127.0.0.1:8100/health
-echo   Sentinari   : http://127.0.0.1:8099/ui/playground
-start "" "http://127.0.0.1:8099/ui/playground"
+echo   Sentinari   : http://127.0.0.1:8099/ui/start
+call "%ROOT%open_url.bat" "http://127.0.0.1:8099/ui/start" "%CORELOG%"
 pause

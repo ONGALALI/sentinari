@@ -1232,3 +1232,18 @@ BOTH. Verified live in the databases, not from memory:
 **Verification:** servers were down at test time (clean conditions); launched via Start-Process exactly like a double-click; core came up ok:true name=Sentinari; launcher log shows "GET /health 200 OK" — the loop succeeded and the browser-open path executed.
 
 **State at close:** §49 committed on main. Core running on 8099 via the fixed launcher. (8100 not started by the root launcher by design — launch-all.bat starts the full stack.) Lesson recorded: every future launcher change must port the robust probe as a unit; REST-only loopback probes are prohibited on this box.
+
+## §50 — LAUNCHER BROWSER-OPEN FIXED, FRONT DOOR = /ui/start, ROOT / NO LONGER 404 — 2026-09-30
+
+**Owner report:** launcher still ends at "Sentinari Core Active", no browser; manual browse of http://127.0.0.1:8099 returns `{"detail":"Not Found"}`.
+
+**Diagnosis (evidence, not guesswork):** `Logs/launch-sentinari-core.log` from the owner's 12:36 run shows the server spawned and "Uvicorn running", plus the owner's own `GET / 404` — and **zero** `/health` poll lines. So the §49 wait loop PASSED, but via the **netstat listener fallback** (REST refused from the launcher's fresh process — the §49 quirk again, this time benign). The fault sat in the final step: bare `start "" "http://..."` silently no-ops in this console context. Second lesson of the week: on this box the probe is not the only fragile link — the browser-open is too. The 404 at `/` was never a server fault: FastAPI answers loudly (`{"detail":"Not Found"}` is proof of life); the app simply had no root route. The front door since §47 is the launch menu at `/ui/start`.
+
+**Fix (three layers):**
+1. `open_url.bat` (new): shared browser-open helper — PowerShell `Start-Process` first, `rundll32 url.dll,FileProtocolHandler` fallback, method logged to the launcher log. Verified live from a fresh `cmd`: ProgId=ChromeHTML, Start-Process opened a real tab.
+2. Both launchers (`launch-sentinari.bat`, `launch-all.bat`) now open through the helper, and both paths — fresh start AND "already running" — open **`/ui/start`** (the front-door launch menu), not `/ui/playground`. Exactly one browser-open per run in launch-all.bat.
+3. `app/main.py`: new `GET /` route (307 → `/ui/start`, hidden from OpenAPI schema). Browsing the bare root now lands on the menu instead of the JSON stub.
+
+**Verification:** curl from the box: `ROOT: 307 -> /ui/start`, `UI/START: 200` (10,080 bytes — the pastel menu). Core relaunched through the fixed launcher: ok:true, name=Sentinari, PID confirmed listening on 8099. Linux twin `launch-sentinari.sh` updated for parity (xdg-open/wslview, /ui/start both paths). Diagnostic probe scripts cleaned up.
+
+**State at close:** §50 pending commit. Core up on 8099 (via fixed launcher). 8100 remains down until launch-all.bat runs — degraded:true there is correct until rig day. Owner guidance: double-click as usual; the menu that opens IS the product door; `/health` remains the diagnostics endpoint. Lesson recorded: browser-opens go through open_url.bat with logged fallback — never bare `start ""` on this box; and every new UI surface must decide what `/` shows.

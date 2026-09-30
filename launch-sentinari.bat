@@ -3,14 +3,16 @@ REM ============================================================
 REM  launch-sentinari.bat - Sentinari core launcher (formerly
 REM  launch-smi-core.bat; old name kept working where referenced).
 REM
-REM  HOTFIX (§49): the §45 rewrite used a pure REST health probe.
-REM  This box intermittently refuses loopback connects from fresh
-REM  processes (endpoint-protection quirk - see 0fc32c1, which fixed
-REM  the same thing in launch-all.bat). The wait loop then timed out
-REM  WHILE the server was already running and never opened the
-REM  browser. Both probes now fall back to a netstat listener check,
-REM  carry the DefaultWebProxy=$null hardening, and the wait window
-REM  is 45s (launch-all.bat parity).
+REM  §50 FIX: the server was fine but no browser appeared. Evidence
+REM  (Logs/launch-sentinari-core.log): the wait loop PASSED via the
+REM  netstat fallback (endpoint protection refuses fresh-process
+REM  loopback REST - same quirk as 0fc32c1), so the fault sat in the
+REM  bare `start "" "http://..."` browser-open, which silently no-ops
+REM  in some console contexts. All browser-opens now go through
+REM  open_url.bat (PowerShell Start-Process with rundll32 fallback,
+REM  method logged), and BOTH paths open /ui/start - the front-door
+REM  launch menu - including the "already running" path that used to
+REM  just print and exit.
 REM ============================================================
 
 set "ROOT=%~dp0"
@@ -40,8 +42,8 @@ REM two servers share one SQLite database and lock each other out.
 REM Robust probe: REST first, then netstat listener fallback.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction SilentlyContinue) { exit 0 }; exit 1"
 if not errorlevel 1 (
-    echo Sentinari core is already running. Reusing the existing server...
-    start "" "http://127.0.0.1:8099/ui/playground"
+    echo Sentinari core is already running. Opening the front door...
+    call "%ROOT%open_url.bat" "http://127.0.0.1:8099/ui/start" "%LOG%"
     pause
     exit /b 0
 )
@@ -63,6 +65,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Sentinari core is running. Opening playground...
-start "" "http://127.0.0.1:8099/ui/playground"
+echo Sentinari core is running. Opening the front door...
+call "%ROOT%open_url.bat" "http://127.0.0.1:8099/ui/start" "%LOG%"
 pause

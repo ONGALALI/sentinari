@@ -8,10 +8,20 @@ if [ ! -x ".venv/Scripts/python.exe" ]; then
     exit 1
 fi
 
+# Front-door opener (§50): start menu, not the bare JSON API root.
+open_url() {
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$1" >/dev/null 2>&1 &
+    elif command -v wslview >/dev/null 2>&1; then
+        wslview "$1" >/dev/null 2>&1 &
+    fi
+}
+
 # If a Sentinari core server already answers, never spawn a duplicate —
 # two servers share one SQLite database and lock each other out.
 if curl -s -m 2 http://127.0.0.1:8099/health | grep -q '"ok":true'; then
-    echo "Sentinari core is already running. Reusing the existing server..."
+    echo "Sentinari core is already running. Opening the front door..."
+    open_url "http://127.0.0.1:8099/ui/start"
     exit 0
 fi
 
@@ -28,7 +38,8 @@ CORE_PID=$!
 
 for i in $(seq 1 35); do
     if curl -s -m 2 http://127.0.0.1:8099/health | grep -q '"ok":true'; then
-        echo "Sentinari core is running: http://127.0.0.1:8099/ui/playground"
+        echo "Sentinari core is running. Opening the front door..."
+        open_url "http://127.0.0.1:8099/ui/start"
         exit 0
     fi
     sleep 1

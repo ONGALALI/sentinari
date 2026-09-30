@@ -638,6 +638,13 @@ def shutdown_event() -> None:
     _auto_ingest_service.stop()
 
 
+@app.get("/", include_in_schema=False)
+def ui_root_redirect() -> HTMLResponse:
+    """The front door. http://127.0.0.1:8099/ now lands on the launch menu
+    instead of FastAPI's {"detail":"Not Found"} JSON stub (§50)."""
+    return HTMLResponse("", status_code=307, headers={"Location": "/ui/start"})
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     settings = get_settings()
