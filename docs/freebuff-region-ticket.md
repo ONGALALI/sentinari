@@ -25,9 +25,10 @@
 | OS locale | en-ZA, timezone Africa/Johannesburg |
 
 ## Observations that may help your engineers
-1. **Happy Eyeballs / IPv6:** this line is dual-stack. Browsers may reach your checker over **IPv6** (`2c0f:f528:…`), which is less represented in geo/reputation DBs than IPv4. `curl -6 https://freebuff.com` from this machine **times out** (no v6 route to your edge) while `curl -4` returns 200 — inconsistent stack reachability could be breaking the check.
-2. **AFRINIC range handling:** `102.32.0.0/15` is a legitimate AFRINIC Metrofibre allocation; some verification vendors have thinner coverage for African ranges and default to "unverifiable".
-3. The **verify-country button itself never completes** — so the region gate can never be satisfied even for the limited-tier region list. This looks like a checker-side failure, not a policy answer.
+1. **REGRESSION SIGNAL (strongest lead):** the "Limited Access / verify country" badge **did not display before a recent Desktop update** (now v0.0.154). Same machine, same line, same account — the gate appeared with an update. Worth checking what changed in the verifier between the previous build and 0.0.154.
+2. **IPv4-only test — NOT the IPv6 path:** with IPv6 fully disabled at the adapter binding (zero global v6 addresses on the machine, outbound provably IPv4-only to your 200-OK edge), the verifier result is **unchanged**. The v6 hypothesis is eliminated; the failure is stack-independent.
+3. **AFRINIC range handling:** `102.32.0.0/15` is a legitimate AFRINIC Metrofibre allocation; some verification vendors have thinner coverage for African ranges and default to "unverifiable".
+4. The **verify-country button itself never completes** — on the desktop app AND on freebuff.com in a browser. So the region gate can never be satisfied even for the limited-tier region list. This looks like a checker-side failure, not a policy answer.
 
 ## Request
 - Please either (a) fix the verifier for AF/uncommon regions, (b) publish the current full-access country list, or (c) advise a manual verification path for paid accounts in ZA.

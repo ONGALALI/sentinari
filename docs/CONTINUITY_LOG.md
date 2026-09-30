@@ -1315,3 +1315,15 @@ BOTH. Verified live in the databases, not from memory:
 **Deliverable:** `docs/freebuff-region-ticket.md` — a complete support ticket with the evidence table, the IPv6/AFRINIC observations, and the three reasonable asks (fix verifier for AF regions, publish the full-access list, or provide a manual path for paid ZA accounts). Owner's immediate self-help path per Freebuff's own message: run the verify page from a PHONE on MOBILE DATA — a different network+IP entirely; if that succeeds, the badge should clear for the account.
 
 **State at close:** §55 pending commit. No Sentinari code touched. Lesson recorded: before blaming the user's network, sweep reputation services per-stack and prove dual-stack reachability — the answer was neither proxy nor policy but likely v6 handling on the verifier's edge.
+
+## §56 — IPv6 EXPERIMENT: ELIMINATED. BADGE IS A REGRESSION. RIG SLIPS TO MONDAY — 2026-09-30
+
+**Experiment:** disabled the ms_tcpip6 binding on the WiFi adapter only (owner-approved, scripted, recorded), verified zero global v6 addresses and IPv4-only outbound to freebuff.com's 200-OK edge — owner retested the verifier **result unchanged**. The IPv6-path hypothesis is DEAD. Restored immediately (binding True, global v6 re-acquired).
+
+**New owner observation — the key one:** the badge **did not exist before a recent Freebuff update**. That converts the ticket from "environment oddity" to "verifier regression in the 0.0.x desktop line". Ticket updated with the regression signal + IPv4-only elimination.
+
+**Owner's plan:** retry verification from a phone on mobile data / another computer (different network entirely — the decisive test for account-vs-network attribution).
+
+**Rig news:** the RTX 5070 Ti build slips to **Monday** — the only in-stock GPU in the city got mismatched to the owner's machine, replacement ships from Cape Town. Sentinari's dark-core status continues until then; HLE gate, SWE-bench Pro, and the conversion venv all wait on the rig per plan. Contingency unaffected: everything on this laptop keeps running exactly as-is.
+
+**State at close:** §56 pending commit. System state: IPv6 restored, TAP adapter still disabled (from §54, kept), shortcuts live (§53), stack up on 8099. Lesson recorded: run elimination experiments with paired scripts and record the before/after — a dead hypothesis is progress.
