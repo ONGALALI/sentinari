@@ -1303,3 +1303,15 @@ BOTH. Verified live in the databases, not from memory:
 **The policy reality (researched):** Freebuff's docs state full access is limited to ~25 supported regions (US/Canada/UK/EU + select others); "other regions and VPN users receive limited access" — and there is an open GitHub feature request from a South African user asking for SA full access. So "limited access" for ZA may be published policy, not a fault on this box. Paid plans unlock full models regardless of region (e.g. GPT-6.1 Sol "US, or paid plans elsewhere"), so if the owner's paid account is signed in, the tier should follow the account.
 
 **Resolution path:** restart Freebuff fully (tray quit) after the TAP disable; confirm the signed-in account shows the subscription; if the badge still reads limited on a paid account, escalate to Freebuff support/Discord with this evidence pack (ZA geo ×2 stacks, zero proxy/VPN config, TAP disabled). No Sentinari code touched.
+
+## §55 — VERIFY-COUNTRY DEEP DIVE: ALL SIX REPUTATION SERVICES CLEAN, DUAL-STACK ODDITY FOUND, TICKET DRAFTED — 2026-09-30
+
+**Owner report:** badge persists after restart; verifying from the web app returns "We could not verify a direct connection… outside any cloud PC, VPN, proxy or iCloud Private Relay… home internet or mobile data."
+
+**Reputation sweep (all clean — the checker has no external reason to refuse):** ip-api (proxy:false, hosting:false, mobile:false), ipinfo privacy (vpn/proxy/tor/relay all false; ASN type "isp"), Scamalytics (Low Risk), ipquery (is_vpn/tor/proxy false), ipwho.is (ZA on IPv6 too). IP unchanged since §54 (102.32.94.58, AS327782 Metrofibre) — stable, residential, AF-range. Conclusion: the failure is inside Freebuff's verifier, not this network.
+
+**Dual-stack finding:** this fibre line is IPv6-capable (2c0f:f528::/64). `curl -4 https://freebuff.com` → 200; `curl -6 https://freebuff.com` → TIMEOUT (no v6 route to their edge). Browsers prefer IPv6 when advertised — a checker keyed to v6 geo/reputation data, or a v6-flavored edge, could classify this connection as non-residential/unverifiable. African v6 ranges are under-represented in geo DBs. Possible fix on Freebuff's side; possible workaround on theirs too.
+
+**Deliverable:** `docs/freebuff-region-ticket.md` — a complete support ticket with the evidence table, the IPv6/AFRINIC observations, and the three reasonable asks (fix verifier for AF regions, publish the full-access list, or provide a manual path for paid ZA accounts). Owner's immediate self-help path per Freebuff's own message: run the verify page from a PHONE on MOBILE DATA — a different network+IP entirely; if that succeeds, the badge should clear for the account.
+
+**State at close:** §55 pending commit. No Sentinari code touched. Lesson recorded: before blaming the user's network, sweep reputation services per-stack and prove dual-stack reachability — the answer was neither proxy nor policy but likely v6 handling on the verifier's edge.
