@@ -1561,3 +1561,13 @@ BOTH. Verified live in the databases, not from memory:
 **Built:** `engine/download_status.ps1` + double-click wrapper `download_status.bat` — lists every file with size, big-file progress vs the HEAD-declared total, a 5-second live growth sample (RATE line says LIVE vs fetcher-paused-or-dead), ETA, and the standing fix instruction (re-run fetch_weights.ps1 — it resumes from current bytes). Locale-hardened: invariant-culture dot decimals (owner's locale rendered comma decimals) and honest GiB labelling (the 22.28 decimal-GB total = 20.75 GiB).
 
 **State at close:** §71b pending commit. Download LIVE (detached, survives app closes); viewer committed; next session: verify completion, run the loader weight-index report.
+
+## §71c — GGUF RENAME CLAIM TESTED AND REJECTED; QAT GGUF RECORDED AS PLAN B — 2026-09-30
+
+**Owner's report (second source):** the weights are "in the GGUF file hidden"; copying and renaming it to gemma4-12b.gguf would let "the ONX engine parse it natively, completely free of Ollama."
+
+**Tested against facts:** (1) NO GGUF exists anywhere on this machine — .ollama blobs left with the uninstall (verified earlier); Downloads/Desktop/D:\inpirari searched, zero hits. What we have is the fp16 safetensors at 19% and growing. (2) The rename is mechanically impossible: GGUF (magic header, KV metadata, quantized blocks) and safetensors (flat archive, JSON header) are different containers — renamed either way fails the first format check; and ONNX Runtime does not load GGUF at all (ONNX is a third format: protobuf compute graph). (3) Kernel of truth: onnxruntime-genai's Model Builder accepts a GGUF as a CONVERSION INPUT (-i path_to_gguf_file) and emits real ONNX — conversion, never renaming. (4) Live HF check: genuine ungated GGUFs exist, including Google's own gemma-4-12B-it-qat-q4_0-gguf (~8 GB, QAT quality), plus unsloth/lmstudio builds.
+
+**Ruling:** no rename, no action against the running download. The fp16 safetensors is the MASTER ARTIFACT — Route C's custom engine reads tensors from it, and it is the documented conversion input for the int4 Enigma build. Google's QAT q4_0 GGUF is recorded as PLAN B: only if the fp16→ONNX conversion stumbles do we pull it and use the builder's -i mode. Download left untouched and verified flowing (4,276 MB / 22,280 MB at check time).
+
+**State at close:** §71c pending commit. Download LIVE at ~19%.
