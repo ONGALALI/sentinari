@@ -1585,3 +1585,11 @@ BOTH. Verified live in the databases, not from memory:
 **Risk recorded:** the live SQLite library runs on a USB external SSD — USB disconnect is the classic SQLite killer. This promotes the nightly backup ritual to 'important before rig day': date-stamped archive of data/ + configs onto a SEPARATE physical disk. Plan when owner attaches the additional SSDs: re-inventory read-only, owner confirms each empty, pool 4 -> V: vault, leave 1 as backup target.
 
 **State at close:** §72 pending commit. Weights download LIVE. Waiting on owner to attach the remaining SSDs for the vault step.
+
+## §73 — SEAGATE 20TB CHOSEN AS VAULT+BACKUP; NIGHTLY BACKUP RITUAL LIVE (FIRST VERIFIED BACKUP TAKEN) — 2026-09-30
+
+**Owner asked whether a Seagate Expansion Desktop 20TB (USB 3.0, always-docked, own PSU) is the better solution — hates USB wear/tear. Ruling: YES for backup+vault.** Comparison on record: pooling 5 SSDs needs 5 cables/power bricks and solves aggregate SPEED (not needed); one docked 20TB drive solves CAPACITY + RELIABILITY with one cable mated once — connector wear ≈ zero. Rules recorded: nothing LIVE moves onto it (Expansion drives are commonly SMR; SQLite stays on D:); everything on it must exist on D: or be re-obtainable; the five SSDs become cold spares. Owner confirmed via structured question: buy as Vault+Backup; 4+1 pooling retired as overkill.
+
+**Built and PROVEN — Scripts/backup_sentinari.ps1 (the nightly ritual):** robocopy mirrors data\ + config\ to a date-stamped folder on the target disk (today C:\SentinariBackups — internal NVMe, physically different hardware from USB D:; one -Target argument flips it to the Seagate V: when docked), verifies by file COUNT and total BYTES against source, prunes to newest 3, never touches live files. Scheduled-task line included in the header. **First run: 26,651 files, 18.35 GiB, VERIFY PASSED (backup_2026-09-30_2306).** Weights download meanwhile at 30% (6.9 GB) — flowing untouched.
+
+**State at close:** §73 pending commit. Library now has a verified second copy on different hardware. On Seagate arrival: dock once, format/assign V:, flip the ritual's default target, move bulk re-obtainables (weights copies, exports) onto V:, keep the nightly data/ archives rolling.
