@@ -65,6 +65,7 @@ from .models import (
     OpenAlexToggleRequest,
     ScoutBlockRequest,
     ScoutRequest,
+    SourceAssessRequest,
     PlaygroundChatRequest,
     PlaygroundQualiaBenchmarkRequest,
     QualiaRecommendationRequest,
@@ -3088,6 +3089,65 @@ def api_datasets_unblock(
     result = dataset_scout.unblock_source(origin)
     if not result.get("ok") or not result.get("removed"):
         raise HTTPException(status_code=404, detail="no such block")
+    return result
+
+
+# ---------------------------------------------------------------------------
+# §65 — Owner source rubric: the doctoral-level benchmark (docs/
+# source_assessment_benchmark.md) applied MANUALLY per candidate source.
+# The judgment stays with the owner; the module automates structure,
+# scoring arithmetic, and memory only.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/sources/rubric")
+def api_sources_rubric() -> dict[str, Any]:
+    from . import source_rubric
+
+    return source_rubric.get_rubric()
+
+
+@app.post("/api/sources/assess")
+def api_sources_assess(
+    payload: SourceAssessRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import source_rubric
+
+    result = source_rubric.save_assessment(
+        payload.origin,
+        payload.scores,
+        source=payload.source,
+        label=payload.label,
+        note=payload.note,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.get("/api/sources/assessments")
+def api_sources_assessments(
+    origins: str = "",
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    from . import source_rubric
+
+    wanted = [o.strip() for o in origins.split(",") if o.strip()] or None
+    return source_rubric.get_assessments(wanted)
+
+
+@app.delete("/api/sources/assess/{origin}")
+def api_sources_assess_delete(
+    origin: str,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """§65 API-only correction valve (the UI offers re-assessment, not delete)."""
+    from . import source_rubric
+
+    result = source_rubric.delete_assessment(origin)
+    if not result.get("ok") or not result.get("removed"):
+        raise HTTPException(status_code=404, detail="no such assessment")
     return result
 
 

@@ -476,6 +476,20 @@
     #datasetPreviewModal .dp-chunk { border: 1px solid #edf1f8; border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: #fbfdff; white-space: pre-wrap; }
     #datasetPreviewModal .dp-close { font-size: 13px; padding: 3px 12px; }
 
+    /* §65: doctoral rubric modal + assessment badge */
+    #srModal { position: fixed; inset: 0; background: rgba(15, 27, 48, 0.45); display: none; align-items: center; justify-content: center; z-index: 410; }
+    #srModal.open { display: flex; }
+    #srModal .sr-card { background: #fff; border-radius: 12px; width: min(680px, 94vw); max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 18px 48px rgba(15, 27, 48, 0.25); }
+    #srModal .sr-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #e3eaf5; }
+    #srModal .sr-body { padding: 12px 16px; overflow: auto; font-size: 13px; }
+    #srModal .sr-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid #e3eaf5; }
+    .srRow { display: grid; grid-template-columns: 1fr 230px; gap: 10px; align-items: center; margin-top: 8px; }
+    .srRow label { font-size: 13px; color: #1c3d5f; }
+    .rubricBadge { margin-left: 4px; }
+    .rubricBadge.rbGood { background: #e2f3ea; color: #1d5c34; border-color: #b8ddc6; }
+    .rubricBadge.rbMid { background: #fdf1dc; color: #7a5200; border-color: #eeddb0; }
+    .rubricBadge.rbLow { background: #fbe4e4; color: #7a1f1f; border-color: #eec3c3; }
+
     /* §63: Scientific Dataset Discovery & Review — weak spots, scout row, candidate rows. */
     .weakChip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: #f2f6fc; border: 1px solid #d5e2f2; color: #1c3d5f; cursor: pointer; }
     .weakChip:hover { background: #e3edf9; border-color: #b9d0e8; }
@@ -552,6 +566,7 @@
           <div id="dsScoutResults" style="margin-top:6px;"></div>
           <div class="hint" style="margin-top:8px;"><span id="dsBlockCount"></span> <a href="#" id="dsBlocksLink" style="display:none;">View blocked sources</a></div>
           <div id="dsBlocksList" style="display:none; margin-top:4px;"></div>
+          <div class="hint" style="margin-top:4px;"><span id="dsAssessCount"></span></div>
         </div>
 
         <div class="card" id="sentinel-grid" style="margin-top:14px;">
@@ -3844,6 +3859,68 @@
       });
     };
     // §64: owner source blocklist — "once blocked, always blocked".
+    // §65: owner doctoral rubric — manual assessment, automated arithmetic.
+    let dsRubric = null;
+    let dsAssessMap = {};
+    const dsAssessBar = async () => {
+      try {
+        const res = await fetch('/api/sources/assessments');
+        const d = await res.json();
+        dsAssessMap = {};
+        (d.assessments || []).forEach((a) => { dsAssessMap[String(a.origin).toLowerCase()] = a; });
+        const n = Number(d.count || 0);
+        byId('dsAssessCount').textContent = n ? `${n} source${n === 1 ? '' : 's'} carry a §65 rubric assessment.` : 'No §65 assessments yet — score a source on the ten doctoral dimensions before you trust it.';
+      } catch (_) { /* decoration only — never break scouting */ }
+    };
+    const dsOpenRubric = async (origin, source) => {
+      if (!dsRubric) {
+        const res = await fetch('/api/sources/rubric');
+        dsRubric = await res.json();
+        if (!dsRubric || dsRubric.ok === false) { dsRubric = null; throw new Error('Rubric unavailable.'); }
+      }
+      const anchors = dsRubric.likert_anchors || [];
+      byId('srTitle').textContent = `Doctoral rubric — ${origin}`;
+      byId('srError').textContent = '';
+      byId('srForm').innerHTML = (dsRubric.dimensions || []).map((dim, i) =>
+        `<div class="srRow"><label for="srDim${i}">${escapeHtml(dim.label)}</label>` +
+        `<select id="srDim${i}" data-key="${escapeHtml(dim.key)}">` +
+        anchors.map((an, v) => `<option value="${v + 1}">${escapeHtml(an)}</option>`).join('') +
+        `</select></div>`
+      ).join('') + `<input id="srNote" placeholder="Owner note (optional)" style="margin-top:10px; width:100%;">`;
+      byId('srModal').classList.add('open');
+      byId('srModal').setAttribute('data-origin', origin || '');
+      byId('srModal').setAttribute('data-source', source || '');
+    };
+    byId('srCancel').addEventListener('click', () => { byId('srModal').classList.remove('open'); });
+    byId('srForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const modal = byId('srModal');
+      const origin = String(modal.getAttribute('data-origin') || '');
+      const source = String(modal.getAttribute('data-source') || '');
+      const scores = {};
+      modal.querySelectorAll('select[data-key]').forEach((sel) => { scores[String(sel.getAttribute('data-key'))] = Number(sel.value); });
+      const noteEl = modal.querySelector('#srNote');
+      const note = String(noteEl ? noteEl.value : '').trim();
+      const btn = byId('srSave');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/sources/assess', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origin, source, scores, note }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.ok === false) throw new Error(d.detail || 'Assessment failed.');
+        byId('srModal').classList.remove('open');
+        byId('dsScoutStatus').textContent = `§65 assessment saved — ${origin} composite ${Number(d.composite).toFixed(2)}/5: ${d.band}.`;
+        await dsAssessBar();
+        await runDashboardScout({ silent: true });
+      } catch (err) {
+        byId('srError').textContent = 'Save failed: ' + (err.message || err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
     const dsBlockBar = async () => {
       try {
         const res = await fetch('/api/datasets/blocks');
@@ -3908,11 +3985,18 @@
         byId('dsScoutResults').innerHTML = (d.candidates || []).map((c) => {
           const rank = c.priority_rank;
           const origin = (c.authors && c.authors[0]) || '';
+          const a = origin ? dsAssessMap[String(origin).toLowerCase()] : null;
+          const badge = a
+            ? ` <span class="scoutBadge rubricBadge ${Number(a.composite) >= 4 ? 'rbGood' : Number(a.composite) >= 3 ? 'rbMid' : 'rbLow'}" title="${escapeHtml(a.band)} — assessed ${escapeHtml(String(a.assessed_at || '').slice(0, 10))}">§65 ${Number(a.composite).toFixed(1)}/5</span>`
+            : '';
+          const assessBtn = origin
+            ? ` <button type="button" class="ghost dsAssessBtn" data-origin="${escapeHtml(origin)}" data-source="${escapeHtml(c.source || '')}" title="Score this source on the owner's ten doctoral dimensions (Likert 1-5)">§65 Assess</button>`
+            : '';
           const blockBtn = origin
             ? ` <button type="button" class="ghost dsBlockBtn" data-origin="${escapeHtml(origin)}" data-source="${escapeHtml(c.source || '')}" title="Block this origin everywhere — once blocked, always blocked">⌀ Block ${escapeHtml(origin)}</button>`
             : '';
           return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
-            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>${blockBtn}` +
+            `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>${badge}${assessBtn}${blockBtn}` +
             `<div class="liMeta">${escapeHtml(c.detail || '')}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</div></div>`;
         }).join('') || '<div class="hint">No candidates found for that query.</div>';
         byId('dsScoutResults').querySelectorAll('.dsBlockBtn').forEach((b) => {
@@ -3920,10 +4004,16 @@
             dsBlockSource(String(b.getAttribute('data-origin') || ''), String(b.getAttribute('data-source') || ''), 'user', b);
           });
         });
+        byId('dsScoutResults').querySelectorAll('.dsAssessBtn').forEach((b) => {
+          b.addEventListener('click', () => {
+            dsOpenRubric(String(b.getAttribute('data-origin') || ''), String(b.getAttribute('data-source') || '')).catch((e) => setStatus('dsScoutStatus', e.message || String(e), false));
+          });
+        });
       } catch (e) { byId('dsScoutStatus').textContent = 'Scout failed: ' + (e.message || e); }
       btn.disabled = false;
     };
     dsBlockBar();
+    dsAssessBar();
     byId('dsScoutBtn').addEventListener('click', () => {
       runDashboardScout().catch((e) => setStatus('dsScoutStatus', e.message || String(e), false));
     });
@@ -4011,6 +4101,25 @@
         <button id="btnDpClose" class="dp-close" type="button">Close</button>
       </div>
       <div class="dp-body" id="dpBody"></div>
+    </div>
+  </div>
+
+  <div id="srModal" role="dialog" aria-modal="true" aria-label="Source assessment rubric">
+    <div class="sr-card">
+      <div class="sr-head">
+        <div>
+          <strong id="srTitle" style="font-size:15px;">Doctoral rubric</strong>
+          <div class="hint">Ten dimensions, Likert 1-5 (1 = not evidenced … 5 = exemplary) · composite = mean · &ge;4.0 exemplary, approve · 3.0-3.9 borderline, review · &lt;3.0 below standard, block. The judgment is yours; Sentinari scores, sums, and remembers.</div>
+        </div>
+        <button id="srCancel" class="ghost" type="button">Cancel</button>
+      </div>
+      <form id="srForm" class="sr-body">
+        <div class="hint">Loading rubric…</div>
+      </form>
+      <div class="sr-foot">
+        <div class="hint" id="srError"></div>
+        <button id="srSave" class="ghost" type="submit" form="srForm">Save Assessment</button>
+      </div>
     </div>
   </div>
 </body>

@@ -162,6 +162,20 @@ class ScoutBlockRequest(BaseModel):
     note: str = Field(default="", max_length=500)
 
 
+class SourceAssessRequest(BaseModel):
+    """§65: manual doctoral-rubric assessment of a candidate source origin.
+
+    scores maps all ten rubric dimension keys to Likert 1-5 integers; the
+    composite (mean) and guidance band are computed server-side. The
+    judgment stays with the owner — this only scores, sums, and remembers.
+    """
+    origin: str = Field(min_length=1, max_length=200)
+    source: str = Field(default="", max_length=40)
+    label: str = Field(default="", max_length=300)
+    scores: dict[str, int] = Field(default_factory=dict)
+    note: str = Field(default="", max_length=500)
+
+
 class IntakeApproveRequest(BaseModel):
     """§60: approve a quarantined document by assigning its scientific field."""
     document_id: int = Field(ge=1)
