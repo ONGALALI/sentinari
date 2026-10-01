@@ -1773,3 +1773,45 @@ BOTH. Verified live in the databases, not from memory:
 **Live proof:** restart ritual clean ("port 8099 free", "relaunched"); curl counts — model-lab page 3× "Black-Box", playground 2×, qualia source 18× popup markers; browser DOM — 38 `.qx` tags on first paint (static labels: behavior variant, alpha, beta, gamma, gamma cap, steps, stability bias, bell mu, bell sigma; headings: Q0/A0/S vector; metrics include the Stability Gate), and a dispatched hover on "Stability Gate" opened the popup with title, WHAT (full formula), Effect, Too high, and Too low sections all present. Zero console errors. H1 on /ui/model-lab reads The API "Black-Box" Pivot, title "— Behavioral Auditing".
 
 **State at close:** §74m pending commit. The Qualia Lab now explains itself at every dotted underline, and the confidential work has its name. The Black-Box Pivot's probing machinery (3-prompt matrix, keyword scan, feedback report page) awaits the owner's go.
+
+## §74n — Sourcing search obeys the whole string (2026-10-01)
+
+**The complaint:** searching datasets for "Linux Ubuntu LTS for Beginners" came back drowned in
+"everything from the Ubuntu Culture and whatever" — the lanes broadened by scientific field
+instead of narrowing to the entire search string.
+
+**The diagnosis (all five lanes inspected):** nothing enforced the full phrase anywhere, and two
+lanes actively diluted it. OpenAlex fetched on the query as-is but then re-sorted by citation
+count (the §22 novelty sort), floating field heavyweights above topical matches; Hugging Face and
+DBnomics do loose token-OR matching, so any single word matched ("Ubuntu" culture datasets ride
+in on one token). GitHub was the only lane already behaving (terms ANDed). The final lineup then
+preserved that diluted order.
+
+**The law (skill_review.py, `find_candidates`):** one precision chokepoint every lane flows
+through, after storage/dedup, before the response:
+
+- `_precision_terms`: content words of the query (stopwords — for/the/and/of/… — dropped);
+  `_normalize_for_match`: lowercase, punctuation-to-spaces, stopwords dropped, whitespace
+  collapsed (so slug forms like `gross-domestic-product` compare equal to the phrase).
+- `_precision_score` against title + description + abstract: tier 0 = the whole phrase present
+  in order; tier 1 = every content word; tier 2 = all but one (wide searches only); tier 3+ =
+  field-level dilution, dropped, never shown.
+- Gate: a candidate needs every content word (searches of two terms or fewer: strict
+  all-or-nothing); 3+ term searches tolerate a single miss. Narrowed, never broadened.
+- Ordering: precision tier leads; within a tier each lane's own relevance order is preserved
+  (stable sort). Fresh-discoveries mode now ranks novelty (citations/recency) inside each tier —
+  a field heavyweight can never float above a whole-string match again.
+- Response reports `precision: {mode, terms, kept, dropped_imprecise, note}` — honest accounting,
+  including a dignified note when nothing carried the whole string.
+
+**Live proof (core restarted via ritual: pids killed, "port 8099 free", "relaunched"):**
+
+- "Linux Ubuntu LTS for Beginners" -> kept 2, dropped 12 imprecise; survivors: GitHub
+  Unix-Shell-Scripting (all 4 words), OpenAlex "DicomOS: A Linux-Based Operating System..." —
+  zero off-topic rows, zero field noise.
+- Regression: "gross domestic product" -> 36 kept (phrase matches lead, slug matches trail);
+  "Ubuntu LTS" -> only Ubuntu material (fisma-ready/ubuntu-lts first); "machine learning" ->
+  26 kept, all on-topic. Normal scholarly queries flow freely; only dilution dies.
+
+**State at close:** §74n pending commit. The search now narrows to the entire string — exactly as
+the owner asked, nothing more.

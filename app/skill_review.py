@@ -734,6 +734,59 @@ def _novelty_rank(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(candidates, key=_score, reverse=True)
 
 
+# ---------------------------------------------------------------------------
+# §74n — Whole-string precision law (owner directive).
+#
+# A sourcing search must honor the ENTIRE search string. Before this law the
+# lanes broadened freely: "Linux Ubuntu LTS for Beginners" came back drowned
+# in field-wide noise ("everything from the Ubuntu Culture and whatever")
+# because providers do token-OR matching and the OpenAlex lane re-sorted by
+# citation count, floating field heavyweights above topical matches.
+#
+# Every source lane flows through the single chokepoint in ``find_candidates``
+# below, where candidates that do not carry the whole string are dropped —
+# narrowed, never broadened.
+# ---------------------------------------------------------------------------
+_PHRASE_STOPWORDS = frozenset(
+    {"for", "the", "and", "of", "a", "an", "to", "in", "with", "on", "by", "at", "from"}
+)
+
+
+def _precision_terms(query: str) -> list[str]:
+    """Content words of the search string (stopwords dropped for matching)."""
+    tokens = re.findall(r"[a-z0-9]+", str(query or "").lower())
+    content = [t for t in tokens if t not in _PHRASE_STOPWORDS]
+    return content or tokens
+
+
+def _normalize_for_match(text: str) -> str:
+    """Lowercase, drop punctuation/stopwords, collapse whitespace — so
+    'linux-ubuntu-LTS for beginners' and 'Linux Ubuntu LTS for Beginners'
+    compare equal."""
+    tokens = re.findall(r"[a-z0-9]+", str(text or "").lower())
+    return " ".join(t for t in tokens if t not in _PHRASE_STOPWORDS)
+
+
+def _precision_score(candidate: dict[str, Any], terms: list[str], phrase: str) -> tuple[int, int]:
+    """Return (tier, hits) against title + description + abstract.
+
+    Tier 0 = the entire phrase present in order (slug forms count — dashes
+    normalize away). Tier 1 = every content word present. Tier 2 = all but
+    one. Anything weaker is field-level dilution and gets dropped.
+    """
+    haystack = _normalize_for_match(
+        f"{candidate.get('title') or ''} {candidate.get('description') or ''} {candidate.get('abstract') or ''}"
+    )
+    hits = sum(1 for t in terms if t in haystack)
+    if phrase and phrase in haystack:
+        return 0, hits
+    if terms and hits >= len(terms):
+        return 1, hits
+    if terms and hits >= max(1, len(terms) - 1):
+        return 2, hits
+    return 3, hits
+
+
 @router.post("/find")
 def find_candidates(payload: FindRequest) -> dict[str, Any]:
     """Search GitHub, Hugging Face, and OpenAlex at the same time.
@@ -1038,11 +1091,40 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         visible.append(item)
     candidates = visible
 
+    # §74n — whole-string precision gate. Candidates must carry the ENTIRE
+    # search string: every content word (the exact phrase ranks first). A
+    # single missing word is tolerated only on wide searches (3+ terms);
+    # anything looser is the field-broadening the owner outlawed. Narrowed
+    # here, at the one chokepoint every lane flows through.
+    terms = _precision_terms(query)
+    phrase = _normalize_for_match(query)
+    scored: list[dict[str, Any]] = []
+    precision_dropped = 0
+    for item in candidates:
+        tier, hits = _precision_score(item, terms, phrase)
+        item["_precision_tier"] = tier
+        item["_precision_hits"] = hits
+        if hits >= len(terms) - (0 if len(terms) <= 2 else 1):
+            scored.append(item)
+        else:
+            precision_dropped += 1
+    candidates = scored
+
     if payload.fresh_only:
-        # Owner directive (§35): Fresh-discoveries mode. Nothing here is
-        # already ingested (§34 sweep above); rank what remains by novelty —
-        # most-cited first, recency breaking ties.
-        candidates = _novelty_rank(candidates)
+        # Owner directive (§35): Fresh-discoveries mode — novelty (citations,
+        # recency) now orders candidates INSIDE each precision tier, so a
+        # field heavyweight can never float above a whole-string match.
+        ranked: list[dict[str, Any]] = []
+        for tier in sorted({int(c.get("_precision_tier") or 0) for c in candidates}):
+            ranked.extend(_novelty_rank([c for c in candidates if int(c.get("_precision_tier") or 0) == tier]))
+        candidates = ranked
+    else:
+        # Default mode: precision tier leads; the stable sort preserves each
+        # lane's own relevance order within a tier.
+        candidates.sort(key=lambda c: int(c.get("_precision_tier") or 0))
+    for item in candidates:
+        item.pop("_precision_tier", None)
+        item.pop("_precision_hits", None)
 
     return {
         "ok": True,
@@ -1052,6 +1134,17 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         "count": len(candidates),
         "duplicates_skipped": duplicate_count,
         "loaded_skipped": loaded_skipped,
+        "precision": {
+            "mode": "whole-string",
+            "terms": terms,
+            "kept": len(candidates),
+            "dropped_imprecise": precision_dropped,
+            "note": (
+                ""
+                if candidates
+                else "No candidate carried the entire search string — precision kept nothing rather than diluting into the field."
+            ),
+        },
         "github_count": sum(1 for c in candidates if c["source_type"] == "github"),
         "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
