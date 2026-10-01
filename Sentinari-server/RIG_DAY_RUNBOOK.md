@@ -5,6 +5,27 @@ port 8100). The CONVERSION belongs to the new rig — it has the RAM
 (84 GB) and GPU (24 GB) that this 15.5 GB box lacks. This runbook makes
 rig day a copy-paste job.
 
+## ⭐ 74h UPDATE (2026-10-01) — READ THIS FIRST
+
+- **The weights are ALREADY downloaded and verified on this box.**
+  `engine/custom_engine_weights/` holds the complete HF checkpoint —
+  model.safetensors 23,919,549,408 B, SHA-256 verified against the HF
+  pointer, plus config/tokenizer/chat-template/generation/processor.
+  **No download on the rig is needed**: carry that folder across and
+  point `--input` at it (Options A and B below collapse into this).
+- **Rig RAM confirmed 92 GB by the owner** — the 40–50 GB conversion
+  peak has huge headroom; the 84 GB figure above is superseded.
+- **Carry-back option (owner ruling: "speed has no impact")** — after
+  conversion, `models/gemma-12b-onnx` (~7–8 GB) can ride BACK to this
+  Windows box: `execution_provider: cpu` here serves it slowly but
+  honestly, and the learning needle moves on BOTH machines — still 100%
+  Enigma (onnxruntime-genai only; no Ollama, no cloud, no new runtime).
+- **Gateway step added (§74g/§74h):** rig day ends with the 'sentinari'
+  provider in app/llm_gateway.py speaking /api/inference/chat, one
+  firewall allowlist line (security.llm_firewall.allowed_runtime_providers),
+  and llm.provider: sentinari — until that lands the Examiner stays DARK
+  by §58 design. See docs/CONTINUITY_LOG.md §74g–§74h.
+
 ## 0. What transfers from the Windows box → rig
 
 Copy the whole `Sentinari-server/` folder (it is self-contained). Skip

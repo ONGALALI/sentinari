@@ -1701,3 +1701,13 @@ BOTH. Verified live in the databases, not from memory:
 **Already done, needs nothing:** weights (SHA-256 verified), loader (all 48 layers indexed), server shell (live on :8100, degraded honestly), learning pipeline (proven end-to-end), gates + burn-guard, gateway slot shape. All seven model files present (weights + config + tokenizer + chat template + generation + processor).
 
 **State at close:** §74g pending commit. The engine needs hands and hours on Monday — not money.
+
+## §74h — RIG SPEC CONFIRMED (92 GB RAM); RUNBOOK UPDATED; CARRY-BACK UNLOCKS THE NEEDLE ON THIS BOX TOO — 2026-10-01
+
+**Owner confirmed the rig: 92 GB RAM** (the runbook's 84 GB superseded — conversion peak 40–50 GB now has huge headroom; no lower-peak plan needed). The old conversion.log `[BLOCKED]` entry explained at last: conversion was RAM-blocked on THIS 15.5 GB box — which is exactly why it belongs to the rig.
+
+**Discovery that shortens rig day:** the verified `engine/custom_engine_weights/` folder IS a complete HF checkpoint (SHA-256-verified safetensors + config + tokenizer + chat template) — the converter accepts it directly via `--input`. **The 24 GB rig download is eliminated**; carry the folder, run the conversion, done. RIG_DAY_RUNBOOK.md updated with a ⭐74h read-first section: verified-weights shortcut, 92 GB confirmation, the gateway step (§74g), and the CARRY-BACK option.
+
+**Carry-back (owner ruling "speed has no impact" made structural):** after the rig converts once, `models/gemma-12b-onnx` (~7–8 GB) rides back to this Windows box and :8100 serves it on CPU (`execution_provider: cpu`) — slow but real, 100% Enigma (onnxruntime-genai only; no Ollama, no cloud, no new runtime). The learning needle can then move on BOTH machines: rig fast on CUDA, interim box slow on CPU. The owner's precision question — "in short we lack compute to even try the learning pipeline?" — answered exactly: the PIPELINE needs no compute (proven 10/10, §74); the MODEL side needs ~8–24 GB — this box can't load it, the rig can; and after one conversion, even this box can.
+
+**State at close:** §74h pending commit. Runbook current with tonight's facts. Remaining before rig day: pre-build the 'sentinari' gateway provider (offered, awaiting owner's go) — everything else is Monday.
