@@ -1663,3 +1663,13 @@ BOTH. Verified live in the databases, not from memory:
 **Verified in the browser at /ui/learning** — the grid matches the owner's drawing; the honest zeros sit exactly where stages have not run, ready to rise as each gate opens.
 
 **State at close:** §74c pending commit. Layout done; data honest; the ladder will fill as the engine wakes (learned/formative first, then calibration, HLE, workbench per the owner's own gates).
+
+## §74d — THE GATE LAW OF THE LADDER: OWNER-SET THRESHOLDS + ⓘ POP-UPS ON EVERY ROW — 2026-10-01
+
+**Owner defined the gates (his numbers, recorded verbatim as LADDER_GATES in learning_index.py):** Calibration opens at **60% Formative Assessment** ("candidate learner must achieve 60%"); HLE opens at **55% after Calibration** ("until then, data sets are not yet comprehensive to allow assessment"); Workbench opens at **50% HLE**. These are the ladder's access law — machine proposes, but only the owner's thresholds admit a stage.
+
+**Built:** every ladder stage now carries meaning + gate state from the endpoint (requires / threshold / current / open), and the Learning Index page renders an **ⓘ tag beside every data label** (8 charts × 6 rows = 48 tags) with a hover (and keyboard-focus) pop-up showing: what the stage means, a colored GATE pill (OPEN green / LOCKED red with the live number vs threshold), the gate rule in the owner's words, and the instrument-status note. Locked rows render their 0% in grey. The card hint now states the gate law (60/55/50). Verified in the browser: 48 tags, 24 locked rows, the HLE pop-up reads exactly the owner's example sentence.
+
+**Doctrine note:** the gates are DISPLAY law today (the instruments behind Calibration/HLE/Workbench are not live yet); when each instrument wakes on the rig, its runner must honor the same LADDER_GATES before it will spend a token — enforcement lands with the instrument, the rule is already on the books.
+
+**State at close:** §74d pending commit. The ladder now explains itself: meaning, gate, and honesty on every row.

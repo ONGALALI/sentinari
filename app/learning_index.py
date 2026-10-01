@@ -676,6 +676,41 @@ def api_learning_status() -> dict[str, Any]:
     return learning_status()
 
 
+# 74d — owner-set gate law of the ladder (his numbers, recorded verbatim):
+# Calibration opens at 60% Formative Assessment; HLE at 55% after Calibration;
+# Workbench at 50% HLE. A locked stage consumes nothing and explains itself.
+LADDER_GATES: dict[str, dict[str, Any]] = {
+    "calibration": {
+        "requires": "formative_assessment", "threshold": 60.0,
+        "rule": "Candidate learner must achieve 60% Formative Assessment to access Calibration",
+    },
+    "hle": {
+        "requires": "calibration", "threshold": 55.0,
+        "rule": "Datasets must achieve 55% after calibration to access the HLE — until then, data sets are not yet comprehensive to allow assessment",
+    },
+    "workbench": {
+        "requires": "hle", "threshold": 50.0,
+        "rule": "Candidate datasets must achieve 50% HLE to access the workbench",
+    },
+}
+LADDER_MEANINGS: dict[str, str] = {
+    "datasets_loaded": "% of the field's documents ingested with readable chunks",
+    "datasets_learned": "% of documents examined by the gentle examiner",
+    "formative_assessment": "% achieved — average exam mastery over the field's graded exams",
+    "calibration": "500-word test on subject matter, % achieved",
+    "hle": "% of total documents assessed on Humanity's Last Exam",
+    "workbench": "% of the field's corpus applied in the workbench",
+}
+LADDER_DISPLAY: dict[str, str] = {
+    "datasets_loaded": "Datasets Loaded",
+    "datasets_learned": "Datasets Learned",
+    "formative_assessment": "Formative Assessment",
+    "calibration": "Calibration",
+    "hle": "HLE",
+    "workbench": "Workbench = % Achieved",
+}
+
+
 @router.get("/ladder")
 def api_learning_ladder() -> dict[str, Any]:
     """74c — the owner's learning-and-assessment path, per scientific field.
@@ -687,7 +722,9 @@ def api_learning_ladder() -> dict[str, Any]:
       calibration           500-word test on subject matter — 0 while paused (38)
       hle                   % of total documents — 0 while deferred (71c)
       workbench             % of the field's corpus applied — 0 until the rig runs it
-    Stages without a live source report an honest 0 with their gating note.
+    Stages without a live source report an honest 0 with their gating note, and
+    every stage carries its meaning + the owner's 74d gate state for the UI's
+    hover pop-ups.
     """
     # Field keys are NORMALIZED (74c lesson from the first render: raw strings
     # split 'Physics'/'physics' into duplicate charts with wrong numbers).
@@ -717,44 +754,52 @@ def api_learning_ladder() -> dict[str, Any]:
             # mastery merges as the exam-count-weighted mean
             exams[key] = (n + int(r["n"]), (m * n + float(r["m"] or 0.0) * int(r["n"])) / (n + int(r["n"])))
 
-    def _stage(pct: float, note: str = "") -> dict[str, Any]:
-        out: dict[str, Any] = {"percent": round(max(0.0, min(100.0, pct)), 1)}
-        if note:
-            out["note"] = note
-        return out
-
     fields: list[dict[str, Any]] = []
     for field, total in totals.items():
         if field == "unclassified":
             continue  # §59 held out from learning accounting
         n_exams, avg_mastery = exams.get(field, (0, 0.0))
         with_chunks = loaded.get(field, 0)
+        pcts = {
+            "datasets_loaded": 100.0 * with_chunks / total if total else 0.0,
+            "datasets_learned": 100.0 * n_exams / total if total else 0.0,
+            "formative_assessment": 100.0 * avg_mastery,
+            "calibration": 0.0,
+            "hle": 0.0,
+            "workbench": 0.0,
+        }
+        instrument_notes = {
+            "calibration": "instrument paused (38) — opens on the rig",
+            "hle": "instrument deferred (71c) — procurement gate",
+            "workbench": "instrument waits for the rig",
+        }
+        stages: dict[str, Any] = {}
+        for key, pct in pcts.items():
+            stage: dict[str, Any] = {
+                "percent": round(max(0.0, min(100.0, pct)), 1),
+                "meaning": LADDER_MEANINGS[key],
+            }
+            if key in instrument_notes:
+                stage["note"] = instrument_notes[key]
+            gate = LADDER_GATES.get(key)
+            if gate:
+                current = pcts[gate["requires"]]
+                stage["gate"] = {
+                    "requires": gate["requires"],
+                    "requires_display": LADDER_DISPLAY[gate["requires"]],
+                    "threshold": gate["threshold"],
+                    "current": round(current, 1),
+                    "open": bool(current >= gate["threshold"]),
+                    "rule": gate["rule"],
+                }
+            stages[key] = stage
         fields.append(
             {
                 "field": field,
                 "display": field.replace("-", " ").upper(),
                 "priority_rank": _priority_rank(field),
                 "total": total,
-                "stages": {
-                    "datasets_loaded": _stage(
-                        100.0 * with_chunks / total if total else 0.0,
-                        "documents ingested with readable chunks",
-                    ),
-                    "datasets_learned": _stage(
-                        100.0 * n_exams / total if total else 0.0,
-                        "documents examined",
-                    ),
-                    "formative_assessment": _stage(
-                        100.0 * avg_mastery,
-                        "average exam mastery — % achieved",
-                    ),
-                    "calibration": _stage(
-                        0.0,
-                        "500-word test on subject matter — paused (38), opens on the rig",
-                    ),
-                    "hle": _stage(0.0, "% of total documents — deferred (71c)"),
-                    "workbench": _stage(0.0, "% of the field's corpus applied — waits for the rig"),
-                },
+                "stages": stages,
             }
         )
     fields.sort(key=lambda f: (f["priority_rank"], -f["total"]))

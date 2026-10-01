@@ -47,8 +47,18 @@
   .ladderPlot { display: grid; grid-template-columns: 16px 1fr; gap: 0 8px; }
   .ladderYLabel { writing-mode: vertical-rl; transform: rotate(180deg); justify-self: center; align-self: center; font-size: 10.5px; color: #5b6b7d; }
   .ladderRows { display: flex; flex-direction: column; gap: 8px; }
-  .ladderRow { display: grid; grid-template-columns: 122px 1fr 42px; align-items: center; gap: 6px; font-size: 11.5px; }
+  .ladderRow { position: relative; display: grid; grid-template-columns: 122px 15px 1fr 44px; align-items: center; gap: 5px; font-size: 11.5px; }
   .ladderRow .lab { text-align: right; color: #33475e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ladderRow.isLocked .ladderVal { color: #9aa8b8; font-weight: 600; }
+  .ladderTag { width: 13px; height: 13px; border-radius: 50%; background: #dcebf9; border: 1px solid #b9d4ee; color: #103c6b; font-size: 9px; font-weight: 700; line-height: 11px; text-align: center; align-self: center; cursor: help; user-select: none; }
+  .ladderTip { position: absolute; bottom: calc(100% + 6px); right: 0; width: 280px; background: #10233d; color: #e8f0fb; border-radius: 8px; padding: 9px 11px; font-size: 11px; line-height: 1.45; opacity: 0; pointer-events: none; transition: opacity .15s ease; z-index: 30; box-shadow: 0 6px 18px rgba(16,35,61,.35); text-align: left; }
+  .ladderTip:after { content: ""; position: absolute; top: 100%; right: 18px; border: 6px solid transparent; border-top-color: #10233d; }
+  .ladderRow:hover .ladderTip, .ladderRow:focus-within .ladderTip { opacity: 1; }
+  .ladderTip .tipGate { display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 999px; font-weight: 700; font-size: 10px; }
+  .ladderTip .tipGate.open { background: #1f6b3a; color: #d9f2e1; }
+  .ladderTip .tipGate.shut { background: #7a2e2e; color: #f6dcdc; }
+  .ladderTip .tipRule { display: block; margin-top: 3px; opacity: .92; }
+  .ladderTip .tipNote { display: block; margin-top: 4px; opacity: .82; }
   .ladderTrack { position: relative; height: 14px; border: 1px solid #e2e9f2; border-radius: 2px; overflow: hidden;
     background: repeating-linear-gradient(to right, #f6f9fc 0, #f6f9fc calc(20% - 1px), #dfe7f1 calc(20% - 1px), #dfe7f1 20%); }
   .ladderFill { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; border-radius: 2px 0 0 2px; transition: width .4s ease; }
@@ -80,7 +90,7 @@
       <h2>% Learned — the learning-and-assessment path</h2>
       <div class="progress-track"><div class="progress-fill" id="liFill"></div></div>
       <div class="hint" id="liLabel" style="margin-top:6px;">Gathering status…</div>
-      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder: <strong>Datasets Loaded</strong> (documents with readable chunks) · <strong>Datasets Learned</strong> (% examined) · <strong>Formative Assessment</strong> (average exam mastery) · <strong>Calibration</strong> (500-word Qualia test — paused, §38) · <strong>HLE</strong> (deferred, §71c) · <strong>Workbench = % Achieved</strong> (waits for the rig). Stages that have not run show an honest 0.</div>
+      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder — hover the ⓘ tag on any row for what it means and its gate. Owner's gate law (§74d): <strong>Calibration</strong> opens at 60% Formative Assessment; <strong>HLE</strong> at 55% after Calibration; <strong>Workbench</strong> at 50% HLE. Stages that have not run show an honest 0.</div>
       <div id="liLadderGrid" class="ladderGrid"></div>
       <div id="liLatest" class="hint" style="margin-top:8px;"></div>
     </div>
@@ -197,11 +207,20 @@
       const rows = STAGE_DEFS.map((s) => {
         const st = (f.stages || {})[s.key] || { percent: 0 };
         const p = Math.max(0, Math.min(100, Number(st.percent || 0)));
-        const tip = st.note ? `${s.label}: ${st.note}` : s.label;
-        return `<div class="ladderRow" title="${esc(tip)}">` +
-          `<span class="lab">${esc(s.label)}</span>` +
+        const gate = st.gate;
+        const locked = Boolean(gate && gate.open === false);
+        let tip = `<strong>${esc(s.label)}</strong> — ${esc(st.meaning || '')}`;
+        if (gate) {
+          tip += `<br><span class="tipGate ${gate.open ? 'open' : 'shut'}">GATE ${Number(gate.threshold).toFixed(0)}% · ${esc(gate.requires_display)} now ${Number(gate.current).toFixed(1)}% → ${gate.open ? 'OPEN' : 'LOCKED'}</span>`;
+          tip += `<br><span class="tipRule">${esc(gate.rule)}</span>`;
+        }
+        if (st.note) tip += `<span class="tipNote">${esc(st.note)}</span>`;
+        return `<div class="ladderRow${locked ? ' isLocked' : ''}" tabindex="0">` +
+          `<span class="lab" title="${esc(s.label)}">${esc(s.label)}</span>` +
+          `<span class="ladderTag" tabindex="0">i</span>` +
           `<span class="ladderTrack"><span class="ladderFill" style="width:${p}%;background:${s.color};"></span></span>` +
-          `<span class="ladderVal">${p.toFixed(0)}%</span></div>`;
+          `<span class="ladderVal">${p.toFixed(0)}%</span>` +
+          `<span class="ladderTip">${tip}</span></div>`;
       }).join('');
       const badge = PRIORITY_BADGES[f.priority_rank] ? `<span class="liPrio">${PRIORITY_BADGES[f.priority_rank]}</span>` : '';
       return `<div class="ladderChart">` +
