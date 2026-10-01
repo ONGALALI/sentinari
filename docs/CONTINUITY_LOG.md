@@ -1681,3 +1681,13 @@ BOTH. Verified live in the databases, not from memory:
 **Two corrections that came with uniformity:** Physics now shows P2 (it had been mislabeled P3 by the old map — the doctrine always said 2) Physics); Engineering shows P3 (was blank). The owner's "P5 next Neuroscience" lands as P6 because Political Science (1,426 docs) sits between Public Health (1,650) and Neuroscience (1,272) in size order — flagged to the owner; one word re-sequences it if he wants a different order.
 
 **State at close:** §74e pending commit. Every chart badged, sequential, doctrine-true.
+
+## §74f — CORPUS DENOMINATOR FOR DATASETS LOADED; THE NEEDLE MADE HONEST ABOUT BEING PARKED — 2026-10-01
+
+**Owner's formula, applied verbatim:** Datasets Loaded is now measured against the TOTAL CORPUS, not the field's own total — "if Physics has loaded only 300 documents and the Total Corpus is 14,999 the formula should be 300/14999 × 100." Implementation: field loaded docs ÷ every document in the library (unclassified included) × 100. Live numbers: P1 34.10% (4,515 ÷ 13,257), Public Health 12.40%, Physics 3.60% (480 ÷ 13,257), Engineering 2.40%. The bars are now each field's true SHARE of the corpus and sum to ~100% across the library; the tooltip states the formula with the real numbers.
+
+**Owner: "that learning needle is not moving!" — diagnosed and made visible.** The needle is not broken: the §58 guard parks it because NO engine exists (Ollama uninstalled by the owner's own strict-Enigma-only doctrine; :8100 degraded stub, engine_status unconfigured). The worker probes the gateway every 10 s and idles — zero documents consumed (§74 proof). What was missing was the page SAYING so. Now: /api/learning/status carries the live gateway state (engine.available/provider/chat_model), and the page renders an **Examiner: DARK — no engine (§58)** pill with "the needle is parked; nothing is consumed until an engine serves the gateway", while the needle itself renders STRIPED (parked) vs solid when moving. The moment an engine serves the gateway the pill flips to Examiner: LIVE and the needle moves — no silent stuck state, ever again.
+
+**Physics of the alternative, on the record:** running the verified 12B weights on THIS box is impossible — bf16 needs ~24 GB against 15.5 GB total RAM (6.7 free). The needle moves on rig day (5070 Ti + Enigma), or if the owner himself changes the strict-Enigma-only doctrine. The machine will not pretend.
+
+**State at close:** §74f pending commit. Denominator honest; needle honest; both awaiting one thing only — a live engine behind the gateway.

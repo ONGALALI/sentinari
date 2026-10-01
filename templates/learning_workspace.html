@@ -22,6 +22,8 @@
   .card h2 { margin: 0 0 8px; font-size: 16px; }
   .progress-track { height: 14px; border-radius: 7px; background: #e3eaf5; overflow: hidden; }
   .progress-fill { height: 100%; width: 0%; border-radius: 7px; background: linear-gradient(90deg,#4dabf7,#1c7ed6); transition: width .4s ease; }
+  /* §74f: a dark engine parks the needle — striped, visibly waiting, not broken */
+  .progress-fill.parked { background: repeating-linear-gradient(45deg, #9db8d4 0 8px, #c3d5e9 8px 16px); }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   button { border: 0; border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; background: #1c7ed6; color: #fff; }
   button.ghost { background: #eef3fa; color: #1c4d80; border: 1px solid #d5e1f0; }
@@ -90,7 +92,8 @@
       <h2>% Learned — the learning-and-assessment path</h2>
       <div class="progress-track"><div class="progress-fill" id="liFill"></div></div>
       <div class="hint" id="liLabel" style="margin-top:6px;">Gathering status…</div>
-      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder — hover the ⓘ tag on any row for what it means and its gate. Owner's gate law (§74d): <strong>Calibration</strong> opens at 60% Formative Assessment; <strong>HLE</strong> at 55% after Calibration; <strong>Workbench</strong> at 50% HLE. Stages that have not run show an honest 0.</div>
+      <div id="liExaminer" style="margin-top:8px; font-size:12.5px;"></div>
+      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder — hover the ⓘ tag on any row for what it means and its gate. <strong>Datasets Loaded</strong> shows each field's share of the total corpus (loaded ÷ corpus × 100, §74f). Owner's gate law (§74d): <strong>Calibration</strong> opens at 60% Formative Assessment; <strong>HLE</strong> at 55% after Calibration; <strong>Workbench</strong> at 50% HLE. Stages that have not run show an honest 0.</div>
       <div id="liLadderGrid" class="ladderGrid"></div>
       <div id="liLatest" class="hint" style="margin-top:8px;"></div>
     </div>
@@ -170,6 +173,16 @@
     const pct = Number(d.percent || 0);
     byId('liFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
     byId('liLabel').innerHTML = `<strong>% Learned: ${pct}%</strong> — ${fmt(d.assessed)} of ${fmt(d.total)} ingested documents examined.`;
+    const eng = d.engine || {};
+    const ex = byId('liExaminer');
+    if (eng.available) {
+      ex.innerHTML = '<span class="pill" style="background:#e3f4e8;color:#1f6b3a;">Examiner: LIVE</span> — one exam every 10 s; the needle moves.';
+      byId('liFill').classList.remove('parked');
+    } else {
+      const model = eng.chat_model ? ' (' + esc(eng.chat_model) + ')' : '';
+      ex.innerHTML = '<span class="pill" style="background:#fbe9e7;color:#8c3b2e;">Examiner: DARK — no engine (§58)</span> — the needle is parked' + model + '; nothing is consumed until an engine serves the gateway.';
+      byId('liFill').classList.add('parked');
+    }
     const PRIORITY_LABELS = {
       0: 'P1 · AI & Information Science',
       1: 'P1 · AI & Information Science',

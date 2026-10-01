@@ -554,6 +554,15 @@ def _field_totals() -> dict[str, int]:
 def learning_status() -> dict[str, Any]:
     _ensure_schema()
     totals = _field_totals()
+    try:
+        _gw = get_gateway().describe()
+        engine = {
+            "available": bool(_gw.get("available")),
+            "provider": str(_gw.get("provider") or ""),
+            "chat_model": str(_gw.get("chat_model") or ""),
+        }
+    except Exception:
+        engine = {"available": False, "provider": "", "chat_model": ""}
     with get_connection() as conn:
         assessed_rows = conn.execute(
             "SELECT scientific_field, COUNT(1) AS n,"
@@ -595,6 +604,7 @@ def learning_status() -> dict[str, Any]:
         "ok": True,
         "enabled": learning_enabled(),
         "calibration_enabled": calibration_enabled(),
+        "engine": engine,
         "total": total_docs,
         "assessed": total_assessed,
         "percent": round(100.0 * total_assessed / total_docs, 1) if total_docs else 0.0,
@@ -694,7 +704,7 @@ LADDER_GATES: dict[str, dict[str, Any]] = {
     },
 }
 LADDER_MEANINGS: dict[str, str] = {
-    "datasets_loaded": "% of the field's documents ingested with readable chunks",
+    "datasets_loaded": "loaded documents in this field ÷ total corpus × 100",
     "datasets_learned": "% of documents examined by the gentle examiner",
     "formative_assessment": "% achieved — average exam mastery over the field's graded exams",
     "calibration": "500-word test on subject matter, % achieved",
@@ -716,7 +726,7 @@ def api_learning_ladder() -> dict[str, Any]:
     """74c — the owner's learning-and-assessment path, per scientific field.
 
     Six stages, % achieved each, from REAL state only (no invented numbers):
-      datasets_loaded       % of the field's documents ingested with readable chunks
+      datasets_loaded       field loaded docs ÷ TOTAL corpus × 100 (74f)
       datasets_learned      % of documents examined (assessed / total)
       formative_assessment  % achieved — average exam mastery over graded exams
       calibration           500-word test on subject matter — 0 while paused (38)
@@ -743,6 +753,11 @@ def api_learning_ladder() -> dict[str, Any]:
         ).fetchall():
             key = _norm_field(r["f"])
             loaded[key] = loaded.get(key, 0) + int(r["n"])
+    # 74f — the owner's denominator: Datasets Loaded is measured against the
+    # TOTAL corpus (every document in the library, unclassified included),
+    # not against the field's own total. Physics 300 loaded / 14,999 corpus
+    # × 100 is his formula, verbatim.
+    corpus_total = sum(totals.values())
     exams: dict[str, tuple[int, float]] = {}
     with get_connection() as conn:
         for r in conn.execute(
@@ -761,7 +776,7 @@ def api_learning_ladder() -> dict[str, Any]:
         n_exams, avg_mastery = exams.get(field, (0, 0.0))
         with_chunks = loaded.get(field, 0)
         pcts = {
-            "datasets_loaded": 100.0 * with_chunks / total if total else 0.0,
+            "datasets_loaded": 100.0 * with_chunks / corpus_total if corpus_total else 0.0,
             "datasets_learned": 100.0 * n_exams / total if total else 0.0,
             "formative_assessment": 100.0 * avg_mastery,
             "calibration": 0.0,
@@ -779,7 +794,9 @@ def api_learning_ladder() -> dict[str, Any]:
                 "percent": round(max(0.0, min(100.0, pct)), 1),
                 "meaning": LADDER_MEANINGS[key],
             }
-            if key in instrument_notes:
+            if key == "datasets_loaded":
+                stage["note"] = f"{with_chunks} loaded ÷ {corpus_total} total corpus × 100"
+            elif key in instrument_notes:
                 stage["note"] = instrument_notes[key]
             gate = LADDER_GATES.get(key)
             if gate:
