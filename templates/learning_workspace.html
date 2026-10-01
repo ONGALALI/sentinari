@@ -40,14 +40,22 @@
   .liSwitch .liKnob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(16,35,60,.35); transition: left .2s ease; }
   .liSwitch.on { background: #2e7d32; }
   .liSwitch.on .liKnob { left: 23px; }
-  /* §58 per-field progress bars + priority badges */
-  .liFieldRow { margin: 10px 0; padding: 8px 10px; background: #fff; border: 1px solid #dce6f2; border-radius: 8px; }
-  .liFieldHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; }
-  .liFieldHead strong { font-variant-numeric: tabular-nums; }
-  .liBar { height: 10px; background: #e6edf6; border-radius: 6px; overflow: hidden; margin-top: 5px; }
-  .liBar span { display: block; height: 100%; border-radius: 6px; transition: width .4s ease; }
-  .liMeta { font-size: 12px; color: #5b6b7d; margin-top: 3px; }
-  .liPrio { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; color: #103c6b; background: #dcebf9; border: 1px solid #b9d4ee; border-radius: 999px; padding: 1px 8px; margin-bottom: 4px; }
+  /* §74c ladder bar-graph layout (owner's drawing): one chart per field, six stages */
+  .ladderGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 14px; margin-top: 12px; }
+  .ladderChart { background: #fff; border: 1px solid #dce6f2; border-radius: 10px; padding: 12px 14px 8px; }
+  .ladderTitle { text-align: center; font-weight: 800; letter-spacing: .4px; font-size: 13.5px; margin: 2px 0 10px; color: #16283c; }
+  .ladderPlot { display: grid; grid-template-columns: 16px 1fr; gap: 0 8px; }
+  .ladderYLabel { writing-mode: vertical-rl; transform: rotate(180deg); justify-self: center; align-self: center; font-size: 10.5px; color: #5b6b7d; }
+  .ladderRows { display: flex; flex-direction: column; gap: 8px; }
+  .ladderRow { display: grid; grid-template-columns: 122px 1fr 42px; align-items: center; gap: 6px; font-size: 11.5px; }
+  .ladderRow .lab { text-align: right; color: #33475e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ladderTrack { position: relative; height: 14px; border: 1px solid #e2e9f2; border-radius: 2px; overflow: hidden;
+    background: repeating-linear-gradient(to right, #f6f9fc 0, #f6f9fc calc(20% - 1px), #dfe7f1 calc(20% - 1px), #dfe7f1 20%); }
+  .ladderFill { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; border-radius: 2px 0 0 2px; transition: width .4s ease; }
+  .ladderVal { font-variant-numeric: tabular-nums; font-weight: 700; color: #1d2b3a; }
+  .ladderAxis { display: flex; justify-content: space-between; font-size: 10px; color: #7c8ba0; margin-top: 3px; }
+  .ladderXLabel { text-align: center; font-size: 10.5px; color: #5b6b7d; margin-top: 2px; }
+  .liPrio { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; color: #103c6b; background: #dcebf9; border: 1px solid #b9d4ee; border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -69,10 +77,11 @@
     <div class="hint">A gentle background examiner: for each ingested document, Sentinari writes one exam question from it and answers in her own words. Grounding is graded locally — applying the knowledge scores; reciting it does not. Calibration against the Qualia Lab is <strong>paused by default</strong> until you switch it on from the Qualia Lab (or here) when there is power to spare.</div>
 
     <div class="card">
-      <h2>% Learned</h2>
+      <h2>% Learned — the learning-and-assessment path</h2>
       <div class="progress-track"><div class="progress-fill" id="liFill"></div></div>
       <div class="hint" id="liLabel" style="margin-top:6px;">Gathering status…</div>
-      <div id="liFields" style="margin-top:10px;"></div>
+      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder: <strong>Datasets Loaded</strong> (documents with readable chunks) · <strong>Datasets Learned</strong> (% examined) · <strong>Formative Assessment</strong> (average exam mastery) · <strong>Calibration</strong> (500-word Qualia test — paused, §38) · <strong>HLE</strong> (deferred, §71c) · <strong>Workbench = % Achieved</strong> (waits for the rig). Stages that have not run show an honest 0.</div>
+      <div id="liLadderGrid" class="ladderGrid"></div>
       <div id="liLatest" class="hint" style="margin-top:8px;"></div>
     </div>
 
@@ -157,15 +166,6 @@
       2: 'P2 · Physics',
       3: 'P3 · Engineering',
     };
-    byId('liFields').innerHTML = (d.fields || []).map((f) => {
-      const p = Math.max(0, Math.min(100, Number(f.percent || 0)));
-      const band = PRIORITY_LABELS[f.priority_rank];
-      const badge = band ? `<span class="liPrio">${band}</span>` : '';
-      const color = p >= 60 ? '#2e7d32' : p >= 20 ? '#ef8f00' : '#c62828';
-      return `<div class="liFieldRow">${badge}<div class="liFieldHead"><span>${esc(f.field)}</span><strong>${p.toFixed(1)}%</strong></div>` +
-        `<div class="liBar"><span style="width:${p}%;background:${color};"></span></div>` +
-        `<div class="liMeta">${fmt(f.assessed)}/${fmt(f.total)} documents examined</div></div>`;
-    }).join('') || '<div class="hint">No fields yet.</div>';
     byId('liLatest').innerHTML = (d.latest || []).slice(0, 3).map((l) =>
       `<div>• [${esc(l.verdict)}] ${esc(String(l.title || '').slice(0, 70))}</div>`).join('');
     learnOn = Boolean(d.enabled);
@@ -176,11 +176,58 @@
     byId('liCalBtn').textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
   };
 
+  // ---- §74c ladder bar graphs (owner's drawing) ----
+  const STAGE_DEFS = [
+    { key: 'datasets_loaded',      label: 'Datasets Loaded',        color: '#1b5e88' },
+    { key: 'datasets_learned',     label: 'Datasets Learned',       color: '#e87e2e' },
+    { key: 'formative_assessment', label: 'Formative Assessment',   color: '#29a8e0' },
+    { key: 'calibration',          label: 'Calibration',            color: '#e39fdd' },
+    { key: 'hle',                  label: 'HLE',                    color: '#93d06b' },
+    { key: 'workbench',            label: 'Workbench = % Achieved', color: '#f2e422' },
+  ];
+  let showAllFields = false;
+  let lastLadder = null;
+
+  const renderLadder = (lad) => {
+    lastLadder = lad || lastLadder;
+    const fields = (lastLadder && lastLadder.fields) || [];
+    const PRIORITY_BADGES = { 0: 'P1', 1: 'P1', 2: 'P2', 3: 'P3' };
+    const visible = showAllFields ? fields : fields.slice(0, 8);
+    const charts = visible.map((f) => {
+      const rows = STAGE_DEFS.map((s) => {
+        const st = (f.stages || {})[s.key] || { percent: 0 };
+        const p = Math.max(0, Math.min(100, Number(st.percent || 0)));
+        const tip = st.note ? `${s.label}: ${st.note}` : s.label;
+        return `<div class="ladderRow" title="${esc(tip)}">` +
+          `<span class="lab">${esc(s.label)}</span>` +
+          `<span class="ladderTrack"><span class="ladderFill" style="width:${p}%;background:${s.color};"></span></span>` +
+          `<span class="ladderVal">${p.toFixed(0)}%</span></div>`;
+      }).join('');
+      const badge = PRIORITY_BADGES[f.priority_rank] ? `<span class="liPrio">${PRIORITY_BADGES[f.priority_rank]}</span>` : '';
+      return `<div class="ladderChart">` +
+        `<div class="ladderTitle">${esc(f.display)} ${badge}</div>` +
+        `<div class="ladderPlot"><span class="ladderYLabel">Learning and assessment path</span>` +
+        `<div><div class="ladderRows">${rows}</div>` +
+        `<div class="ladderAxis"><span>0%</span><span>20%</span><span>40%</span><span>60%</span><span>80%</span><span>100%</span></div>` +
+        `<div class="ladderXLabel">% Achieved/Completed</div></div></div></div>`;
+    }).join('');
+    const toggle = fields.length > 8
+      ? `<div style="grid-column:1/-1;text-align:center;"><button class="ghost" id="liLadderToggle">${showAllFields ? 'Show priority fields only' : 'Show all ' + fields.length + ' fields'}</button></div>`
+      : '';
+    byId('liLadderGrid').innerHTML = charts + toggle;
+    const tog = byId('liLadderToggle');
+    if (tog) tog.addEventListener('click', () => { showAllFields = !showAllFields; renderLadder(lastLadder); });
+  };
+
   const poll = async () => {
     try {
-      const res = await fetch('/api/learning/status');
+      const [res, lres] = await Promise.all([fetch('/api/learning/status'), fetch('/api/learning/ladder')]);
       const d = await res.json();
       if (res.ok && d.ok !== false) render(d);
+      if (lres.ok) {
+        const l = await lres.json();
+        if (l.ok !== false) renderLadder(l);
+      }
     } catch (_) {}
   };
 

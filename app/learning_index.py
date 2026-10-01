@@ -676,6 +676,102 @@ def api_learning_status() -> dict[str, Any]:
     return learning_status()
 
 
+@router.get("/ladder")
+def api_learning_ladder() -> dict[str, Any]:
+    """74c — the owner's learning-and-assessment path, per scientific field.
+
+    Six stages, % achieved each, from REAL state only (no invented numbers):
+      datasets_loaded       % of the field's documents ingested with readable chunks
+      datasets_learned      % of documents examined (assessed / total)
+      formative_assessment  % achieved — average exam mastery over graded exams
+      calibration           500-word test on subject matter — 0 while paused (38)
+      hle                   % of total documents — 0 while deferred (71c)
+      workbench             % of the field's corpus applied — 0 until the rig runs it
+    Stages without a live source report an honest 0 with their gating note.
+    """
+    # Field keys are NORMALIZED (74c lesson from the first render: raw strings
+    # split 'Physics'/'physics' into duplicate charts with wrong numbers).
+    with library_connection("gemma") as conn:
+        totals: dict[str, int] = {}
+        for r in conn.execute(
+            "SELECT IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
+            " FROM documents GROUP BY f"
+        ).fetchall():
+            key = _norm_field(r["f"])
+            totals[key] = totals.get(key, 0) + int(r["n"])
+        loaded: dict[str, int] = {}
+        for r in conn.execute(
+            "SELECT IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
+            " FROM documents d WHERE EXISTS (SELECT 1 FROM chunks c WHERE c.document_id = d.id) GROUP BY f"
+        ).fetchall():
+            key = _norm_field(r["f"])
+            loaded[key] = loaded.get(key, 0) + int(r["n"])
+    exams: dict[str, tuple[int, float]] = {}
+    with get_connection() as conn:
+        for r in conn.execute(
+            "SELECT scientific_field AS f, COUNT(1) AS n, AVG(mastery) AS m"
+            " FROM learning_assessments WHERE verdict != 'skipped' GROUP BY scientific_field"
+        ).fetchall():
+            key = _norm_field(r["f"])
+            n, m = exams.get(key, (0, 0.0))
+            # mastery merges as the exam-count-weighted mean
+            exams[key] = (n + int(r["n"]), (m * n + float(r["m"] or 0.0) * int(r["n"])) / (n + int(r["n"])))
+
+    def _stage(pct: float, note: str = "") -> dict[str, Any]:
+        out: dict[str, Any] = {"percent": round(max(0.0, min(100.0, pct)), 1)}
+        if note:
+            out["note"] = note
+        return out
+
+    fields: list[dict[str, Any]] = []
+    for field, total in totals.items():
+        if field == "unclassified":
+            continue  # §59 held out from learning accounting
+        n_exams, avg_mastery = exams.get(field, (0, 0.0))
+        with_chunks = loaded.get(field, 0)
+        fields.append(
+            {
+                "field": field,
+                "display": field.replace("-", " ").upper(),
+                "priority_rank": _priority_rank(field),
+                "total": total,
+                "stages": {
+                    "datasets_loaded": _stage(
+                        100.0 * with_chunks / total if total else 0.0,
+                        "documents ingested with readable chunks",
+                    ),
+                    "datasets_learned": _stage(
+                        100.0 * n_exams / total if total else 0.0,
+                        "documents examined",
+                    ),
+                    "formative_assessment": _stage(
+                        100.0 * avg_mastery,
+                        "average exam mastery — % achieved",
+                    ),
+                    "calibration": _stage(
+                        0.0,
+                        "500-word test on subject matter — paused (38), opens on the rig",
+                    ),
+                    "hle": _stage(0.0, "% of total documents — deferred (71c)"),
+                    "workbench": _stage(0.0, "% of the field's corpus applied — waits for the rig"),
+                },
+            }
+        )
+    fields.sort(key=lambda f: (f["priority_rank"], -f["total"]))
+    return {
+        "ok": True,
+        "stages": [
+            "datasets_loaded",
+            "datasets_learned",
+            "formative_assessment",
+            "calibration",
+            "hle",
+            "workbench",
+        ],
+        "fields": fields,
+    }
+
+
 @router.post("/toggle")
 def api_learning_toggle(payload: ToggleRequest) -> dict[str, Any]:
     _set_setting("learning_enabled", "on" if payload.enabled else "off")
