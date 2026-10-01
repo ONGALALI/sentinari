@@ -55,6 +55,31 @@ LLM_MAX_TOKENS = 600
 # the index sweeps the whole library over time.
 RECENT_WINDOW = 400
 
+# 74b: a LIT but useless engine must never burn documents. After this many
+# consecutive engine failures (error or unusable output) the worker ends the
+# cycle and waits for the next tick - documents stay pending, retries are
+# free, and the counter below surfaces the state in /api/learning/status.
+MAX_CONSECUTIVE_ENGINE_FAILURES = 5
+_engine_failure_state = {
+    "consecutive": 0,
+    "total": 0,
+    "last_reason": "",
+    "last_document_id": None,
+}
+
+
+def _note_engine_failure(reason: str, document_id: int | None = None) -> None:
+    _engine_failure_state["consecutive"] += 1
+    _engine_failure_state["total"] += 1
+    _engine_failure_state["last_reason"] = reason
+    _engine_failure_state["last_document_id"] = document_id
+
+
+def _clear_engine_failure() -> None:
+    _engine_failure_state["consecutive"] = 0
+    _engine_failure_state["last_reason"] = ""
+    _engine_failure_state["last_document_id"] = None
+
 # §58 — Owner-set learning priority (1 = examined first, rest follow in any
 # order). Exact-name first, then prefix match, so 'computer-and-information-'
 # hits 'computer-and-information-sciences'. Applied in _candidate_documents.
@@ -273,9 +298,20 @@ def _load_probe_material(document_id: int) -> tuple[str, str, str] | None:
 
 def probe_document(document_id: int) -> dict[str, Any] | None:
     """Run one exam against a specific document. None = could not assess."""
+    record, _reason = _probe_document_with_reason(document_id)
+    return record
+
+
+def _probe_document_with_reason(document_id: int) -> tuple[dict[str, Any] | None, str]:
+    """One exam attempt plus a failure REASON for the caller.
+
+    Reasons (74b): 'no-material' = the document itself is unloadable (the
+    one legitimate skip); 'engine-error' / 'engine-output-unusable' = the
+    ENGINE failed, never the document — the caller must NOT consume it.
+    """
     material = _load_probe_material(document_id)
     if material is None:
-        return None
+        return None, "no-material"
     title, field, source = material
     try:
         raw = get_gateway().chat(
@@ -292,14 +328,17 @@ def probe_document(document_id: int) -> dict[str, Any] | None:
             max_tokens=LLM_MAX_TOKENS,
         )
     except (LLMGatewayError, Exception):
-        return None
+        _note_engine_failure("engine-error")
+        return None, "engine-error"
     exam = _extract_json(raw)
     if not exam:
-        return None
+        _note_engine_failure("engine-output-unusable")
+        return None, "engine-output-unusable"
     question = str(exam.get("question") or "")[:1000]
     answer = str(exam.get("answer") or "")[:4000]
     if not question or not answer:
-        return None
+        _note_engine_failure("engine-output-unusable")
+        return None, "engine-output-unusable"
     grounding, verbatim, mastery, verdict = _grade(answer, source)
     record: dict[str, Any] = {
         "document_id": document_id,
@@ -314,7 +353,8 @@ def probe_document(document_id: int) -> dict[str, Any] | None:
         "assessed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     _persist(record)
-    return record
+    _clear_engine_failure()
+    return record, "assessed"
 
 
 def _persist(record: dict[str, Any]) -> None:
@@ -435,26 +475,50 @@ def _candidate_documents() -> list[int]:
 
 
 def probe_next() -> dict[str, Any] | None:
-    """Assess the next unassessed recent document. None = nothing pending / failed."""
-    for _ in range(5):  # skip over a handful of unloadable docs before giving up
+    """Assess the next unassessed recent document. None = nothing pending / failed.
+
+    74b — the owner's rule, made mechanical: a document is consumed as
+    'skipped' ONLY when its material is unloadable (verified §58 case).
+    An engine that ERRORS or returns unusable output never consumes a
+    document: the failure is counted, the cycle stops after
+    MAX_CONSECUTIVE_ENGINE_FAILURES attempts, and the same documents are
+    offered again next tick — nothing is burned while she cannot learn.
+    """
+    consecutive_failures = 0
+    for _ in range(8):  # small ceiling; engine failures abort the cycle early
         candidates = _candidate_documents()
         if not candidates:
             return None
         document_id = candidates[0]
-        record = probe_document(document_id)
+        record, reason = _probe_document_with_reason(document_id)
         if record is not None:
             return record
+        if reason == "no-material":
+            def _mark_skipped(doc_id: int = document_id) -> None:
+                with get_connection() as conn:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO learning_assessments (document_id, verdict, assessed_at)"
+                        " VALUES (?, 'skipped', ?)",
+                        (doc_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                    )
+                    conn.commit()
 
-        def _mark_skipped() -> None:
-            with get_connection() as conn:
-                conn.execute(
-                    "INSERT OR IGNORE INTO learning_assessments (document_id, verdict, assessed_at)"
-                    " VALUES (?, 'skipped', ?)",
-                    (document_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
-                )
-                conn.commit()
-
-        _db_write_retry(_mark_skipped)
+            _db_write_retry(_mark_skipped)
+            continue
+        # engine-error / engine-output-unusable: consume NOTHING.
+        consecutive_failures += 1
+        print(
+            f"[learning] engine unusable ({reason}) on document {document_id} - "
+            "document NOT consumed, will retry next tick",
+            flush=True,
+        )
+        if consecutive_failures >= MAX_CONSECUTIVE_ENGINE_FAILURES:
+            print(
+                f"[learning] {MAX_CONSECUTIVE_ENGINE_FAILURES} consecutive engine failures - "
+                "ending this cycle; nothing consumed",
+                flush=True,
+            )
+            return None
     return None
 
 
@@ -537,6 +601,12 @@ def learning_status() -> dict[str, Any]:
         "fields": fields,
         "priority_order": [priority_fields.get(i, f"rest") for i in range(len(LEARNING_PRIORITY_FIELDS))] or [],
         "priority_note": "Examination order: 1) AI and Information Science, 2) Physics, 3) Engineering — the rest follow in any order (§58).",
+        "engine_health": {
+            "consecutive_failures": _engine_failure_state["consecutive"],
+            "total_failures": _engine_failure_state["total"],
+            "last_reason": _engine_failure_state["last_reason"],
+            "burn_guard": "engine failures never consume documents (74b)",
+        },
         "latest": [dict(r) for r in latest],
     }
 
