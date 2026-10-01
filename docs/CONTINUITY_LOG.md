@@ -1691,3 +1691,13 @@ BOTH. Verified live in the databases, not from memory:
 **Physics of the alternative, on the record:** running the verified 12B weights on THIS box is impossible — bf16 needs ~24 GB against 15.5 GB total RAM (6.7 free). The needle moves on rig day (5070 Ti + Enigma), or if the owner himself changes the strict-Enigma-only doctrine. The machine will not pretend.
 
 **State at close:** §74f pending commit. Denominator honest; needle honest; both awaiting one thing only — a live engine behind the gateway.
+
+## §74g — "SHOULD I GET AN ENIGMA API?" — NO: THE ENGINE NEEDS A RIG, NOT A PURCHASE — 2026-10-01
+
+**Owner asked what else the engine needs, offering to buy an "Enigma API". Ruling: NOTHING TO BUY.** Enigma is our OWN in-house server (server_onnx.py on :8100) — there is no API to purchase, and buying an external one would violate §41/§45 zero-cloud, the constitution of the whole project. (If the thought was the HLE license/token — separate, deferred item for the ASSESSMENT stage, not the engine.) Owner's instinct affirmed: the weights WERE the mountain — verified on disk, loader proven.
+
+**The complete remaining path — a 5-item rig-day checklist:** (1) the rig itself, already ordered (5070 Ti, 16 GB VRAM — the VRAM math is WHY int4 exists: bf16 22.28 GiB does not fit 16 GB; int4 ~7–8 GiB does); (2) the int4 conversion ON the rig (convert_to_onnx.py; pinned onnxruntime-genai 0.17.0 + onnxruntime 1.30.0 — CUDA build per requirements-inference.txt; ~40–50 GB RAM peak → owner to confirm rig RAM ≥ 64 GB, else plan the lower-peak path); (3) fill inference_settings.yaml model.path + execution_provider cuda — a settings edit, never code; (4) the 'sentinari' gateway provider (~40 lines; wire recorded live: POST /api/inference/chat {messages} → {reply, degraded:false}) + one firewall allowlist line + llm.provider flip; (5) restart core → Examiner flips LIVE → needle moves.
+
+**Already done, needs nothing:** weights (SHA-256 verified), loader (all 48 layers indexed), server shell (live on :8100, degraded honestly), learning pipeline (proven end-to-end), gates + burn-guard, gateway slot shape. All seven model files present (weights + config + tokenizer + chat template + generation + processor).
+
+**State at close:** §74g pending commit. The engine needs hands and hours on Monday — not money.
