@@ -85,7 +85,12 @@ class CustomGemmaEngine:
             if emb in self.weights:
                 layout["embed"] = emb
                 break
-        for fn in (layout["prefix"] + "final_norm.weight", "model.final_norm.weight",
+        # 71d: the REAL artifact (google/gemma-4-12B-it) names its final norm
+        # 'norm.weight' (HF Gemma convention), not 'final_norm.weight' -
+        # discovered live from the verified safetensors header. Old spellings
+        # stay as fallbacks for classic checkpoints.
+        for fn in (layout["prefix"] + "norm.weight", "model.language_model.norm.weight",
+                   layout["prefix"] + "final_norm.weight", "model.final_norm.weight",
                    "language_model.model.final_norm.weight"):
             if fn in self.weights:
                 layout["final_norm"] = fn
@@ -108,13 +113,16 @@ class CustomGemmaEngine:
         return None
 
     def _report(self) -> None:
-        lang = sum(1 for k in self._index)
-        vis = sum(1 for k in self.weights if k not in self._index)
+        # 71d fix: count RAW keys that normalize cleanly; the old code compared
+        # raw keys against normalized ones and mislabeled the whole file as
+        # vision/other on top of the text count.
+        n_norm = sum(1 for k in self.weights if self._normalize_key(k) is not None)
         dtypes = sorted({str(v.dtype).replace('torch.', '') for v in list(self.weights.values())[:64]})
         print(f"  layout: prefix='{self._layout['prefix'] or '(flat)'}' "
               f"embed='{self._layout['embed'] or 'NOT FOUND'}' "
               f"final_norm='{self._layout['final_norm'] or 'NOT FOUND'}'")
-        print(f"  text-stack keys: {lang} | vision/other keys: {vis} | dtypes: {dtypes}")
+        print(f"  text-stack keys: {n_norm} | vision/other keys: "
+              f"{len(self.weights) - n_norm} | dtypes: {dtypes}")
 
     # -- tensor access -------------------------------------------------------
 
