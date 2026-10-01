@@ -2,8 +2,8 @@
 
 The Windows interim box runs the server wrapper NOW (verified degraded,
 port 8100). The CONVERSION belongs to the new rig — it has the RAM
-(84 GB) and GPU (24 GB) that this 15.5 GB box lacks. This runbook makes
-rig day a copy-paste job.
+(92 GB DDR5) and GPU (16 GB VRAM) that this 15.5 GB box lacks. This
+runbook makes rig day a copy-paste job.
 
 ## ⭐ 74h UPDATE (2026-10-01) — READ THIS FIRST
 
@@ -13,8 +13,13 @@ rig day a copy-paste job.
   pointer, plus config/tokenizer/chat-template/generation/processor.
   **No download on the rig is needed**: carry that folder across and
   point `--input` at it (Options A and B below collapse into this).
-- **Rig RAM confirmed 92 GB by the owner** — the 40–50 GB conversion
-  peak has huge headroom; the 84 GB figure above is superseded.
+- **Confirmed rig spec (owner, 2026-10-01):** AMD Ryzen 9, 16 cores;
+  92 GB DDR5; 2 TB internal SSD; NVIDIA 16 GB VRAM; external backup
+  drive ordered (the §73 Seagate vault — on arrival: dock, V:,
+  BitLocker, flip the nightly ritual's target). VRAM math final:
+  int4 (~7–8 GiB) fits 16 GB with ~8 GB left for KV cache/context;
+  bf16 (22.28 GiB) would not — the conversion stays mandatory. The
+  Ryzen 9's 16 cores chew the CPU-side export.
 - **Carry-back option (owner ruling: "speed has no impact")** — after
   conversion, `models/gemma-12b-onnx` (~7–8 GB) can ride BACK to this
   Windows box: `execution_provider: cpu` here serves it slowly but
