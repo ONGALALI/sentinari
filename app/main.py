@@ -682,7 +682,7 @@ _SIDE_NAV_ITEMS = [
     ("/ui/admin", "Skills Manager", "Skills live in the Admin Console."),
     ("/ui/patterns", "New Patterns", "Scientific Patterns Discovery workspace."),
     ("/ui/search", "Search Library", "Datasets ingested per scientific field."),
-    ("/ui/model-lab", "Model Deviation Lab", "Score Sentinari against manual pasted answers."),
+    ("/ui/model-lab", "The API Black-Box Pivot", "Behavioral auditing of API models — Echo Test & Guardrail Index."),
     ("/ui/admin", "Admin Console", "Profile, memory, and task board."),
 ]
 

@@ -429,6 +429,37 @@
       margin-bottom: 4px;
       color: #16324a;
     }
+    /* §74m — hover pop-up explanations: every labelled tag in the lab
+       carries a live, detailed explainer (what / effect / too high / too low). */
+    .qx {
+      border-bottom: 1px dotted #7e95b0;
+      cursor: help;
+    }
+    .qx:hover, .qx:focus-visible { color: var(--blue); outline: none; }
+    .qx-pop {
+      position: fixed;
+      z-index: 9999;
+      max-width: 380px;
+      background: #10222f;
+      color: #e8f1f8;
+      border: 1px solid #2c4a63;
+      border-radius: 10px;
+      box-shadow: 0 10px 26px rgba(9, 25, 41, 0.45);
+      padding: 12px 14px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .12s ease, transform .12s ease;
+    }
+    .qx-pop.show { opacity: 1; transform: translateY(0); }
+    .qx-pop .qx-title { font-weight: 800; color: #9cc4e4; display: block; margin-bottom: 4px; letter-spacing: .2px; }
+    .qx-pop .qx-what { margin-bottom: 6px; }
+    .qx-pop .qx-effect, .qx-pop .qx-high, .qx-pop .qx-low { display: block; margin-top: 2px; }
+    .qx-pop .qx-h { color: #8fd0a8; font-weight: 700; }
+    .qx-pop .qx-l { color: #e0b06f; font-weight: 700; }
+    .qx-pop .qx-note { display: block; margin-top: 6px; color: #a9c2d4; font-style: italic; }
     @media (max-width: 1050px) {
       main { grid-template-columns: 1fr; }
       .split, .grid3, .comparison-plots { grid-template-columns: 1fr; }
@@ -685,14 +716,14 @@
 
       <section>
         <h2>Vector Glossary</h2>
-        <p class="hint">Plain-language terminology for reading the Qualia and model-comparison panels.</p>
+        <p class="hint">Plain-language terminology for reading the Qualia and model-comparison panels. <b>Hover (or keyboard-focus) any dotted-underlined term anywhere in this lab</b> — every tag opens a full explainer: what it is, its effect on the model, and what happens when it runs too high or too low.</p>
         <div class="glossary-grid">
           <div class="glossary-item"><strong>Behavior Variant</strong>The operating position on the behavior range. Low values are conservative and narrow; higher values allow broader, more exploratory responses.</div>
           <div class="glossary-item"><strong>Q0 Vector</strong>The initial qualia state vector. In this lab it represents the starting semantic/interpretive state before the trajectory evolves.</div>
           <div class="glossary-item"><strong>A0 Vector</strong>The initial attention vector. It shows where attention is pulled at the start of the response process.</div>
           <div class="glossary-item"><strong>S Vector</strong>The stabilizing or attractor vector. It represents the direction the system is encouraged to settle toward.</div>
-          <div class="glossary-item"><strong>Alpha</strong>The update weight for the qualia state. Higher alpha makes the internal state move more strongly per step.</div>
-          <div class="glossary-item"><strong>Beta</strong>The coupling weight between attention and the qualia state. Higher beta makes attention influence the trajectory more strongly.</div>
+          <div class="glossary-item"><strong>Alpha</strong>The weight given to a state's OWN direction when state (Q0), attention (A0) and stabilizer (S) are mixed each simulation step — all three weights normalized together. Higher alpha makes the trajectory persist and hold its shape.</div>
+          <div class="glossary-item"><strong>Beta</strong>The weight of the stabilizer (S) pull in the per-step mix. Higher beta pulls both state and attention toward the attractor each step.</div>
           <div class="glossary-item"><strong>Gamma</strong>The coherence/pressure term applied to the field. It helps shape how strongly the response trajectory is pulled into a coherent pattern.</div>
           <div class="glossary-item"><strong>Gamma Cap</strong>The maximum allowed gamma effect. It prevents the coherence pressure from overwhelming the simulation.</div>
           <div class="glossary-item"><strong>Stability Bias</strong>A damping force. Higher values resist drift and keep the trajectory more stable; lower values allow more movement.</div>
@@ -710,6 +741,294 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
+
+    // §74m — Qualia tag pop-up law: WHAT the term is, its EFFECT on the model,
+    // and what happens when it runs TOO HIGH or TOO LOW. Every line here is
+    // derived from the actual runtime law in app/qualia.py (gate, influence,
+    // volatility) and app/playground.py (_apply_qualia_tuning) — nothing invented.
+    const QX_TERMS = {
+      "behavior variant": {
+        title: "Behavior Variant",
+        what: "The operating position on the behavior range (0.1 – 25.0). It is normalized to a 0–1 base ratio, then the Qualia field tunes it — damping, floor lift, bell lift — before it steers the response.",
+        effect: "Low positions keep responses conservative, literal and narrow; high positions allow broader, more exploratory and associative output.",
+        high: "Very high variants push the model toward speculative, wide-ranging answers that roam past the question.",
+        low: "Very low variants compress the answers: safe, terse, slow to surface lateral connections."
+      },
+      "alpha": {
+        title: "Alpha (α)",
+        what: "The weight given to a state's OWN direction when state (Q0), attention (A0) and stabilizer (S) are mixed each simulation step. The three weights are normalized together (α + β + γ), so raising one lowers the others' share.",
+        effect: "Higher alpha means each step trusts the current internal state more than outside pulls — the trajectory persists, moves coherently, holds its shape.",
+        high: "α too high: the trajectory locks onto its initial direction and stops integrating new pressure — coherent but rigid, slow to course-correct.",
+        low: "α too low: the state dissolves into the attention and stabilizer mixes; the trajectory loses identity and wanders."
+      },
+      "beta": {
+        title: "Beta (β)",
+        what: "The weight of the S-vector (stabilizer) pull in the per-step mix. β drags both the state and the attention vector toward the attractor each step.",
+        effect: "Higher β settles the trajectory toward the attractor direction — consistency and convergence across the run.",
+        high: "β too high: every response bends toward the attractor — outputs converge and can feel same-y regardless of the question.",
+        low: "β too low: no settling pressure; the trajectory drifts with attention noise."
+      },
+      "gamma": {
+        title: "Gamma (γ)",
+        what: "The cross-coupling weight: γ mixes the OTHER vector into each (attention into state, state into attention), and at runtime sets how much coherence pressure is applied to the field. Requested gamma is clamped by the cap before use (gamma effective).",
+        effect: "Higher gamma couples internal state and attention more tightly — the response trajectory is pulled into a coherent, self-reinforcing pattern.",
+        high: "γ too high: strong self-coupling — confident, fluent output that can spiral into self-amplifying tangents (the cap exists for exactly this).",
+        low: "γ too low: state and attention barely talk; outputs feel flat and loosely structured."
+      },
+      "gamma cap": {
+        title: "Gamma Cap",
+        what: "The maximum gamma the runtime may apply (default 0.25). Applied law: gamma_effective = min(gamma_requested, cap).",
+        effect: "It is the safety valve that keeps coherence pressure from overwhelming the simulation.",
+        high: "Cap raised high: gamma runs near its raw value — powerful coupling with real runaway-tangent risk.",
+        low: "Cap near zero: gamma is clipped to ~0 no matter what you request — coupling effectively disabled."
+      },
+      "stability bias": {
+        title: "Stability Bias",
+        what: "A damping force (0–1, default 0.76). It enters the Stability Gate: gate = (1 − bias) + bias × stability_index, clamped to 0.35 – 1.0, and the gate MULTIPLIES the final tuned behavior ratio.",
+        effect: "High bias makes the gate demand real stability before letting behavior through; the lab's Anxiety score is 1 − stability, so anxiety only rises when stability actually drops.",
+        high: "Bias too high: everything is damped toward caution — stable but stiff; with an unstable run the gate throttles behavior hard.",
+        low: "Bias too low: the gate barely resists drift — lively, exploratory output with more volatility than you may want."
+      },
+      "steps": {
+        title: "Simulation Steps",
+        what: "How many discrete steps the trajectory runs (1–240, default 40). Each step re-mixes and re-rotates the state and attention vectors.",
+        effect: "More steps = longer simulated evolution: smoother curves and more mature settling, at linear cost.",
+        high: "Too many steps: diminishing returns and slower runs — the trajectory tail adds little.",
+        low: "Too few steps: a sketch of a trajectory — volatility and stability read noisy and immature."
+      },
+      "q0 vector": {
+        title: "Q0 — Qualia State Vector",
+        what: "The initial qualia state vector (x, y, z), each −1…1: the starting semantic/interpretive state before the trajectory evolves. Bloch-clipped (normalized if length exceeds 1).",
+        effect: "Its direction is the seed the whole trajectory grows from; the z component is the blue line on the trajectory chart.",
+        high: "A large initial component dominates the early mix — a strong prior the response starts from.",
+        low: "Near zero: no prior — the trajectory starts neutral, shaped almost entirely by attention and the stabilizer."
+      },
+      "a0 vector": {
+        title: "A0 — Attention Vector",
+        what: "The initial attention vector (x, y, z): where attention is pulled at the start. Its x drives the state rotation each step (θ = a_x × π/2); its z is the orange trajectory line.",
+        effect: "Sets the direction of the attention pressure that steers the state's rotation every step.",
+        high: "Strong initial attention: the response locks onto its subject immediately.",
+        low: "Weak attention: the response starts unfocused and takes steps to find its subject."
+      },
+      "s vector": {
+        title: "S — Stabilizer (Attractor) Vector",
+        what: "The stabilizer/attractor vector (x, y, z), all zeros by default — a resting attractor at the origin. It enters the mix weighted by β.",
+        effect: "The direction the system is encouraged to settle toward; a non-zero S tilts every step toward that pole.",
+        high: "Strong S: powerful settling — stable, convergent answers that bend toward the attractor's meaning.",
+        low: "S at zero: settling comes only from the weight normalization — the default balanced behavior."
+      },
+      "bell mu": {
+        title: "Bell Mu (center)",
+        what: "The center of the preference bell curve over the behavior range, on the 0–1 normalized variant scale.",
+        effect: "The bell rewards the current variant for sitting near mu: weight = amplitude × gaussian(variant − mu, sigma), and that weight lifts the tuned ratio by 0.10 × bell weight.",
+        high: "mu high: the preference peak sits at exploratory variants — a gentle push toward broader behavior.",
+        low: "mu low: the preference peaks at conservative variants — a gentle push toward narrow behavior."
+      },
+      "bell sigma": {
+        title: "Bell Sigma (width)",
+        what: "The width of the preference bell (0.02 – 0.5).",
+        effect: "Wide sigma tolerates many variants; narrow sigma rewards only variants very near mu.",
+        high: "Too wide: the bell is nearly flat — no preference signal.",
+        low: "Too narrow: only variants within a hair of mu are rewarded — the bell becomes a spike."
+      },
+      "bell amplitude": {
+        title: "Bell Amplitude (height)",
+        what: "The peak height of the preference bell (0 – 1).",
+        effect: "Scales the maximum lift the bell can contribute to the tuned ratio (0.10 × weight at variant).",
+        high: "Strong preference pull toward mu.",
+        low: "Almost no bell influence — behavior guided by damping only."
+      },
+      "stability gate": {
+        title: "Stability Gate",
+        what: "The final brake line of the Qualia field: gate = (1 − stability_bias) + stability_bias × stability_index, clamped to 0.35 – 1.0. It MULTIPLIES the tuned behavior ratio (damped ratio + floor + bell lift) — the last number applied before behavior reaches the engine.",
+        effect: "It is the gate resisting drift: with bias b, an unstable run (index → 0) passes only (1 − b) of the tuned behavior; a stable run (index → 1) passes all of it.",
+        high: "Gate near 1.0: behavior flows at full tuned strength — the normal, healthy state.",
+        low: "Gate at the 0.35 floor: behavior is choked to about a third — minimal, hesitant, highly conservative responses. That reading means the run was BOTH unstable and heavily damped.",
+        note: "The gate never exceeds 1.0 — it can only hold behavior back, never amplify it. Qualia control OFF pins it to 1.0 (pure pass-through)."
+      },
+      "stability index": {
+        title: "Stability Index",
+        what: "A normalized 0–1 outcome signal: 1 − mean |step-to-step change| across the state (q_z) and attention (a_z) trajectories, clipped to [0, 1].",
+        effect: "It is the coherence grade of the run and the raw material of the Stability Gate, the Anxiety score, and the comparison table's Confidence row.",
+        high: "Near 1.0: the trajectory held its shape — steady, consistent response dynamics.",
+        low: "Near 0: the trajectory swung wildly step-to-step — volatile output; the gate throttles behavior hard when bias is high."
+      },
+      "influence": {
+        title: "Influence",
+        what: "How much Qualia pull reaches the final behavior ratio: influence = 0.55 × (gamma / gamma_cap) + 0.25 × volatility + 0.20 × attention_pull. If Qualia control is disabled it is forced to 0.",
+        effect: "It scales the damping (ratio × (1 − 0.45 × influence)) and the floor (0.05 × influence) inside the tuning — the lever deciding how strongly the field bends behavior at all.",
+        high: "High influence: the vector field is bending behavior strongly — expressive, gamma-driven output (damping still caps extreme variants).",
+        low: "Influence near 0: the field is a spectator — behavior ≈ the base variant ratio, effectively ungoverned."
+      },
+      "gamma effective": {
+        title: "Gamma Effective",
+        what: "The gamma actually applied after the cap: gamma_effective = min(gamma_requested, gamma_cap).",
+        effect: "Drives the runtime coherence field, the 0.55-weighted slice of Influence, and the comparison table's Logic Proxy.",
+        high: "Near the cap: maximum coupling the lab allows.",
+        low: "Clipped low: the coherence pressure you asked for was refused by the cap — lower the cap or the request."
+      },
+      "base ratio": {
+        title: "Base Ratio",
+        what: "The behavior variant after normalization to 0–1 ((variant − 0.1) / 24.9) but BEFORE any Qualia tuning.",
+        effect: "The control line: what the variant alone would steer.",
+        high: "An exploratory setting arriving at the field untouched.",
+        low: "A conservative setting arriving untouched."
+      },
+      "effective ratio": {
+        title: "Effective Ratio",
+        what: "The behavior ratio AFTER the full Qualia chain: (damped + floor + bell lift) × stability gate, clipped 0–1. The engine receives THIS number.",
+        effect: "The distance between Base and Effective Ratio is, literally, how much the Qualia field changed the model's behavior this run.",
+        high: "Exploratory behavior survived the field's braking.",
+        low: "Near zero despite a decent base: the field braked hard — check the Stability Gate and Influence first."
+      },
+      "volatility": {
+        title: "Volatility",
+        what: "Mean absolute step-to-step movement, averaged over the state (q_z) and attention (a_z) trajectories, clipped 0–1.",
+        effect: "The raw movement measure the Stability Index inverts; it feeds 0.25 of Influence.",
+        high: "Turbulent internal dynamics — energetic output, lower gate credit.",
+        low: "Near 0: a flat line — perfectly steady, or a trajectory that never left its origin (check steps and vectors)."
+      },
+      "attention pull": {
+        title: "Attention Pull",
+        what: "The mean absolute attention x-component across the run — how hard attention was pulled along its axis.",
+        effect: "Prompt-linked attention pressure; feeds 0.20 of Influence.",
+        high: "Strong pull: attention locked onto a direction and hauled the state with it.",
+        low: "Weak pull: attention idled — the run stayed near its starting interpretation."
+      },
+      "reasoning proxy": {
+        title: "Reasoning Proxy",
+        what: "A derived heuristic comparison score: 0.55 × min(1, words/120) + 0.45 × influence. NOT a proof of reasoning quality.",
+        effect: "Useful only for comparing two runs of the same question side by side.",
+        high: "Long, field-influenced answers — not necessarily better answers.",
+        low: "Short or uninfluenced answers — not necessarily worse.",
+        note: "Honest label: heuristic, exploratory, unvalidated — every backend result is marked external_validation_required."
+      },
+      "logic proxy": {
+        title: "Logic Proxy",
+        what: "A derived heuristic: 0.45 × min(1, words/90) + 1.2 × gamma_effective, clipped to 0–1. Not a formal logic grade.",
+        effect: "Rewards structured length under coherence pressure — a rough 'did the field engage' marker.",
+        high: "Long answers under strong gamma — no guarantee of valid logic.",
+        low: "Terse answers under weak gamma — no proof of error.",
+        note: "Same honest law: heuristic only."
+      },
+      "anxiety": {
+        title: "Anxiety",
+        what: "Anxiety = 1 − stability_index: the inverse of the run's stability, not an emotion reading.",
+        effect: "In comparisons, lower is better (less volatility). It also nudges the recommendation engine — anxiety signal raises the caution of the suggested vector.",
+        high: "High 'anxiety': the trajectory was volatile — responses likely swung between framings.",
+        low: "Near 0: a steady run."
+      },
+      "attention peak a z": {
+        title: "Attention Peak A z",
+        what: "The single largest attention z movement in the trajectory — the strongest attention event of the run.",
+        effect: "A compact marker for peak focus; 'higher is better' in comparisons.",
+        high: "One decisive attention swing dominated the run.",
+        low: "No strong attention event — diffuse focus throughout."
+      },
+      "response words": {
+        title: "Response Words",
+        what: "The answer's length in words.",
+        effect: "Feeds the reasoning/logic heuristics and the richer-is-better comparison row.",
+        high: "Longer, richer answers — not automatically better.",
+        low: "Terse answers — not automatically worse."
+      },
+      "time": {
+        title: "Time",
+        what: "Elapsed wall-clock seconds for the response.",
+        effect: "The lower-is-faster row of the comparison table.",
+        high: "Slow response (or a long generation).",
+        low: "Fast response."
+      },
+      "continuity": {
+        title: "Continuity (log profile)",
+        what: "Per-history-row blend: 0.58 × stability + 0.22 × (1 − volatility) + 0.20 × closeness of influence to its ideal 0.35.",
+        effect: "A rough 'how continuous was this run' score for the continuity log.",
+        high: "Stable run whose influence sat near the balanced ideal.",
+        low: "Volatile or extreme-influence run."
+      },
+      "cognitive": {
+        title: "Cognitive (log profile)",
+        what: "0.7 × (reasoning/logic score) + up to 0.25 × influence.",
+        effect: "A rough engagement score for that logged run.",
+        high: "Long, field-engaged answers.",
+        low: "Brief or uninfluenced answers."
+      },
+      "drift": {
+        title: "Drift (log profile)",
+        what: "1 − (0.55 × volatility + 0.25 × |influence − 0.35|): resistance to drifting off the run's line.",
+        effect: "High = the run stayed on course.",
+        high: "Steady, balanced run.",
+        low: "Volatile or over-influenced run."
+      },
+      "attractor": {
+        title: "Attractor (log profile)",
+        what: "0.48 × stability + 0.28 × drift + 0.24 × continuity.",
+        effect: "How strongly the run settled toward its attractor.",
+        high: "Strong, settled run.",
+        low: "A run that never settled."
+      },
+      "gamma field": {
+        title: "Gamma Field (log profile)",
+        what: "0.55 × (gamma / cap) + 0.25 × cognitive + 0.20 × stability.",
+        effect: "The gamma dimension of the run's profile.",
+        high: "Strong coupling share in that run's character.",
+        low: "Weak coupling share."
+      }
+    };
+    QX_TERMS["bias"] = QX_TERMS["stability bias"];
+    QX_TERMS["stability bias vector"] = QX_TERMS["stability bias"];
+    QX_TERMS["stability"] = QX_TERMS["stability bias"];
+    QX_TERMS["variant"] = QX_TERMS["behavior variant"];
+    QX_TERMS["confidence / stability index"] = QX_TERMS["stability index"];
+
+    function tag(text) {
+      const key = String(text || "").trim().toLowerCase();
+      if (!QX_TERMS[key]) return escapeHtml(text ?? "");
+      return `<span class="qx" tabindex="0" data-qx="${key}">${escapeHtml(text)}</span>`;
+    }
+
+    function initQualiaTooltips() {
+      // Pre-pass: wrap every existing label / heading / table header whose text
+      // matches a term, so static markup gains the popups without hand edits.
+      document.querySelectorAll("label, h3, .glossary-item strong, th").forEach((el) => {
+        const key = (el.textContent || "").trim().toLowerCase();
+        if (QX_TERMS[key] && !el.querySelector(".qx")) el.innerHTML = tag(el.textContent);
+      });
+      const pop = document.createElement("div");
+      pop.className = "qx-pop";
+      pop.setAttribute("role", "tooltip");
+      document.body.appendChild(pop);
+      let active = null;
+      const popHtml = (t) => `<span class="qx-title">${escapeHtml(t.title)}</span><div class="qx-what">${escapeHtml(t.what)}</div><span class="qx-effect"><span class="qx-h">Effect:</span> ${escapeHtml(t.effect)}</span>` +
+        (t.high ? `<span class="qx-high"><span class="qx-h">Too high:</span> ${escapeHtml(t.high)}</span>` : "") +
+        (t.low ? `<span class="qx-low"><span class="qx-l">Too low:</span> ${escapeHtml(t.low)}</span>` : "") +
+        (t.note ? `<span class="qx-note">${escapeHtml(t.note)}</span>` : "");
+      const show = (el) => {
+        const t = QX_TERMS[el.dataset.qx];
+        if (!t) return;
+        pop.innerHTML = popHtml(t);
+        pop.classList.add("show");
+        pop.style.width = Math.min(380, window.innerWidth - 16) + "px";
+        const r = el.getBoundingClientRect();
+        const pw = pop.offsetWidth || 380;
+        const ph = pop.offsetHeight || 120;
+        let x = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
+        let y = r.bottom + 8;
+        if (y + ph > window.innerHeight - 8) y = Math.max(8, r.top - ph - 8);
+        pop.style.left = x + "px";
+        pop.style.top = y + "px";
+        active = el;
+      };
+      const hide = () => { pop.classList.remove("show"); active = null; };
+      document.addEventListener("mouseover", (ev) => {
+        const el = ev.target.closest(".qx");
+        if (el) { if (el !== active) show(el); }
+        else if (active) hide();
+      });
+      document.addEventListener("focusin", (ev) => { const el = ev.target.closest(".qx"); if (el) show(el); });
+      document.addEventListener("focusout", hide);
+      document.addEventListener("scroll", hide, true);
+    }
     let lastQualia = null;
     let lastRecommendation = null;
     let lastQuestion = "";
@@ -912,17 +1231,17 @@
       const params = q.parameters || {};
       const vectors = q.vectors || {};
       $("metricGrid").innerHTML = [
-        ["Influence", fmt(q.influence), "Qualia pull applied to behavior."],
-        ["Stability Gate", fmt(q.stability_gate ?? q.stability_index), "Gate resisting drift."],
-        ["Stability Index", fmt(q.stability_index ?? summary.stability_index, 4), "Trajectory coherence."],
-        ["Gamma Effective", fmt(q.gamma_effective, 4), "Applied gamma after cap."],
-        ["Base Ratio", fmt(q.base_variant_ratio ?? baseRatio), "Variant before Qualia."],
-        ["Effective Ratio", fmt(q.effective_variant_ratio ?? effectiveRatio), "Variant after Qualia."],
-        ["Volatility", fmt(summary.volatility, 4), "Observed trajectory movement."],
-        ["Attention Pull", fmt(summary.attention_pull, 4), "Prompt-linked attention pressure."]
+        [tag("Influence"), fmt(q.influence), "Qualia pull applied to behavior."],
+        [tag("Stability Gate"), fmt(q.stability_gate ?? q.stability_index), "Gate resisting drift."],
+        [tag("Stability Index"), fmt(q.stability_index ?? summary.stability_index, 4), "Trajectory coherence."],
+        [tag("Gamma Effective"), fmt(q.gamma_effective, 4), "Applied gamma after cap."],
+        [tag("Base Ratio"), fmt(q.base_variant_ratio ?? baseRatio), "Variant before Qualia."],
+        [tag("Effective Ratio"), fmt(q.effective_variant_ratio ?? effectiveRatio), "Variant after Qualia."],
+        [tag("Volatility"), fmt(summary.volatility, 4), "Observed trajectory movement."],
+        [tag("Attention Pull"), fmt(summary.attention_pull, 4), "Prompt-linked attention pressure."]
       ].map(([label, value, meta]) => `<div class="metric-card"><div class="label">${label}</div><div class="value">${value}</div><div class="meta">${meta}</div></div>`).join("");
       $("vectorGrid").innerHTML = [
-        ["alpha", params.alpha], ["beta", params.beta], ["gamma", q.gamma_requested], ["bias", params.stability_bias],
+        [tag("alpha"), params.alpha], [tag("beta"), params.beta], [tag("gamma"), q.gamma_requested], [tag("bias"), params.stability_bias],
         ["Q0 x", vectors.q0_x], ["Q0 y", vectors.q0_y], ["Q0 z", vectors.q0_z],
         ["A0 x", vectors.a0_x], ["A0 y", vectors.a0_y], ["A0 z", vectors.a0_z],
         ["S x", vectors.s_x], ["S y", vectors.s_y], ["S z", vectors.s_z]
@@ -1288,17 +1607,17 @@
       const elapsed = asNum(item.elapsed, 0);
       const vector = item.vector || {};
       return {
-        variant: { label: "Variant", raw: asNum(vector.variant, 0), value: clamp(asNum(vector.variant, 0) / 25, 0, 1), higherBetter: null },
-        gamma: { label: "Gamma", raw: asNum(vector.gamma, 0), value: clamp(asNum(vector.gamma, 0), 0, 1), higherBetter: null },
-        stabilityVector: { label: "Stability Bias Vector", raw: asNum(vector.stability, 0), value: clamp(asNum(vector.stability, 0), 0, 1), higherBetter: null },
-        confidence: { label: "Confidence / Stability Index", raw: asNum(q.stability_index ?? summary.stability_index, 0), value: clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1), higherBetter: true },
-        attention: { label: "Attention Peak A z", raw: peak.raw, value: clamp(Math.abs(peak.raw), 0, 1), higherBetter: true },
-        reasoning: { label: "Reasoning Proxy", raw: (Math.min(1, words / 120) * 0.55) + (clamp(asNum(q.influence, 0), 0, 1) * 0.45), value: clamp((Math.min(1, words / 120) * 0.55) + (clamp(asNum(q.influence, 0), 0, 1) * 0.45), 0, 1), higherBetter: true },
-        logic: { label: "Logic Proxy", raw: (Math.min(1, words / 90) * 0.45) + (clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2), value: clamp((Math.min(1, words / 90) * 0.45) + (clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2), 0, 1), higherBetter: true },
-        anxiety: { label: "Anxiety", raw: 1 - asNum(q.stability_index ?? summary.stability_index, 0), value: clamp(1 - asNum(q.stability_index ?? summary.stability_index, 0), 0, 1), higherBetter: false },
-        influence: { label: "Influence", raw: asNum(q.influence, 0), value: clamp(asNum(q.influence, 0), 0, 1), higherBetter: true },
-        words: { label: "Response Words", raw: words, value: words / Math.max(1, maxWords), higherBetter: true },
-        time: { label: "Time", raw: elapsed / 1000, value: elapsed / Math.max(1, maxElapsed), higherBetter: false }
+        variant: { label: tag("Variant"), raw: asNum(vector.variant, 0), value: clamp(asNum(vector.variant, 0) / 25, 0, 1), higherBetter: null },
+        gamma: { label: tag("Gamma"), raw: asNum(vector.gamma, 0), value: clamp(asNum(vector.gamma, 0), 0, 1), higherBetter: null },
+        stabilityVector: { label: tag("Stability Bias Vector"), raw: asNum(vector.stability, 0), value: clamp(asNum(vector.stability, 0), 0, 1), higherBetter: null },
+        confidence: { label: tag("Confidence / Stability Index"), raw: asNum(q.stability_index ?? summary.stability_index, 0), value: clamp(asNum(q.stability_index ?? summary.stability_index, 0), 0, 1), higherBetter: true },
+        attention: { label: tag("Attention Peak A z"), raw: peak.raw, value: clamp(Math.abs(peak.raw), 0, 1), higherBetter: true },
+        reasoning: { label: tag("Reasoning Proxy"), raw: (Math.min(1, words / 120) * 0.55) + (clamp(asNum(q.influence, 0), 0, 1) * 0.45), value: clamp((Math.min(1, words / 120) * 0.55) + (clamp(asNum(q.influence, 0), 0, 1) * 0.45), 0, 1), higherBetter: true },
+        logic: { label: tag("Logic Proxy"), raw: (Math.min(1, words / 90) * 0.45) + (clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2), value: clamp((Math.min(1, words / 90) * 0.45) + (clamp(asNum(q.gamma_effective, 0), 0, 1) * 1.2), 0, 1), higherBetter: true },
+        anxiety: { label: tag("Anxiety"), raw: 1 - asNum(q.stability_index ?? summary.stability_index, 0), value: clamp(1 - asNum(q.stability_index ?? summary.stability_index, 0), 0, 1), higherBetter: false },
+        influence: { label: tag("Influence"), raw: asNum(q.influence, 0), value: clamp(asNum(q.influence, 0), 0, 1), higherBetter: true },
+        words: { label: tag("Response Words"), raw: words, value: words / Math.max(1, maxWords), higherBetter: true },
+        time: { label: tag("Time"), raw: elapsed / 1000, value: elapsed / Math.max(1, maxElapsed), higherBetter: false }
       };
     }
 
@@ -1745,6 +2064,7 @@
       $("message").value = "Pierre is studying the golden thread across science. Explain how the scientific method and mathematical modeling connect different fields, then name one practical risk to shared objective reality.";
     });
 
+    initQualiaTooltips();
     refreshStatus();
     simulateOnly().catch(() => {});
     loadContinuityLog();
