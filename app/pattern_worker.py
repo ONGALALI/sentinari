@@ -26,6 +26,7 @@ from typing import Any
 
 from .db import library_connection
 from .llm_gateway import LLMGatewayError, get_gateway
+from .pattern_lexicon import scan_document_text
 from .pattern_store import (
     ensure_pattern_store,
     get_pattern_recognition_enabled as pattern_recognition_enabled,
@@ -61,6 +62,8 @@ Extract:
    (problem_solution | disease_treatment | cause_effect | cross_domain_bridge | general),
    "fields_involved" (list of scientific field names), "confidence" (0.0-1.0),
    "supporting_text" (the exact quote from the text that supports it).
+
+{crisis_line}
 
 TEXT:
 {text}
@@ -139,6 +142,14 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
     patterns_proposed = 0
     batch_errors: list[str] = []
 
+    # §74l — crisis & threat lexicon: every chunk is triaged BEFORE the LLM
+    # sees it. The aggregate rides into the extraction log (which documents
+    # carry the danger words), and the matched terms are fed to the model as
+    # priority signals so crisis-bearing patterns outrank the mundane.
+    crisis_score_total = 0.0
+    crisis_terms_total = 0
+    crisis_family_terms: dict[str, set[str]] = {}
+
     # Accumulate evidence + pattern proposals across chunks.
     entity_cache: dict[tuple[str, str], int] = {}
 
@@ -162,6 +173,20 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
         if not pattern_recognition_enabled():
             log_id = log_extraction(document_id, "skipped", error="pattern recognition paused", started_at=started)
             return {"ok": False, "reason": "paused", "log_id": log_id}
+        triage = scan_document_text(chunk["text"])
+        crisis_score_total += float(triage.get("score") or 0.0)
+        crisis_terms_total += int(triage.get("matched_terms") or 0)
+        for fam, info in (triage.get("families") or {}).items():
+            crisis_family_terms.setdefault(fam, set()).update(info.get("terms") or [])
+        crisis_line = ""
+        if crisis_family_terms:
+            ranked = sorted(crisis_family_terms.items(), key=lambda kv: -len(kv[1]))[:3]
+            tops = " | ".join(f"{fam.replace('_', ' ')}: {', '.join(sorted(ts)[:8])}" for fam, ts in ranked)
+            crisis_line = (
+                f"\n\nCRISIS & THREAT SIGNALS PRESENT (§74l): {tops}\n"
+                "Treat these as priority entities and prioritize patterns that "
+                "explain, predict, or resolve them."
+            )
         try:
             reply = gateway.chat_json(
                 [
@@ -172,6 +197,7 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
                             title=chunk["title"],
                             field=chunk["field"] or "unknown",
                             text=chunk["text"],
+                            crisis_line=crisis_line,
                         ),
                     },
                 ],
@@ -278,6 +304,10 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
             batch_errors.append(str(ex)[:150])
 
     status = "ok" if (entities_found or relations_found or patterns_proposed) else ("error" if batch_errors else "empty")
+    crisis_summary = "; ".join(
+        f"{fam}: {', '.join(sorted(ts)[:6])}"
+        for fam, ts in sorted(crisis_family_terms.items(), key=lambda kv: -len(kv[1]))[:3]
+    )
     log_id = log_extraction(
         document_id,
         status,
@@ -286,6 +316,8 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
         patterns_proposed=patterns_proposed,
         error="; ".join(batch_errors)[:900],
         started_at=started,
+        crisis_score=round(crisis_score_total, 1),
+        crisis_terms=crisis_summary,
     )
     return {
         "ok": status in {"ok", "empty"},
@@ -295,6 +327,8 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
         "entities_found": entities_found,
         "relations_found": relations_found,
         "patterns_proposed": patterns_proposed,
+        "crisis_score": round(crisis_score_total, 1),
+        "crisis_terms_matched": crisis_terms_total,
         "errors": batch_errors[:5],
     }
 

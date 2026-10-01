@@ -248,14 +248,67 @@ def _utc() -> str:
 
 def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chunks: int) -> dict[str, Any]:
     started = _utc()
+
+    # §74l — owner's crisis & threat lexicon ranks which documents the
+    # scanner sees. Newest-first was blind; now up to 60 of the field's
+    # documents are triaged against pattern_discovery/key_words_tags.md
+    # (crises, threats, unsolved science) and the highest-scoring ones are
+    # scanned first — the hunt starts where the danger words live.
+    from .pattern_lexicon import scan_document_text
+
+    _load_progress.stage("download", f"Ranking {field_slug}'s documents by crisis & threat signal (§74l lexicon)...")
     with _library_connection("gemma") as conn:
-        rows = conn.execute(
-            "SELECT id, title FROM documents WHERE IFNULL(scientific_field, '') = ? ORDER BY id DESC LIMIT ?",
-            (field_slug, max(1, min(12, int(max_documents)))),
+        pool_rows = conn.execute(
+            "SELECT id, title FROM documents WHERE IFNULL(scientific_field, '') = ? ORDER BY id DESC LIMIT 60",
+            (field_slug,),
         ).fetchall()
-    doc_ids = [int(r["id"]) for r in rows]
+    triaged: list[tuple[float, int, str, dict[str, Any]]] = []
+    for row in pool_rows:
+        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+            return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": 0}
+        with _library_connection("gemma") as conn:
+            chunk_rows = conn.execute(
+                "SELECT content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT 8",
+                (int(row["id"]),),
+            ).fetchall()
+        text = " ".join(str(r["content"] or "") for r in chunk_rows)
+        triage = scan_document_text(text)
+        triaged.append((float(triage.get("score") or 0.0), int(row["id"]), str(row["title"] or ""), triage))
+    triaged.sort(key=lambda item: -item[0])
+    picked = triaged[: max(1, min(12, int(max_documents)))]
+    doc_ids = [item[1] for item in picked]
+    titles = {item[1]: item[2] for item in picked}
     if not doc_ids:
         return {"ok": False, "reason": "no-documents", "field": field_slug}
+    crisis_picked = sum(1 for item in picked if item[0] >= 5.0)
+    top_scores = [
+        {"document_id": item[1], "title": item[2][:80], "score": item[0], "matched_terms": int((item[3] or {}).get("matched_terms") or 0)}
+        for item in picked[:5]
+    ]
+
+    # §74l pre-flight: ranking always runs — it is pure local signal work.
+    # Extraction is engine work; when the engine is dark (strict Enigma
+    # doctrine) we refuse here, dignified, instead of failing document by
+    # document. The lexicon ranking report still stands for the owner.
+    gateway_desc = get_gateway().describe()
+    if not gateway_desc.get("available"):
+        return {
+            "ok": True,
+            "field": field_slug,
+            "engine_dark": True,
+            "reason": "engine-unavailable",
+            "message": "No LLM engine is configured, so extraction is held. The crisis lexicon still ranked the field's documents (§74l).",
+            "documents_scanned": 0,
+            "patterns_proposed": 0,
+            "pattern_ids": [],
+            "benefits_generated": 0,
+            "crisis_lexicon": {
+                "high_priority_documents": crisis_picked,
+                "pool_triaged": len(triaged),
+                "top_scores": top_scores,
+            },
+            "started_at": started,
+        }
 
     _load_progress.stage("download", f"Scanning {len(doc_ids)} document(s) in {field_slug}...")
     proposed_ids: list[int] = []
@@ -263,7 +316,7 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
     with _store_connect() as conn:
         max_known_id = int(conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM patterns").fetchone()["m"])
     for index, doc_id in enumerate(doc_ids, start=1):
-        title = str(rows[index - 1]["title"] or doc_id)
+        title = str(titles.get(doc_id) or doc_id)
         rep.report((index - 1) / len(doc_ids), f"Extracting patterns from \"{title[:60]}\" ({index}/{len(doc_ids)})...")
         if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
             return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": index - 1}
@@ -308,6 +361,12 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
         "patterns_proposed": len(proposed_ids),
         "pattern_ids": proposed_ids,
         "benefits_generated": benefits_ok,
+        # §74l: how the crisis lexicon steered this scan.
+        "crisis_lexicon": {
+            "high_priority_documents": crisis_picked,
+            "pool_triaged": len(triaged),
+            "top_scores": top_scores,
+        },
         "errors": errors[:6],
         "started_at": started,
     }

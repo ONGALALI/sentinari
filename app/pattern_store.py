@@ -205,6 +205,13 @@ def ensure_pattern_store() -> None:
             conn.execute("ALTER TABLE patterns ADD COLUMN benefits TEXT NOT NULL DEFAULT '';")
         if "benefits_generated_at" not in pattern_cols:
             conn.execute("ALTER TABLE patterns ADD COLUMN benefits_generated_at TEXT NOT NULL DEFAULT '';")
+        # §74l — crisis & threat lexicon: record each extraction's triage so
+        # the owner can see which documents rose and why.
+        log_cols = {str(r["name"]) for r in conn.execute("PRAGMA table_info(pattern_extraction_log)").fetchall()}
+        if "crisis_score" not in log_cols:
+            conn.execute("ALTER TABLE pattern_extraction_log ADD COLUMN crisis_score REAL NOT NULL DEFAULT 0.0;")
+        if "crisis_terms" not in log_cols:
+            conn.execute("ALTER TABLE pattern_extraction_log ADD COLUMN crisis_terms TEXT NOT NULL DEFAULT '';")
         conn.commit()
 
         for template in PATTERN_TEMPLATE_SEED:
@@ -550,14 +557,16 @@ def log_extraction(
     patterns_proposed: int = 0,
     error: str = "",
     started_at: str = "",
+    crisis_score: float = 0.0,
+    crisis_terms: str = "",
 ) -> int:
     ensure_pattern_store()
     with _connect() as conn:
         cur = conn.execute(
             """
             INSERT INTO pattern_extraction_log
-                (document_id, status, entities_found, relations_found, patterns_proposed, error, started_at, finished_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (document_id, status, entities_found, relations_found, patterns_proposed, error, started_at, finished_at, crisis_score, crisis_terms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 int(document_id) if document_id else None,
@@ -568,6 +577,8 @@ def log_extraction(
                 str(error or "")[:1000],
                 started_at or _utc_now(),
                 _utc_now(),
+                float(crisis_score or 0.0),
+                str(crisis_terms or "")[:400],
             ),
         )
         conn.commit()

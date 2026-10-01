@@ -354,7 +354,18 @@
             clearInterval(timer);
             btn.disabled = false;
             const r = job.result || {};
-            showAlert(`Recognition complete for ${field}: ${r.patterns_proposed || 0} new pattern(s), ${r.benefits_generated || 0} benefit analyses.`, true);
+            const cl = r.crisis_lexicon || null;
+            let extra = '';
+            if (cl) {
+              extra = ` Crisis lexicon triaged ${cl.pool_triaged || 0} document(s); ${cl.high_priority_documents || 0} high-priority.`;
+              const tops = cl.top_scores || [];
+              if (tops.length) extra += ` Top: ${tops.map(t => `#${t.document_id} (${t.score})`).join(', ')}.`;
+            }
+            if (r.engine_dark) {
+              showAlert(`Engine dark — extraction held, crisis ranking complete for ${field}.${extra}`, false);
+            } else {
+              showAlert(`Recognition complete for ${field}: ${r.patterns_proposed || 0} new pattern(s), ${r.benefits_generated || 0} benefit analyses.${extra}`, true);
+            }
             await loadWorkspace(); await loadStatus();
           } else if (job.state === 'error') {
             clearInterval(timer);
