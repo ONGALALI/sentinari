@@ -1673,3 +1673,11 @@ BOTH. Verified live in the databases, not from memory:
 **Doctrine note:** the gates are DISPLAY law today (the instruments behind Calibration/HLE/Workbench are not live yet); when each instrument wakes on the rig, its runner must honor the same LADDER_GATES before it will spend a token — enforcement lands with the instrument, the rule is already on the books.
 
 **State at close:** §74d pending commit. The ladder now explains itself: meaning, gate, and honesty on every row.
+
+## §74e — UNIFORM PRIORITY BADGES: EVERY FIELD CARRIES ITS P-NUMBER — 2026-10-01
+
+**Owner asked for uniformity:** P4 next to Public Health, P5 next to Neuroscience, "and so forth" — no blank badges. Implemented as the BADGE LAW in the ladder endpoint (computed server-side, one source of truth): doctrine bands first — P1 = AI & Information Science (computer-and-information-sciences, information-science, artificial-intelligence), P2 = Physics, P3 = Engineering — then the rest numbered sequentially in display order (largest first): **P4 Public Health** (exactly as the owner asked), P5 Political Science, P6 Neuroscience, P7 Chemistry, P8 Biology, P9 Economics, P10 Philosophy, P11 Psychology, … through all 24 fields. Frontend renders f.badge for every chart; the old three-band-only map is gone.
+
+**Two corrections that came with uniformity:** Physics now shows P2 (it had been mislabeled P3 by the old map — the doctrine always said 2) Physics); Engineering shows P3 (was blank). The owner's "P5 next Neuroscience" lands as P6 because Political Science (1,426 docs) sits between Public Health (1,650) and Neuroscience (1,272) in size order — flagged to the owner; one word re-sequences it if he wants a different order.
+
+**State at close:** §74e pending commit. Every chart badged, sequential, doctrine-true.

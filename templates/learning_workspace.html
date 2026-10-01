@@ -201,7 +201,6 @@
   const renderLadder = (lad) => {
     lastLadder = lad || lastLadder;
     const fields = (lastLadder && lastLadder.fields) || [];
-    const PRIORITY_BADGES = { 0: 'P1', 1: 'P1', 2: 'P2', 3: 'P3' };
     const visible = showAllFields ? fields : fields.slice(0, 8);
     const charts = visible.map((f) => {
       const rows = STAGE_DEFS.map((s) => {
@@ -222,7 +221,7 @@
           `<span class="ladderVal">${p.toFixed(0)}%</span>` +
           `<span class="ladderTip">${tip}</span></div>`;
       }).join('');
-      const badge = PRIORITY_BADGES[f.priority_rank] ? `<span class="liPrio">${PRIORITY_BADGES[f.priority_rank]}</span>` : '';
+      const badge = f.badge ? `<span class="liPrio" title="Priority ${esc(f.badge)} — examination order on the owner's ladder">${esc(f.badge)}</span>` : '';
       return `<div class="ladderChart">` +
         `<div class="ladderTitle">${esc(f.display)} ${badge}</div>` +
         `<div class="ladderPlot"><span class="ladderYLabel">Learning and assessment path</span>` +

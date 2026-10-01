@@ -803,6 +803,24 @@ def api_learning_ladder() -> dict[str, Any]:
             }
         )
     fields.sort(key=lambda f: (f["priority_rank"], -f["total"]))
+
+    # 74e — owner's uniform badge law: every field carries its P-number, no
+    # blanks. Doctrine bands first (P1 = AI & Information Science, P2 = Physics,
+    # P3 = Engineering), then the rest numbered sequentially in display order
+    # (largest first) — public-health lands P4 exactly as the owner asked.
+    next_rest = 4
+    for f in fields:
+        rank = f["priority_rank"]
+        if rank <= 2:
+            f["badge"] = "P1"
+        elif rank == 3:
+            f["badge"] = "P2"
+        elif rank == 4:
+            f["badge"] = "P3"
+        else:
+            f["badge"] = f"P{next_rest}"
+            next_rest += 1
+
     return {
         "ok": True,
         "stages": [
