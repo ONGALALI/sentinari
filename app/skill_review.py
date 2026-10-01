@@ -846,6 +846,18 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
+    def _worldbank_search() -> list[dict[str, Any]]:
+        # §74k — the Finance Industry challenge: World Bank / IMF / OECD
+        # official time-series datasets via the public DBnomics REST API.
+        # One candidate = one whole dataset; the load slices it by query.
+        try:
+            from .worldbank_worker import search_dbnomics_datasets
+
+            result = search_dbnomics_datasets(query, field=field_text, limit=max(2, min(10, payload.limit)))
+            return list(result.get("candidates") or [])
+        except Exception:
+            return []
+
     # All four sources at the same time. A shared deadline keeps one slow lane
     # (OpenAlex and NCBI can crawl) from holding the whole search hostage —
     # whichever lanes have answered when the deadline passes are what's shown.
@@ -862,17 +874,19 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    pool = ThreadPoolExecutor(max_workers=4)
+    pool = ThreadPoolExecutor(max_workers=5)
     try:
         github_future = pool.submit(_github_search)
         hf_future = pool.submit(_huggingface_search)
         openalex_future = pool.submit(_openalex_search)
         pubmed_future = pool.submit(_pubmed_search)
+        worldbank_future = pool.submit(_worldbank_search)
         candidates = [
             *_lane_result(github_future),
             *_lane_result(hf_future),
             *_lane_result(openalex_future),
             *_lane_result(pubmed_future),
+            *_lane_result(worldbank_future),
         ]
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
@@ -1042,6 +1056,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
         "pubmed_count": sum(1 for c in candidates if c["source_type"] == "pubmed"),
+        "worldbank_count": sum(1 for c in candidates if c["source_type"] == "worldbank"),
         "pubmed_fulltext_count": sum(
             1 for c in candidates
             if c.get("source_type") == "pubmed" and (c.get("has_full_text") or str(c.get("pmcid") or ""))
@@ -1259,7 +1274,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
     source_type = str(candidate.get("source_type") or "").strip().lower()
 
     field, field_slug = _resolve_target_field(candidate_id, candidate, metadata)
-    _SOURCE_LABELS = {"github": "GitHub", "huggingface": "Hugging Face", "openalex": "OpenAlex", "pubmed": "PubMed"}
+    _SOURCE_LABELS = {"github": "GitHub", "huggingface": "Hugging Face", "openalex": "OpenAlex", "pubmed": "PubMed", "worldbank": "World Bank (DBnomics)"}
     _source_label = _SOURCE_LABELS.get(source_type, source_type or "the source")
     load_progress.emit_meta(
         field=field_slug,
@@ -1298,6 +1313,21 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             max_papers=1,
         )
         result["source_type"] = "pubmed"
+    elif source_type == "worldbank":
+        # §74k — DBnomics/World Bank time-series lane: slice the dataset by
+        # the owner's discovery query and digest one readable factbook.
+        load_progress.stage("download", "Fetching the dataset slice from DBnomics (World Bank, IMF, OECD, ECB)...")
+        from .worldbank_worker import load_dbnomics_dataset_into_field
+
+        result = load_dbnomics_dataset_into_field(
+            field,
+            {
+                "provider": str(metadata.get("provider") or "WB"),
+                "dataset": str(metadata.get("dataset") or ""),
+                "query": str(metadata.get("query") or ""),
+            },
+        )
+        result["source_type"] = "worldbank"
     else:
         load_progress.stage("download", "Fetching the work from OpenAlex (PDF, landing page, or record)...")
         work = {
