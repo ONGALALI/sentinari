@@ -136,7 +136,7 @@ class LoadQueue:
     # Worker
     # ------------------------------------------------------------------
     def _loop(self) -> None:
-        from .skill_review import _ingest_candidate_impl  # deferred: avoids circular import
+        from .skill_review import _ingest_with_lock_armor  # deferred: avoids circular import
 
         while not self._stop.is_set():
             entry = None
@@ -176,7 +176,11 @@ class LoadQueue:
                     _li_set("learning_enabled", "off")
                 try:
                     with load_progress.bind(rep):
-                        result = _ingest_candidate_impl(candidate_id, rep)
+                        # §74j: same lock armor as the legacy worker — a
+                        # transient 'database is locked' now rides itself out
+                        # with a calm progress message instead of surfacing
+                        # as a scary failed entry the owner must re-click.
+                        result = _ingest_with_lock_armor(candidate_id, rep)
                 finally:
                     if _li_was_on:
                         _li_set("learning_enabled", "on")

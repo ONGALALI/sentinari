@@ -788,11 +788,20 @@ def api_learning_ladder() -> dict[str, Any]:
             "hle": "instrument deferred (71c) — procurement gate",
             "workbench": "instrument waits for the rig",
         }
+        stage_values = {
+            "datasets_loaded": with_chunks,
+            "datasets_learned": n_exams,
+            "formative_assessment": n_exams * avg_mastery,
+            "calibration": 0.0,
+            "hle": 0.0,
+            "workbench": 0.0,
+        }
         stages: dict[str, Any] = {}
         for key, pct in pcts.items():
             stage: dict[str, Any] = {
                 "percent": round(max(0.0, min(100.0, pct)), 1),
                 "meaning": LADDER_MEANINGS[key],
+                "value": stage_values[key],
             }
             if key == "datasets_loaded":
                 stage["note"] = f"{with_chunks} loaded ÷ {corpus_total} total corpus × 100"
@@ -838,8 +847,24 @@ def api_learning_ladder() -> dict[str, Any]:
             f["badge"] = f"P{next_rest}"
             next_rest += 1
 
+    # 74j — overall stage values for the Stage-of-Preparedness sunburst
+    classified_total = corpus_total - totals.get("unclassified", 0)
+    assessed_total = sum(n for fkey, (n, _m) in exams.items() if fkey != "unclassified")
+    mastery_mass_total = sum(n * m for fkey, (n, m) in exams.items() if fkey != "unclassified")
+    overall = {
+        "corpus_total": corpus_total,
+        "classified_total": classified_total,
+        "assessed_total": assessed_total,
+        "loaded_percent": round(100.0 * sum(loaded.values()) / corpus_total, 1) if corpus_total else 0.0,
+        "learned_percent": round(100.0 * assessed_total / classified_total, 1) if classified_total else 0.0,
+        "formative_percent": round(100.0 * mastery_mass_total / assessed_total, 1) if assessed_total else 0.0,
+        "calibration_percent": 0.0,
+        "hle_percent": 0.0,
+        "workbench_percent": 0.0,
+    }
     return {
         "ok": True,
+        "overall": overall,
         "stages": [
             "datasets_loaded",
             "datasets_learned",

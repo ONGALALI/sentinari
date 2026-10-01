@@ -68,6 +68,14 @@
   .ladderAxis { display: flex; justify-content: space-between; font-size: 10px; color: #7c8ba0; margin-top: 3px; }
   .ladderXLabel { text-align: center; font-size: 10.5px; color: #5b6b7d; margin-top: 2px; }
   .liPrio { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; color: #103c6b; background: #dcebf9; border: 1px solid #b9d4ee; border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
+  /* §74j Stage-of-Preparedness sunburst (hand-rolled SVG — no cloud libs) */
+  .burstWrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .burstWrap svg { width: 380px; max-width: 100%; height: auto; flex: 0 0 auto; }
+  .burstLegend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; min-width: 240px; flex: 1 1 240px; }
+  .burstLegend .bl { display: flex; align-items: center; gap: 8px; }
+  .burstLegend .chip { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
+  .burstLegend .bl strong { font-variant-numeric: tabular-nums; margin-left: auto; }
+  .burstLegend .bl.gated { opacity: .62; }
 </style>
 </head>
 <body>
@@ -96,6 +104,15 @@
       <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder — hover the ⓘ tag on any row for what it means and its gate. <strong>Datasets Loaded</strong> shows each field's share of the total corpus (loaded ÷ corpus × 100, §74f). Owner's gate law (§74d): <strong>Calibration</strong> opens at 60% Formative Assessment; <strong>HLE</strong> at 55% after Calibration; <strong>Workbench</strong> at 50% HLE. Stages that have not run show an honest 0.</div>
       <div id="liLadderGrid" class="ladderGrid"></div>
       <div id="liLatest" class="hint" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Stage of Preparedness — accumulative learning</h2>
+      <div class="hint">One full turn is the whole journey: six sectors, one per stage. The coloured arc is how far that stage has travelled overall; the outer ring shows the fields that carry it; grey is the road still ahead. Calibration · HLE · Workbench wait at their gates (§74d) — honest slivers, not zero-width lies.</div>
+      <div class="burstWrap">
+        <svg id="burstSvg" viewBox="0 0 440 440" role="img" aria-label="Sunburst of Sentinari's stage of preparedness"></svg>
+        <div id="burstLegend" class="burstLegend"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -250,6 +267,85 @@
     if (tog) tog.addEventListener('click', () => { showAllFields = !showAllFields; renderLadder(lastLadder); });
   };
 
+  // ---- §74j Stage-of-Preparedness sunburst (hand-rolled SVG — no cloud libs) ----
+  const BURST_STAGES = [
+    { key: 'loaded',      pctKey: 'loaded_percent',      stageKey: 'datasets_loaded',      label: 'Datasets Loaded',        short: 'Loaded',      color: '#1b5e88' },
+    { key: 'learned',     pctKey: 'learned_percent',     stageKey: 'datasets_learned',     label: 'Datasets Learned',       short: 'Learned',     color: '#e87e2e' },
+    { key: 'formative',   pctKey: 'formative_percent',   stageKey: 'formative_assessment', label: 'Formative Assessment',   short: 'Formative',   color: '#29a8e0' },
+    { key: 'calibration', pctKey: 'calibration_percent', stageKey: 'calibration',          label: 'Calibration',            short: 'Calibration', color: '#e39fdd' },
+    { key: 'hle',         pctKey: 'hle_percent',         stageKey: 'hle',                  label: 'HLE',                    short: 'HLE',         color: '#93d06b' },
+    { key: 'workbench',   pctKey: 'workbench_percent',   stageKey: 'workbench',            label: 'Workbench = % Achieved', short: 'Workbench',   color: '#f2e422' },
+  ];
+  const polarPoint = (cx, cy, r, deg) => {
+    const rad = (deg - 90) * Math.PI / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+  const ringArc = (cx, cy, r0, r1, a0, a1) => {
+    const large = (a1 - a0) > 180 ? 1 : 0;
+    const [x0, y0] = polarPoint(cx, cy, r1, a0);
+    const [x1, y1] = polarPoint(cx, cy, r1, a1);
+    const [x2, y2] = polarPoint(cx, cy, r0, a1);
+    const [x3, y3] = polarPoint(cx, cy, r0, a0);
+    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r1} ${r1} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} A ${r0} ${r0} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`;
+  };
+
+  const renderBurst = (lad) => {
+    const svg = byId('burstSvg');
+    if (!svg) return;
+    const overall = (lad && lad.overall) || {};
+    const fields = (lad && lad.fields) || [];
+    const C = 220, R0 = 92, R1 = 150, R2 = 208, SECTOR = 60;
+    const parts = [];
+    parts.push(`<path d="${ringArc(C, C, R0, R2, 0, 359.999)}" fill="#eef3f9"/>`);
+    BURST_STAGES.forEach((s, idx) => {
+      const pct = Math.max(0, Math.min(100, Number(overall[s.pctKey] || 0)));
+      const start = idx * SECTOR + 3, span = SECTOR - 6;
+      const fillSpan = span * (pct / 100);
+      const stageKey = s.stageKey;
+      const kids = fields
+        .map((f) => ({ name: f.display, fp: Number(((f.stages || {})[stageKey] || {}).percent || 0), v: Number(((f.stages || {})[stageKey] || {}).value || 0) }))
+        .filter((k) => k.v > 0)
+        .sort((a, b) => b.v - a.v);
+      const top = kids.slice(0, 6);
+      const restVal = kids.slice(6).reduce((acc, k) => acc + k.v, 0);
+      const totalV = top.reduce((acc, k) => acc + k.v, 0) + restVal;
+      if (fillSpan > 0.4) {
+        let ca = start;
+        if (totalV > 0) {
+          top.forEach((k) => {
+            const sk = fillSpan * (k.v / totalV);
+            parts.push(`<path d="${ringArc(C, C, R1 + 4, R2, ca, ca + sk)}" fill="${s.color}" fill-opacity="0.5"><title>${esc(s.label)} — ${esc(k.name)}: ${k.fp.toFixed(1)}%</title></path>`);
+            ca += sk;
+          });
+          if (restVal > 0) {
+            const sk = fillSpan * (restVal / totalV);
+            parts.push(`<path d="${ringArc(C, C, R1 + 4, R2, ca, ca + sk)}" fill="${s.color}" fill-opacity="0.25"><title>${esc(s.label)} — other fields combined</title></path>`);
+            ca += sk;
+          }
+        } else {
+          parts.push(`<path d="${ringArc(C, C, R1 + 4, R2, start, start + fillSpan)}" fill="${s.color}" fill-opacity="0.85"><title>${esc(s.label)}: ${pct.toFixed(1)}%</title></path>`);
+        }
+        parts.push(`<path d="${ringArc(C, C, R0, R1, start, start + fillSpan)}" fill="${s.color}"><title>${esc(s.label)}: ${pct.toFixed(1)}% overall</title></path>`);
+      } else {
+        parts.push(`<path d="${ringArc(C, C, R0, R2, start, start + 1.1)}" fill="#c9d4e2"><title>${esc(s.label)}: 0% — gated (§74d)</title></path>`);
+      }
+      const mid = idx * SECTOR + SECTOR / 2;
+      const [tx, ty] = polarPoint(C, C, (R1 + R2) / 2 + 2, mid);
+      parts.push(`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9.5" font-weight="700" fill="#40546b" transform="rotate(${(mid - 90).toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})">${esc(s.short)}</text>`);
+    });
+    parts.push(`<circle cx="${C}" cy="${C}" r="${R0 - 5}" fill="#ffffff"/>`);
+    parts.push(`<text x="${C}" y="${C - 18}" text-anchor="middle" font-size="10" fill="#5b6b7d" letter-spacing="1.2">STAGE OF</text>`);
+    parts.push(`<text x="${C}" y="${C - 5}" text-anchor="middle" font-size="10" fill="#5b6b7d" letter-spacing="1.2">PREPAREDNESS</text>`);
+    parts.push(`<text x="${C}" y="${C + 30}" text-anchor="middle" font-size="31" font-weight="800" fill="#16283c">${Number(overall.learned_percent || 0).toFixed(1)}%</text>`);
+    parts.push(`<text x="${C}" y="${C + 50}" text-anchor="middle" font-size="10" fill="#7c8ba0">learned — ${fmt(overall.assessed_total || 0)} of ${fmt(overall.classified_total || 0)} docs</text>`);
+    svg.innerHTML = parts.join('');
+    byId('burstLegend').innerHTML = BURST_STAGES.map((s) => {
+      const pct = Number(overall[s.pctKey] || 0);
+      const gated = pct === 0;
+      return `<div class="bl${gated ? ' gated' : ''}"><span class="chip" style="background:${gated ? '#c9d4e2' : s.color};"></span><span>${esc(s.label)}</span><strong>${pct.toFixed(1)}%${gated ? ' · gated' : ''}</strong></div>`;
+    }).join('');
+  };
+
   const poll = async () => {
     try {
       const [res, lres] = await Promise.all([fetch('/api/learning/status'), fetch('/api/learning/ladder')]);
@@ -257,7 +353,7 @@
       if (res.ok && d.ok !== false) render(d);
       if (lres.ok) {
         const l = await lres.json();
-        if (l.ok !== false) renderLadder(l);
+        if (l.ok !== false) { renderLadder(l); renderBurst(l); }
       }
     } catch (_) {}
   };

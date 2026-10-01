@@ -437,6 +437,9 @@
     .load-progress .lp-fill { height: 100%; width: 0%; border-radius: 7px; background: linear-gradient(90deg, #4dabf7, #1c7ed6); transition: width 0.25s ease; }
     .load-progress .lp-label { font-size: 11px; margin-top: 3px; color: #3b4a63; }
     .load-progress.done .lp-fill { background: linear-gradient(90deg, #51cf66, #2f9e44); }
+    /* §74j one-click bulk load bar */
+    .sourcing-bulkbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #eef6ef; border: 1px solid #cde5d3; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+    .sourcing-bulkbar .hint { margin: 0; }
     .load-progress.error .lp-fill { background: linear-gradient(90deg, #ff8787, #b23a48); }
 
     /* Permanently loaded dataset list per field */
@@ -2135,11 +2138,21 @@
     };
 
     const escapeAttr = (value) => String(value || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    // §74j — anchor-based download: immune to the popup blocker that eats
+    // window.open() calls made after long async waits (queue completion).
+    const triggerBrowserDownload = (url) => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.rel = 'noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
 
     // One delegated listener for every dataset-workflow button on the page
     // (cards inside Sentinel fields and cards in the Discovery & Review panel).
     document.addEventListener('click', async (event) => {
-      const button = event.target.closest('button[data-role="sourcing-save"], button[data-role="sourcing-reject"], button[data-role="sourcing-test"], button[data-role="sourcing-preview"], button[data-role="sourcing-load"], button[data-role="loaded-preview"], button[data-role="loaded-download"], button[data-role="candidate-review"], button[data-role="candidate-load"], button[data-role="queue-cancel"]');
+      const button = event.target.closest('button[data-role="sourcing-save"], button[data-role="sourcing-reject"], button[data-role="sourcing-test"], button[data-role="sourcing-preview"], button[data-role="sourcing-download"], button[data-role="sourcing-load"], button[data-role="sourcing-load-all"], button[data-role="loaded-preview"], button[data-role="loaded-download"], button[data-role="candidate-review"], button[data-role="candidate-load"], button[data-role="queue-cancel"]');
       if (!button) return;
       const fieldWrap = button.closest('.sentinel-field');
       const fieldSlug = String(fieldWrap?.dataset.fieldSlug || button.dataset.field || '');
@@ -2160,6 +2173,11 @@
         if (candidate) await sentinelPreviewCandidate(button, candidate);
       } else if (role === 'sourcing-load') {
         if (candidate) await sentinelLoadSourcingCandidate(button, candidate);
+      } else if (role === 'sourcing-download') {
+        // §74j one-click download: queue the load, then hand over the .pdf.
+        if (candidate) await sentinelLoadSourcingCandidate(button, candidate, { autoDownload: true });
+      } else if (role === 'sourcing-load-all') {
+        await sentinelLoadAllShown(button);
       } else if (role === 'loaded-preview') {
         const docId = Number(button.closest('.loaded-item')?.dataset.documentId || 0);
         if (docId > 0) await sentinelPreviewLoadedDocument(fieldSlug, docId);
@@ -2211,7 +2229,7 @@
       if (!wrap) return;
       const root = wrap.querySelector('[data-role="sourcing-results"]');
       if (!root) return;
-      root.innerHTML = (candidates || []).map((item) => {
+      const cards = (candidates || []).map((item) => {
         const cid = Number(item.id || 0);
         const label = SOURCE_LABELS[String(item.source_type || '').toLowerCase()] || String(item.source_type || 'Dataset');
         const isLoaded = sentinelIsAlreadyLoaded(item);
@@ -2241,6 +2259,7 @@
             <button type="button" class="ghost" data-role="sourcing-reject" data-field="${fieldSlug}" data-candidate-id="${cid}"${isLoaded ? ' disabled' : ''}>Reject</button>
             <button type="button" class="ghost" data-role="sourcing-test" data-field="${fieldSlug}" data-candidate-id="${cid}"${isLoaded ? ' disabled' : ''}>Test</button>
             <button type="button" class="ghost" data-role="sourcing-preview" data-field="${fieldSlug}" data-candidate-id="${cid}">Preview</button>
+            <button type="button" class="ghost" data-role="sourcing-download" data-field="${fieldSlug}" data-candidate-id="${cid}"${isLoaded ? ' disabled' : ''} title="One click: loads it into the library, then hands you the .pdf">⬇ Download .pdf</button>
             ${isLoaded
               ? `<button type="button" class="approve-picked" disabled>Loaded ✓</button>`
               : `<button type="button" data-role="sourcing-load" data-field="${fieldSlug}" data-candidate-id="${cid}">Load into field</button>`}
@@ -2250,7 +2269,13 @@
             <div class="lp-label" data-role="lp-label"></div>
           </div>
         </div>`;
-      }).join('') || '<div class="hint">No candidates found — try the field\'s own name (e.g. "Physics") as the query.</div>';
+      }).join('');
+      // §74j — one-click bulk load: the sequential queue runs them one at a time
+      const loadable = (candidates || []).filter((item) => !sentinelIsAlreadyLoaded(item)).map((item) => Number(item.id || 0)).filter(Boolean);
+      const bulkBar = loadable.length > 1
+        ? `<div class="sourcing-bulkbar"><button type="button" data-role="sourcing-load-all" data-field="${escapeAttr(fieldSlug)}" data-ids="${escapeAttr(loadable.join(','))}">⚡ Load all shown (${loadable.length})</button><span class="hint">One click queues every dataset above — the sequential queue downloads them one at a time with live progress. No extra clicks.</span></div>`
+        : '';
+      root.innerHTML = bulkBar + (cards || '<div class="hint">No candidates found — try the field\'s own name (e.g. "Physics") as the query.</div>');
     };
 
     const sentinelFindDatasets = async (fieldSlug) => {
@@ -2396,7 +2421,32 @@
       }
     };
 
-    const sentinelLoadSourcingCandidate = async (origin, candidate) => {
+    // §74j — one click queues every shown candidate; the sequential load
+    // queue does the rest (download → digest → embed → finalize, one at a time).
+    const sentinelLoadAllShown = async (btn) => {
+      const ids = String(btn.dataset.ids || '').split(',').map(Number).filter(Boolean);
+      const fieldWrap = btn.closest('.sentinel-field');
+      const statusEl = fieldWrap?.querySelector('[data-role="sourcing-status"]') || byId('scientificCandidateStatus');
+      if (!ids.length) {
+        if (statusEl) statusEl.textContent = 'Nothing to load — every shown candidate is already in the library.';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = `Queuing ${ids.length} datasets…`;
+      let queued = 0;
+      for (const id of ids) {
+        try {
+          const r = await fetch(`/api/skill-review/candidates/${id}/ingest`, { method: 'POST' });
+          const d = await readApiJson(r);
+          if (r.ok && d.ok !== false) queued++;
+        } catch (_) {}
+      }
+      btn.disabled = false;
+      btn.textContent = `⚡ Load all shown (${ids.length})`;
+      if (statusEl) statusEl.textContent = `Queued ${queued} of ${ids.length} datasets — the load queue downloads them one at a time; each card shows live progress as its turn starts.`;
+    };
+
+    const sentinelLoadSourcingCandidate = async (origin, candidate, opts = {}) => {
       const card = origin instanceof Element ? origin.closest('.sourcing-result') : null;
       const fieldWrap = card?.closest('.sentinel-field') || null;
       const fieldSlug = String(fieldWrap?.dataset.fieldSlug || candidate.scientific_field || '').trim();
@@ -2505,6 +2555,15 @@
         setButtons(true, true);
         if (statusEl) {
           statusEl.textContent = `Loaded "${candidate.title || 'candidate'}" into ${fieldSlug}: ${data.ingested ?? 0} document(s) ingested. It is now permanently listed below.`;
+        }
+        if (opts.autoDownload) {
+          const docId = Number(data.document_id || 0);
+          if (docId > 0) {
+            triggerBrowserDownload(`/api/skill-review/documents/${docId}/download`);
+            if (statusEl) statusEl.textContent = `Loaded and delivering "${candidate.title || 'candidate'}" — your .pdf download is starting.`;
+          } else if (statusEl) {
+            statusEl.textContent = `Loaded "${candidate.title || 'candidate'}", but nothing was produced to export as .pdf.`;
+          }
         }
         await loadSentinelStatus({ silent: true });
         await refreshLoadedIdentities();
@@ -3174,6 +3233,7 @@
             <button type="button" class="ghost" data-role="sourcing-reject" data-candidate-id="${cid}"${isLoaded ? ' disabled' : ''}>Reject</button>
             <button type="button" class="ghost" data-role="sourcing-test" data-candidate-id="${cid}"${isLoaded ? ' disabled' : ''}>Test</button>
             <button type="button" class="ghost" data-role="sourcing-preview" data-candidate-id="${cid}">Preview</button>
+            <button type="button" class="ghost" data-role="sourcing-download" data-candidate-id="${cid}"${isLoaded ? ' disabled' : ''} title="One click: loads it into the library, then hands you the .pdf">⬇ Download .pdf</button>
             ${isLoaded
               ? `<button type="button" class="approve-picked" disabled>Loaded ✓</button>`
               : `<button type="button" data-role="sourcing-load" data-candidate-id="${cid}">Load into field</button>`}

@@ -1156,12 +1156,43 @@ def ingest_candidate(candidate_id: int, wait: int = Query(default=0, ge=0, le=1)
     return _ingest_candidate_impl(candidate_id, None)
 
 
+def _ingest_with_lock_armor(candidate_id: int, rep: Any) -> dict[str, Any]:
+    """Run one candidate load, riding out transient 'database is locked'
+    storms (§74j owner complaint): calm progress message, backoff, retry —
+    the load completes without the owner ever re-clicking Load.
+
+    Shared by the legacy worker AND the sequential load queue, so every
+    load path is armored identically. Must be called inside an active
+    load_progress.bind(rep) context so the calm message reaches the UI.
+    """
+    import sqlite3 as _sqlite3
+    import time as _time
+
+    result: dict[str, Any] | None = None
+    for attempt in range(3):
+        try:
+            result = _ingest_candidate_impl(candidate_id, rep)
+            break
+        except _sqlite3.OperationalError as ex:
+            if "locked" not in str(ex).lower() or attempt >= 2:
+                raise
+            wait_s = 8 * (attempt + 1)
+            load_progress.stage(
+                "finalize",
+                f"Library busy — waiting {wait_s}s for the lock to clear "
+                f"and retrying (attempt {attempt + 2} of 3). "
+                "Your download is queued and safe; no action needed.",
+            )
+            _time.sleep(wait_s)
+    return result or {"ok": False, "error": "load produced no result"}
+
+
 def _ingest_candidate_worker(candidate_id: int, job_id: str) -> None:
     """Run the load in this background thread with progress bound."""
     _rep = load_progress.job_reporter(job_id)
     try:
         with load_progress.bind(_rep):
-            result = _ingest_candidate_impl(candidate_id, _rep)
+            result = _ingest_with_lock_armor(candidate_id, _rep)
         load_progress.finish_job(job_id, result)
     except load_progress.LoadCancelled as ex:
         load_progress.error_job(job_id, str(ex) or "Cancelled by owner.")
