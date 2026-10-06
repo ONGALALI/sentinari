@@ -16,15 +16,23 @@ paths:
   protected_dirs: []
   qualia_files: []
 llm:
-  provider: ollama            # legacy value; runtime_llm.client_backend decides the real path
+  provider: sentinari          # §74g item 4/§75: Enigma (:8100) via the 'sentinari' gateway provider
+  # §74g — the rig-day provider, wire recorded live:
+  #   POST /api/inference/chat {messages} -> {reply, degraded:false}.
+  # is_available() is TRUE only when the engine is LOADED — a degraded
+  # stub is never mistaken for model output (§58 honesty law).
+  sentinari:
+    base_url: http://127.0.0.1:8100
+    chat_model: qwen3-14b-onnx
+    timeout_seconds: 600
   # §41 cloud-seal + §45 purge: fallback_providers emptied (was [gemini]) and
   # the Gemini provider class DELETED from llm_gateway. NOTHING may call the
   # cloud; local inference only (Sentinari inference server :8100 joins as the
   # 'sentinari' gateway provider on rig day).
   fallback_providers: []
-  base_url: http://127.0.0.1:11434
-  chat_model: gemma4:12B
-  embedding_model: nomic-embed-text
+  base_url: http://127.0.0.1:8100
+  chat_model: qwen3-14b-onnx
+  embedding_model: ""            # Enigma serves chat only — embed() returns None honestly
   temperature: 0.1
   num_ctx: 8192
   chat_timeout_seconds: 300
@@ -37,11 +45,12 @@ llm:
   top_k_context_chunks: 4
 
 # §23 cord-cut switch: which backend builds the app-wide LLM client.
-#   ollama_client = legacy direct Ollama (current)
+#   ollama_client = legacy direct Ollama (pre-rig, kept for rollback)
 #   gateway       = provider-agnostic client (local providers only — the
-#                   cloud providers were deleted in §45)
+#                   cloud providers were deleted in §45). REQUIRED for the
+#                   'sentinari' provider to serve the app.
 runtime_llm:
-  client_backend: ollama_client
+  client_backend: gateway
 runtime:
   mode: studio
   allow_shell_tools: true
@@ -77,12 +86,13 @@ security:
   llm_firewall:
     enforce_ollama_provider: true
     # §45: the gemini entry that pre-authorized the cloud cut-over is REMOVED.
-    # Only local providers may ever serve LLM traffic. When the :8100 ONNX
-    # engine lands (rig day), add 'sentinari' here in the same edit that flips
-    # llm.provider.
+    # Only local providers may ever serve LLM traffic. §75: 'sentinari' added
+    # in the same edit that flipped llm.provider (§74g item 4 checklist).
     allowed_runtime_providers:
+    - sentinari
     - ollama
     allowed_chat_models:
+    - qwen3-14b-onnx
     - gemma4:12B
 playground:
   benchmark_baseline:

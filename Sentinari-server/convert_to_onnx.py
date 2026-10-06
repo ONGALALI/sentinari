@@ -50,9 +50,23 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Python 3.14 law (learned the hard way 2026-09-27, conversion.log):
+# argparse now VALIDATES help strings at add_argument time
+# (ArgumentParser._check_help), and onnxruntime-genai's builder help text
+# contains literal '%' characters — the builder crashes before it even
+# parses our arguments ("ValueError: badly formed help string"). The shim
+# relaxes that one check inside the builder's own subprocess; nothing else
+# is touched, and on Python <= 3.13 it is a no-op (the attribute is absent).
+_BUILDER_SHIM = (
+    "import argparse, runpy, sys\n"
+    "if hasattr(argparse.ArgumentParser, '_check_help'):\n"
+    "    argparse.ArgumentParser._check_help = lambda self, action: None\n"
+    "runpy.run_module('onnxruntime_genai.models.builder', run_name='__main__')\n"
+)
+
 
 def _builder_module() -> str:
-    """Return the -m target for the official builder CLI, or die loudly."""
+    """Confirm the conversion toolchain is installed, or die loudly."""
     try:
         import onnxruntime_genai  # noqa: F401
     except ImportError:
@@ -91,6 +105,13 @@ def main() -> None:
         help="Only download the checkpoint to --snapshot-dir for hand-carrying (no conversion).",
     )
     parser.add_argument("--snapshot-dir", default="./carry", help="Target folder for --download-only.")
+    parser.add_argument(
+        "--extra-options",
+        nargs="*",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Forwarded verbatim to the builder's --extra_options (e.g. hf_token=false for ungated repos with no token).",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output).resolve()
@@ -100,14 +121,19 @@ def main() -> None:
         _download_snapshot(args.model, Path(args.snapshot_dir).resolve())
         return
 
-    module = _builder_module()
-    cli = [sys.executable, "-m", module]
+    module = _builder_module()  # importability check only (see _BUILDER_SHIM)
+    cli = [sys.executable, "-c", _BUILDER_SHIM]
     if args.input:
         input_path = Path(args.input).resolve()
         if not input_path.exists():
             print(f"ERROR: --input folder not found: {input_path}", file=sys.stderr)
             sys.exit(1)
-        cli += ["-i", f"hf_path={input_path}"]
+        # 0.17 law (learned 2026-10-06): pass the BARE path. The builder's
+        # help text advertises `hf_path: <path>` but no code parses that
+        # prefix — with it, isdir() fails, hf_name falls back to the hub
+        # model id, and the gated Gemma repo demands a token we don't need
+        # (everything is local). Bare dir -> config/tokenizer load from disk.
+        cli += ["-i", str(input_path)]
     else:
         cli += ["-m", args.model]
     cli += [
@@ -116,6 +142,8 @@ def main() -> None:
         "-e", args.execution_provider,
         "-c", str(Path(args.cache_dir).resolve()),
     ]
+    if args.extra_options:
+        cli += ["--extra_options", *args.extra_options]
 
     print("[convert] official builder CLI:", " ".join(cli))
     print(f"[convert] target: {args.precision} / {args.execution_provider} -> {output_dir}")

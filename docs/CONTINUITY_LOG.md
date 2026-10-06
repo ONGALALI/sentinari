@@ -1815,3 +1815,40 @@ through, after storage/dedup, before the response:
 
 **State at close:** §74n pending commit. The search now narrows to the entire string — exactly as
 the owner asked, nothing more.
+
+## §75 — RIG DAY, WINDOWS-STYLE: ENIGMA AWAKENS — the needle moves on real exams — 2026-10-06
+
+**Owner's frame:** "finalize the code for Sentinari's machine learning, from data digested — we are running Windows 11 Pro (did not find time to set up Ubuntu)." The rig landed WITHOUT Ubuntu; everything below ran natively on Windows 11 Pro.
+
+**The rig, verified live:** AMD Ryzen 9 9900X · NVIDIA RTX 5070 Ti (16 GB, driver 616.92) · **61.6 GB RAM visible — NOT the 92 GB confirmed in §74i (owner to check the DIMMs)** · 927 GB free on D:. CUDA toolkit present; CUDAExecutionProvider proven by a real inference session before any model existed.
+
+### The Gemma 4 blocker (found, diagnosed, owner-ruled)
+- Our Enigma weights (`engine/custom_engine_weights/`, 23.9 GB bf16) are **Gemma4UnifiedForConditionalGeneration**: 8 full-attention layers (idx 5,11,…,47) with 512-wide heads (q `[8192,3840]`, k `[512,3840]`, **no v_proj — `attention_k_eq_v`**) vs 40 sliding layers at 256 (q `[4096,3840]`, k+v present), `layer_scalar` on all 48 layers. PLE and KV-sharing are off (`=0`) but variable head dims alone sink it.
+- **onnxruntime-genai cannot convert OR run this**: latest 0.17.1's builder has no Gemma 4 dispatch (verified in the wheel), and the runtime's genai_config supports one `head_size` + a separate V per layer. Upstream issue #2062 documents exactly these blockers — closed, no support shipped.
+- **Owner ruling:** "supported model, stay Enigma." **GLM-5.3 (owner's offered alternative) evaluated and rejected with numbers:** `GlmMoeDsaForCausalLM` = 755.6 GB of weights, `GLM-5.3-Flash` (`glm5_next`) = 328.3 GB — both MoE architectures absent from the builder dispatch, both physically beyond 16 GB VRAM / 61.6 GB RAM.
+- **Gemma 3 12b-it path blocked on credentials:** the `.env` HF token (line 14, commented) is DEAD — `whoami` → "Invalid user token" (the earlier `model_info` "success" was HF exposing gated-repo metadata publicly). A fresh token + license acceptance reopens the Gemma lineage swap; until then **Qwen/Qwen3-14B** (Apache, ungated) is the engine.
+
+### Conversion toolchain fixed for Windows/Python 3.14 (three real bugs)
+1. **argparse 3.14 law:** `_check_help` now validates help strings at `add_argument` time and the builder's help text contains literal `%` → "badly formed help string" before parsing. `convert_to_onnx.py` runs the builder in-process via a `-c` shim that relaxes only that one check (no-op on ≤3.13). Verified: clean argparse error instead of a crash.
+2. **`hf_path=` prefix is prose, not syntax:** 0.17 takes the BARE path in `-i`; with the prefix `isdir()` fails, `hf_name` falls back to the hub id, and the gated Gemma repo demands a token we don't need. Bare path loads config/tokenizer from disk (verified: `model_type=gemma4_unified` read locally).
+3. **`--extra-options` passthrough added** (`hf_token=false` → `parse_hf_token` → anonymous fetch for ungated repos).
+
+**The run:** 29.5 GB download in 60 min (HF_TOKEN-less, `hf_token=false`) → int4/CUDA export → `models/qwen3-14b-onnx/` (**8.8 GiB** model.onnx.data, context 40960, `type: qwen3`), CONVERT_EXIT=0. Runtime deps: `onnxruntime-genai-cuda==0.17.0` + `onnxruntime-gpu==1.30.0` (requirements-inference.txt updated to the CUDA pins; CPU and GPU wheels share the `onnxruntime` module — never both in one venv).
+
+### §74g item 4 — the 'sentinari' gateway provider (code)
+- **`app/llm_gateway.py`: `SentinariProvider`** — POST /api/inference/chat `{messages} → {reply, degraded}`; `is_available()` is TRUE only when the engine is LOADED (degraded stub ≠ engine, §58); `chat()` refuses a degraded reply even mid-race; embed() returns None honestly (Enigma is chat-only — the embedding gap stays visible, no silent stub).
+- **The flip, in one session:** `config/settings.yaml` → `llm.provider: sentinari` + `sentinari:` block + `client_backend: gateway` + firewall `allowed_runtime_providers: [sentinari, ollama]` + honest `chat_model: qwen3-14b-onnx` + `embedding_model: ""`; `inference_settings.yaml` → model.path/label/`execution_provider: cuda`/`max_length: 8192`/`enable_thinking: false`.
+
+### Four first-run engine bugs, all fixed (each would have silently poisoned exams)
+1. **`max_length` is the TOTAL budget, not new tokens** — `max_length: 30` with a 97-token prompt → instant 503. Now `prompt_len + max_tokens`, capped by settings `model.max_length` (raised 2048 → 8192) with an honest error if the prompt alone exceeds it.
+2. **`get_next_tokens()` returns a flat `(1,)` int32** in this build — `nt[0]` is a scalar, iterating raised `'numpy.int32' object is not iterable`. 0-d/1-d/2-d handled.
+3. **`apply_chat_template` takes a JSON STRING** (`messages: str`), not a list — our list raised TypeError and the `except` **silently fell back to the Gemma role-tag template** (wrong template for Qwen; the model rambled). Now `json.dumps(messages)` + the exception is logged.
+4. **Thinking mode off for exam duty:** the template gates on `enable_thinking is defined` → we load the model's own `chat_template.jinja` and prepend `{% set enable_thinking = false %}` via og's `template_str` (settings-switchable: `model.enable_thinking`).
+
+### Verified live, end to end (all on this box)
+- **Engine:** `degraded:false`, `execution_provider: cuda`, loaded in 4–5.5 s; chat returns EXACTLY the requested string in **776 ms** (`ok:true, model:qwen3-14b-onnx`).
+- **Core:** `/health` ok:true, firewall ok, `provider=sentinari`, **reachable:true**, model `qwen3-14b-onnx`, 175 routes import clean; gateway `describe()` honest at every state.
+- **§74 learning-pipeline test re-run on the rig: 10/10 PASS — "PIPELINE FULLY FUNCTIONAL"** (scratch DB isolation held; live DB 2976 → 2976).
+- **THE NEEDLE:** learning flipped ON → real exams against digested data: **assessed 2973 → 2976 in 30 s**, verdicts `applied`/`partial` with mastery scores, today's timestamps, `engine_health` zero failures, burn guard armed. The examiner went DARK → LIVE on her own terms.
+
+**State at close:** §75 pending commit. Enigma serves Sentinari on Windows, the learning sweep is running on real digested data, and the Gemma swap awaits only a fresh HF token (owner call). **Next directive (owner): develop Victus the adversary** — the §42 skeleton (gates, kill switch, audit, 13/13 dormant self-test) is the spine; probe rounds and the inverted attractor are the first build items, one audited gate at a time.

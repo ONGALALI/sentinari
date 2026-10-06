@@ -204,6 +204,7 @@ class OnnxEngine:
         self.detail = ""
         self.model: Any = None
         self.tokenizer: Any = None
+        self.chat_template_str: str = ""
         self.loaded_path = ""
         self.load_seconds = 0.0
 
@@ -239,6 +240,17 @@ class OnnxEngine:
         self.status = "loaded"
         self.loaded_path = str(target.resolve())
         self.detail = f"loaded in {self.load_seconds}s"
+        # §75: model's own chat template, with thinking mode decided by
+        # settings (model.enable_thinking, default false — exam/grading use
+        # wants direct answers, not inline reasoning). The template gates it
+        # on `enable_thinking is defined`, so a top-level {% set %} decides.
+        template_file = target / "chat_template.jinja"
+        self.chat_template_str = ""
+        if template_file.exists():
+            raw = template_file.read_text(encoding="utf-8")
+            self.chat_template_str = raw if bool(MODEL_CFG.get("enable_thinking", False)) else (
+                "{% set enable_thinking = false %}\n" + raw
+            )
         return self.describe()
 
     # -- state ----------------------------------------------------------------
@@ -264,12 +276,20 @@ class OnnxEngine:
         when this ort-genai build exposes apply_chat_template (preferred:
         the converted tokenizer config is authoritative)."""
         if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template"):
+            # §75: this build's signature is apply_chat_template(messages_json: str,
+            # *, add_generation_prompt=True) — passing a list raises TypeError, which
+            # previously failed SILENTLY into the Gemma fallback (wrong template for
+            # non-Gemma models).
             try:
-                rendered = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+                rendered = self.tokenizer.apply_chat_template(
+                    json.dumps(messages),
+                    template_str=self.chat_template_str or None,
+                    add_generation_prompt=True,
+                )
                 if rendered:
                     return str(rendered)
-            except Exception:
-                pass  # fall through to the manual Gemma template
+            except Exception as ex:
+                print(f"[template] apply_chat_template failed ({ex}); using role-tag fallback")
         turns: list[str] = []
         for message in messages:
             role = str(message.get("role") or "user")
@@ -285,13 +305,37 @@ class OnnxEngine:
         return "\n".join(turns)
 
     def generate(self, prompt: str, *, max_tokens: int, temperature: float, top_p: float) -> str:
-        """One completion. Raises on engine failure — caller wraps in 503."""
+        """One completion. Raises on engine failure — caller wraps in 503.
+
+        §75 lesson: search ``max_length`` is the TOTAL sequence budget
+        (prompt + new tokens), not the number of new tokens — passing
+        max_tokens alone made any prompt longer than max_tokens fail with
+        "input_ids size + current sequence length exceeds max length".
+        """
         import numpy  # ort-genai returns numpy token arrays
         import onnxruntime_genai as og
 
+        input_tokens = self.tokenizer.encode(prompt)
+        if isinstance(input_tokens, list):  # older builds return lists
+            input_tokens = numpy.array([input_tokens], dtype=numpy.int64)
+        elif input_tokens.ndim == 1:  # newer builds return 1-D arrays
+            input_tokens = input_tokens.reshape(1, -1)
+        prompt_len = int(input_tokens.shape[1])
+
+        budget = max(1, int(max_tokens))
+        total = prompt_len + budget
+        cap = int(self.max_length or 0)
+        if cap > 0:
+            if prompt_len >= cap:
+                raise ValueError(
+                    f"prompt is {prompt_len} tokens but engine max_length is {cap} — "
+                    "raise model.max_length in inference_settings.yaml (settings change, never code)."
+                )
+            total = min(total, cap)
+
         params = og.GeneratorParams(self.model)
         search: dict[str, Any] = {
-            "max_length": int(max_tokens),
+            "max_length": int(total),
             "temperature": float(temperature),
             "top_p": float(top_p),
             "do_sample": float(temperature) > 0.0,
@@ -303,18 +347,21 @@ class OnnxEngine:
             search.pop("do_sample", None)
             params.set_search_options(**search)
 
-        input_tokens = self.tokenizer.encode(prompt)
-        if isinstance(input_tokens, list):  # older builds return lists
-            input_tokens = numpy.array([input_tokens], dtype=numpy.int64)
-        elif input_tokens.ndim == 1:  # newer builds return 1-D arrays
-            input_tokens = input_tokens.reshape(1, -1)
-
         generator = og.Generator(self.model, params)
         generator.append_tokens(input_tokens)
         output_tokens: list[int] = []
         while not generator.is_done() and len(output_tokens) < max_tokens:
             generator.generate_next_token()
-            output_tokens.extend(int(t) for t in generator.get_next_tokens()[0])
+            # §75: this build returns a FLAT (1,) int32 array for a single
+            # prompt — nt[0] would be a numpy scalar and iterating it raises
+            # "'numpy.int32' object is not iterable". Handle 0-d / 1-d / 2-d.
+            nxt = numpy.asarray(generator.get_next_tokens())
+            if nxt.ndim == 0:
+                output_tokens.append(int(nxt))
+            elif nxt.ndim == 1:
+                output_tokens.extend(int(t) for t in nxt)
+            else:
+                output_tokens.extend(int(t) for t in nxt[0])
         return str(self.tokenizer.decode(output_tokens) or "").strip()
 
 

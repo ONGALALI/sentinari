@@ -8,11 +8,13 @@ server:
 model:
   # Folder produced by convert_to_onnx.py, carried across whole.
   # Empty / missing => server boots in DEGRADED mode (stub replies, clearly
-  # labelled as such). Fill this in after the first conversion.
-  path: ""
-  label: "gemma-onnx"
-  execution_provider: cpu     # cpu | cuda | dml  (match the RUNNING machine)
-  max_length: 2048
+  # labelled as such). Filled after the first successful conversion (§75):
+  # Qwen3-14B int4 (our Gemma 4 weights cannot convert — issue #2062).
+  path: "D:/Sentinari/Sentinari-server/models/qwen3-14b-onnx"
+  label: "qwen3-14b-onnx"
+  execution_provider: cuda     # cpu | cuda | dml  (match the RUNNING machine — 5070 Ti verified)
+  max_length: 8192        # TOTAL sequence budget (prompt + new); prompt must fit below this (§75)
+  enable_thinking: false  # inline reasoning OFF for exam/grading speed (§75); true = Qwen3 think mode
   auto_load: true
 
 personality:

@@ -1,11 +1,11 @@
 """Provider-agnostic LLM gateway for Sentinari.
 
-Zero-cloud doctrine (§41, reaffirmed §45): the only supported runtime today is
-the local Ollama server; the local Sentinari ONNX inference server (:8100) joins
-via the 'sentinari' provider on rig day. The former Gemini cloud provider and
-the generic OpenAI-compatible provider were REMOVED in §45 — the gateway keeps
-its provider registry shape so the local :8100 provider can slot in without
-touching any caller.
+Zero-cloud doctrine (§41, reaffirmed §45): the runtime is the local Sentinari
+ONNX inference server (:8100, Enigma) via the 'sentinari' provider — landed per
+§74g/§75 rig-day checklist. Ollama stays as a registry entry for local use; the
+former Gemini cloud provider and the generic OpenAI-compatible provider were
+REMOVED in §45 — the gateway keeps its provider registry shape so no caller
+ever changes when the provider does.
 
 The rest of the app calls ``llm_gateway.chat()`` / ``llm_gateway.embed()``
 without knowing (or caring) where the model lives. Switching providers is a
@@ -15,10 +15,17 @@ polices which providers are authorized at all.
 Provider config lives in ``config/settings.yaml`` under ``llm.provider``:
 
     llm:
-      provider: ollama            # ollama | http_json_provider (local only)
-      base_url: http://127.0.0.1:11434
-      chat_model: gemma4:12B
-      embedding_model: nomic-embed-text
+      provider: sentinari          # sentinari (:8100, Enigma) | ollama | http_json_provider
+      sentinari:
+        base_url: http://127.0.0.1:8100
+        chat_model: gemma-onnx
+        timeout_seconds: 600
+      chat_model: gemma-onnx
+      embedding_model: ""          # Enigma is chat-only; embed() returns None honestly
+    # ollama:
+    #   base_url: http://127.0.0.1:11434
+    #   chat_model: gemma4:12B
+    #   embedding_model: nomic-embed-text
     # http_json_provider:
     #   base_url: http://127.0.0.1:9000/v1
     #   chat_model: <local model>
@@ -208,9 +215,70 @@ class HTTPJSONProvider:
             return None
 
 
+class SentinariProvider:
+    """Local Sentinari ONNX inference server (:8100) — Enigma, in-house.
+
+    The §74g rig-day provider: speaks POST /api/inference/chat
+    ({messages} -> {reply, degraded}) — the wire recorded live in the log.
+    Loopback-only by design (inference_settings.yaml binds 127.0.0.1).
+
+    §58 honesty law: is_available() is TRUE only when the engine is
+    actually LOADED. A degraded stub reply must never be mistaken for
+    model output, so chat() refuses one even in the race where the
+    engine dies mid-request (degraded flag checked on every reply).
+    """
+
+    name = "sentinari"
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        sentinari = dict(config.get("sentinari") or {})
+        self.base_url = str(sentinari.get("base_url") or "http://127.0.0.1:8100").rstrip("/")
+        self.chat_model = str(sentinari.get("chat_model") or config.get("chat_model") or "gemma-onnx")
+        self.embedding_model = ""  # chat-only engine; embed() returns None honestly
+        # int4 12B on GPU is quick, on CPU it is not — default generous.
+        self.timeout = max(10, int(sentinari.get("timeout_seconds") or config.get("chat_timeout_seconds") or 600))
+        self.domain = str(sentinari.get("domain") or "").strip()
+
+    def is_available(self) -> bool:
+        try:
+            resp = requests.get(f"{self.base_url}/api/inference/status", timeout=3)
+            if resp.status_code != 200:
+                return False
+            data = resp.json() or {}
+            engine = data.get("engine") or {}
+            return (not data.get("degraded")) and str(engine.get("status") or "") == "loaded"
+        except Exception:
+            return False
+
+    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.1, max_tokens: int = 768) -> str:
+        payload: dict[str, Any] = {
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if self.domain:
+            payload["domain"] = self.domain
+        resp = requests.post(f"{self.base_url}/api/inference/chat", json=payload, timeout=self.timeout)
+        resp.raise_for_status()
+        data = resp.json() or {}
+        if data.get("degraded"):
+            raise LLMGatewayError(
+                f"Sentinari inference server is degraded ({data.get('model') or 'no engine loaded'}) — "
+                "refusing to treat a stub reply as model output."
+            )
+        return str(data.get("reply") or "").strip()
+
+    def embed(self, text: str) -> list[float] | None:
+        # Enigma serves chat only; the app treats None as "no embedding source"
+        # (chunks always persist either way — §7). The embedding story is a
+        # separate decision, not a silent stub.
+        return None
+
+
 _PROVIDERS: dict[str, type] = {
     "ollama": OllamaProvider,
     "http_json_provider": HTTPJSONProvider,
+    "sentinari": SentinariProvider,
 }
 
 
