@@ -429,18 +429,19 @@ def list_loaded() -> dict[str, Any]:
         ).fetchall()
     loaded: list[dict[str, Any]] = []
     chunk_totals: dict[int, int] = {}
-    try:
-        with library_connection("gemma") as conn:
-            for row in rows:
-                document_id = int(row["loaded_document_id"] or 0)
-                if document_id <= 0 or document_id in chunk_totals:
-                    continue
-                count_row = conn.execute(
-                    "SELECT COUNT(1) AS n FROM chunks WHERE document_id = ?", (document_id,)
-                ).fetchone()
-                chunk_totals[document_id] = int(count_row["n"]) if count_row is not None else 0
-    except Exception:
-        pass
+    doc_ids = [int(r["loaded_document_id"] or 0) for r in rows if r.get("loaded_document_id")]
+    valid_ids = [d for d in doc_ids if d > 0]
+    if valid_ids:
+        try:
+            with library_connection("gemma") as conn:
+                id_list = ",".join(str(d) for d in set(valid_ids))
+                counts = conn.execute(
+                    f"SELECT document_id, COUNT(1) AS n FROM chunks WHERE document_id IN ({id_list}) GROUP BY document_id"
+                ).fetchall()
+                for c in counts:
+                    chunk_totals[int(c["document_id"])] = int(c["n"])
+        except Exception:
+            pass
     for row in rows:
         item = dict(row)
         item["chunk_count"] = chunk_totals.get(int(row["loaded_document_id"] or 0), 0)

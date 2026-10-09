@@ -19,8 +19,9 @@ except ImportError:
 
 
 class PostgresCursorWrapper:
-    def __init__(self, cursor: Any) -> None:
+    def __init__(self, cursor: Any, lastrowid: Any = None) -> None:
         self._cur = cursor
+        self._lastrowid = lastrowid
 
     def fetchone(self) -> Any:
         return self._cur.fetchone()
@@ -37,7 +38,7 @@ class PostgresCursorWrapper:
 
     @property
     def lastrowid(self) -> Any:
-        return None
+        return self._lastrowid
 
     @property
     def description(self) -> Any:
@@ -80,6 +81,10 @@ class PostgresConnectionWrapper:
     def _convert_sql(self, sql: str) -> str:
         s = sql.strip()
         u = s.upper()
+        m = re.match(r"PRAGMA\s+table_info\s*\(\s*['\"]?(\w+)['\"]?\s*\)", s, re.IGNORECASE)
+        if m:
+            table = m.group(1).lower()
+            return f"SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name='{table}'"
         if u.startswith("PRAGMA") or u.startswith("ATTACH") or "TEMP VIEW" in u or "DROP VIEW" in u:
             return ""
         if "sqlite_master" in s:
@@ -98,11 +103,28 @@ class PostgresConnectionWrapper:
         if not clean_sql:
             return DummyCursor()
         cur = self._conn.cursor(cursor_factory=DictCursor)
+        lastrowid = None
+        is_insert = clean_sql.strip().upper().startswith("INSERT INTO")
+        if is_insert and "RETURNING" not in clean_sql.upper():
+            try:
+                insert_sql = clean_sql.rstrip(";") + " RETURNING id;"
+                if params is not None:
+                    cur.execute(insert_sql, params)
+                else:
+                    cur.execute(insert_sql)
+                row = cur.fetchone()
+                if row:
+                    lastrowid = row[0]
+                return PostgresCursorWrapper(cur, lastrowid=lastrowid)
+            except Exception:
+                self._conn.rollback()
+                cur = self._conn.cursor(cursor_factory=DictCursor)
+
         if params is not None:
             cur.execute(clean_sql, params)
         else:
             cur.execute(clean_sql)
-        return PostgresCursorWrapper(cur)
+        return PostgresCursorWrapper(cur, lastrowid=lastrowid)
 
     def executescript(self, sql: str) -> None:
         for stmt in sql.split(";"):
