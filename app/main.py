@@ -666,9 +666,12 @@ def shutdown_event() -> None:
 
 
 @app.get("/", include_in_schema=False)
-def ui_root_redirect() -> HTMLResponse:
-    """The front door. http://127.0.0.1:8099/ now lands on the launch menu
-    instead of FastAPI's {"detail":"Not Found"} JSON stub (§50)."""
+@app.get("/portal", include_in_schema=False)
+def ui_portal_landing() -> HTMLResponse:
+    """The public platform landing page and research portal."""
+    page = get_project_root() / "templates" / "portal_landing.html"
+    if page.exists():
+        return HTMLResponse(page.read_text(encoding="utf-8"))
     return HTMLResponse("", status_code=307, headers={"Location": "/ui/start"})
 
 
