@@ -23,8 +23,8 @@ llm:
     timeout_seconds: 600
   vertex:
     project: seninari
-    location: us-central1
-    chat_model: gemini-2.5-flash
+    location: global
+    chat_model: gemma4:26B
     embedding_model: text-embedding-004
     embedding_dimensions: 768
     timeout_seconds: 120
@@ -35,7 +35,7 @@ llm:
     timeout_seconds: 120
   fallback_providers: []
   base_url: http://127.0.0.1:8100
-  chat_model: gemini-2.5-flash
+  chat_model: gemma4:26B
   embedding_model: text-embedding-004
   temperature: 0.1
   num_ctx: 8192
@@ -91,6 +91,8 @@ security:
     allowed_chat_models:
     - qwen3-14b-onnx
     - gemma4:12B
+    - gemma4:26B
+    - gemma-4-26b-a4b-it-maas
     - gemini-2.5-flash
     - gemini-1.5-flash
 playground:

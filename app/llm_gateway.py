@@ -460,16 +460,29 @@ class VertexAIProvider:
     def __init__(self, config: dict[str, Any]) -> None:
         vertex = dict(config.get("vertex") or {})
         self.project = str(vertex.get("project") or os.environ.get("GOOGLE_CLOUD_PROJECT") or "seninari").strip()
-        self.location = str(vertex.get("location") or "us-central1").strip()
-        self.chat_model = str(
+        raw_model = str(
             vertex.get("chat_model")
             or config.get("chat_model")
-            or "gemini-2.5-flash"
-        )
+            or "gemma4:26B"
+        ).strip()
+
+        # Recognize Gemma variants and map to the active Vertex AI Model Garden MaaS endpoint
+        if "gemma" in raw_model.lower():
+            self.chat_model_id = "gemma-4-26b-a4b-it-maas"
+            self.location = "global"
+            self.chat_model = "gemma4:26B"
+        else:
+            self.chat_model_id = raw_model
+            self.location = str(vertex.get("location") or "us-central1").strip()
+            self.chat_model = raw_model
+
         self.embedding_model = str(vertex.get("embedding_model") or "text-embedding-004")
         self.embedding_dims = int(vertex.get("embedding_dimensions") or 768)
         self.timeout = max(10, int(config.get("chat_timeout_seconds") or 120))
-        self.base = f"https://{self.location}-aiplatform.googleapis.com/v1/projects/{self.project}/locations/{self.location}/publishers/google"
+        if self.location == "global":
+            self.base = f"https://aiplatform.googleapis.com/v1/projects/{self.project}/locations/global/publishers/google"
+        else:
+            self.base = f"https://{self.location}-aiplatform.googleapis.com/v1/projects/{self.project}/locations/{self.location}/publishers/google"
         self._cached_token = ""
         self._token_expiry = 0.0
 
@@ -478,6 +491,33 @@ class VertexAIProvider:
         if self._cached_token and _time.time() < self._token_expiry:
             return self._cached_token
         token = str(os.environ.get("GOOGLE_OAUTH_TOKEN") or "").strip()
+
+        # 1. Cloud environment: GCP Metadata server (Cloud Run, GCE, GKE)
+        if not token:
+            try:
+                import urllib.request
+                req = urllib.request.Request(
+                    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+                    headers={"Metadata-Flavor": "Google"},
+                )
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    token = str(data.get("access_token") or "").strip()
+            except Exception:
+                pass
+
+        # 2. Python google.auth SDK default credentials
+        if not token:
+            try:
+                import google.auth
+                import google.auth.transport.requests
+                creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+                creds.refresh(google.auth.transport.requests.Request())
+                token = str(creds.token or "").strip()
+            except Exception:
+                pass
+
+        # 3. Local CLI fallback (gcloud CLI on developer workstation)
         if not token:
             try:
                 import subprocess
@@ -485,6 +525,7 @@ class VertexAIProvider:
                 token = out.splitlines()[-1].strip()
             except Exception:
                 token = ""
+
         if token:
             self._cached_token = token
             self._token_expiry = _time.time() + 3000
@@ -497,7 +538,7 @@ class VertexAIProvider:
         token = self._get_token()
         if not token:
             raise LLMGatewayError("Vertex AI: No OAuth access token available.")
-        
+
         system_text = "\n".join(
             str(m.get("content") or "") for m in messages if str(m.get("role") or "") == "system"
         ).strip()
@@ -523,7 +564,7 @@ class VertexAIProvider:
         if system_text:
             payload["systemInstruction"] = {"parts": [{"text": system_text}]}
 
-        url = f"{self.base}/models/{self.chat_model}:generateContent"
+        url = f"{self.base}/models/{self.chat_model_id}:generateContent"
         resp = requests.post(
             url,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
@@ -543,7 +584,7 @@ class VertexAIProvider:
         token = self._get_token()
         if not token:
             return None
-        url = f"{self.base}/models/{self.embedding_model}:predict"
+        url = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.project}/locations/us-central1/publishers/google/models/{self.embedding_model}:predict"
         payload = {
             "instances": [{"content": str(text or "")[:8000], "task_type": "RETRIEVAL_DOCUMENT"}],
             "parameters": {"outputDimensionality": self.embedding_dims},

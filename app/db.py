@@ -1,14 +1,138 @@
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from .config import get_settings
 from .library_router import gemma_library_path, library_name_for_field
 
 _libraries_bootstrapped = False
+
+try:
+    import psycopg2
+    from psycopg2.extras import DictCursor
+except ImportError:
+    psycopg2 = None
+
+
+class PostgresCursorWrapper:
+    def __init__(self, cursor: Any) -> None:
+        self._cur = cursor
+
+    def fetchone(self) -> Any:
+        return self._cur.fetchone()
+
+    def fetchall(self) -> list[Any]:
+        return self._cur.fetchall()
+
+    def fetchmany(self, size: int | None = None) -> list[Any]:
+        return self._cur.fetchmany(size) if size else self._cur.fetchmany()
+
+    @property
+    def rowcount(self) -> int:
+        return self._cur.rowcount
+
+    @property
+    def lastrowid(self) -> Any:
+        return None
+
+    @property
+    def description(self) -> Any:
+        return self._cur.description
+
+    def __iter__(self) -> Any:
+        return iter(self._cur)
+
+
+class DummyCursor:
+    def fetchone(self) -> None:
+        return None
+
+    def fetchall(self) -> list[Any]:
+        return []
+
+    @property
+    def rowcount(self) -> int:
+        return 0
+
+    @property
+    def lastrowid(self) -> None:
+        return None
+
+    @property
+    def description(self) -> None:
+        return None
+
+    def __iter__(self) -> Any:
+        return iter([])
+
+
+class PostgresConnectionWrapper:
+    """Adapts psycopg2 connection to SQLite connection interface for seamless cloud execution."""
+
+    def __init__(self, pg_conn: Any) -> None:
+        self._conn = pg_conn
+        self.row_factory = None
+
+    def _convert_sql(self, sql: str) -> str:
+        s = sql.strip()
+        u = s.upper()
+        if u.startswith("PRAGMA") or u.startswith("ATTACH") or "TEMP VIEW" in u or "DROP VIEW" in u:
+            return ""
+        if "sqlite_master" in s:
+            s = s.replace(
+                "sqlite_master",
+                "(SELECT table_name AS name, 'table' AS type FROM information_schema.tables WHERE table_schema='public') AS sqlite_master",
+            )
+        s = re.sub(r"\bINTEGER PRIMARY KEY AUTOINCREMENT\b", "SERIAL PRIMARY KEY", s, flags=re.IGNORECASE)
+        s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
+        s = s.replace("datetime('now')", "CURRENT_TIMESTAMP")
+        s = s.replace("?", "%s")
+        return s
+
+    def execute(self, sql: str, params: Any = None) -> Any:
+        clean_sql = self._convert_sql(sql)
+        if not clean_sql:
+            return DummyCursor()
+        cur = self._conn.cursor(cursor_factory=DictCursor)
+        if params is not None:
+            cur.execute(clean_sql, params)
+        else:
+            cur.execute(clean_sql)
+        return PostgresCursorWrapper(cur)
+
+    def executescript(self, sql: str) -> None:
+        for stmt in sql.split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                self.execute(stmt)
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        try:
+            self._conn.rollback()
+        except Exception:
+            pass
+
+    def close(self) -> None:
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+
+    def __enter__(self) -> PostgresConnectionWrapper:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type:
+            self.rollback()
+        else:
+            self.commit()
 
 
 def _ensure_library_files() -> None:
@@ -19,10 +143,11 @@ def _ensure_library_files() -> None:
     library schema (tables AND indexes) directly inside it.
     """
     global _libraries_bootstrapped
-    if _libraries_bootstrapped:
+    if _libraries_bootstrapped or os.environ.get("DATABASE_URL"):
         return
     library_connection("gemma").close()
     _libraries_bootstrapped = True
+
 
 
 def _db_path() -> Path:
@@ -71,6 +196,8 @@ def try_library_write_lock(timeout_ms: int = 750) -> bool:
     without stalling behind a bulk writer (e.g. the learning engine writing
     chunks mid-load). Uses a bare connection — no schema script, no views.
     """
+    if os.environ.get("DATABASE_URL") and psycopg2 is not None:
+        return True
     conn = None
     try:
         target = gemma_library_path()
@@ -93,7 +220,7 @@ def try_library_write_lock(timeout_ms: int = 750) -> bool:
             pass
 
 
-def library_read_connection(*, busy_timeout_ms: int = 750) -> sqlite3.Connection:
+def library_read_connection(*, busy_timeout_ms: int = 750) -> Any:
     """Read-only connection to the physical Gemma library database.
 
     Never writes and never runs the schema ensure script, so it succeeds
@@ -102,6 +229,9 @@ def library_read_connection(*, busy_timeout_ms: int = 750) -> sqlite3.Connection
     this so a long load can no longer stall them until the browser gives
     up with `TypeError: Failed to fetch`.
     """
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and psycopg2 is not None:
+        return PostgresConnectionWrapper(psycopg2.connect(db_url))
     target = gemma_library_path()
     if not target.exists():
         raise FileNotFoundError(f"Library database not found at {target}")
@@ -113,7 +243,7 @@ def library_read_connection(*, busy_timeout_ms: int = 750) -> sqlite3.Connection
     return conn
 
 
-def library_connection(library: str = "gemma", *, busy_timeout_ms: int | None = None) -> sqlite3.Connection:
+def library_connection(library: str = "gemma", *, busy_timeout_ms: int | None = None) -> Any:
     """Direct read/write connection to the physical library database.
 
     All writes route to the single Gemma library. Creates the library schema
@@ -121,6 +251,9 @@ def library_connection(library: str = "gemma", *, busy_timeout_ms: int | None = 
     ensure write may wait for the lock (§77: status/dashboard callers pass a
     small cap so a mid-load writer cannot stall them for the configured 20s).
     """
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and psycopg2 is not None:
+        return PostgresConnectionWrapper(psycopg2.connect(db_url))
     target = gemma_library_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
@@ -207,7 +340,10 @@ CREATE INDEX IF NOT EXISTS idx_ingest_events_field ON ingest_events(scientific_f
 """
 
 
-def get_connection() -> sqlite3.Connection:
+def get_connection() -> Any:
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and psycopg2 is not None:
+        return PostgresConnectionWrapper(psycopg2.connect(db_url))
     settings = get_settings()
     db_path = _db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -234,18 +370,11 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def try_write_lock(timeout_ms: int = 1500) -> sqlite3.Connection | None:
-    """Acquire the database write lock briefly, or return None if busy.
-
-    Used by dashboard/status endpoints so a long-running bulk writer (e.g. a
-    corpus sync) degrades reads to stale-but-instant instead of blocking them
-    for the whole busy timeout or failing with `database is locked`.
-
-    §77 fix: the probe uses a bare connection. `get_connection()` runs the
-    schema executescript (a write) on every call, so probing through it could
-    itself block behind a busy writer — the exact stall this helper exists to
-    avoid.
-    """
+def try_write_lock(timeout_ms: int = 1500) -> Any:
+    """Acquire the database write lock briefly, or return None if busy."""
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and psycopg2 is not None:
+        return PostgresConnectionWrapper(psycopg2.connect(db_url))
     conn = None
     try:
         settings = get_settings()
@@ -270,7 +399,10 @@ def try_write_lock(timeout_ms: int = 1500) -> sqlite3.Connection | None:
         return None
 
 
-def get_read_connection(*, busy_timeout_ms: int = 750) -> sqlite3.Connection:
+def get_read_connection(*, busy_timeout_ms: int = 750) -> Any:
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and psycopg2 is not None:
+        return PostgresConnectionWrapper(psycopg2.connect(db_url))
     settings = get_settings()
     db_path = _db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
