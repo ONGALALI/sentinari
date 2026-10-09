@@ -2371,7 +2371,7 @@ async def api_playground_personal_growth_upload(
 
 @app.get("/api/playground/sentinel/status")
 def api_playground_sentinel_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
-    return get_sentinel_status()
+    return get_sentinel_status(refresh_counts=False)
 
 
 @app.post("/api/playground/sentinel/ensure")

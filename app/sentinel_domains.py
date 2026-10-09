@@ -321,7 +321,7 @@ def _sentinel_schema_present() -> bool:
             pass
 
 
-def get_sentinel_status(*, refresh_counts: bool = True) -> dict[str, Any]:
+def get_sentinel_status(*, refresh_counts: bool = False) -> dict[str, Any]:
     """Status snapshot for the playground UI: domains, fields, progress, MB.
 
     Lock-tolerant: when the shared SQLite database is busy with a long write
