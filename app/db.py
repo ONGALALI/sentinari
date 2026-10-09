@@ -189,6 +189,13 @@ def _attach_libraries(conn: sqlite3.Connection) -> None:
     )
 
 
+def _get_pg_url() -> str | None:
+    socket_path = Path("/cloudsql/seninari:us-central1:sentinari-db")
+    if socket_path.exists():
+        return "postgresql://postgres:Sentinari_2026_Cloud_Db!@/sentinari?host=/cloudsql/seninari:us-central1:sentinari-db"
+    return os.environ.get("DATABASE_URL")
+
+
 def try_library_write_lock(timeout_ms: int = 750) -> bool:
     """True when the Gemma library accepts a write transaction right now.
 
@@ -196,7 +203,7 @@ def try_library_write_lock(timeout_ms: int = 750) -> bool:
     without stalling behind a bulk writer (e.g. the learning engine writing
     chunks mid-load). Uses a bare connection — no schema script, no views.
     """
-    if os.environ.get("DATABASE_URL") and psycopg2 is not None:
+    if _get_pg_url() and psycopg2 is not None:
         return True
     conn = None
     try:
@@ -229,7 +236,7 @@ def library_read_connection(*, busy_timeout_ms: int = 750) -> Any:
     this so a long load can no longer stall them until the browser gives
     up with `TypeError: Failed to fetch`.
     """
-    db_url = os.environ.get("DATABASE_URL")
+    db_url = _get_pg_url()
     if db_url and psycopg2 is not None:
         return PostgresConnectionWrapper(psycopg2.connect(db_url))
     target = gemma_library_path()
@@ -251,7 +258,7 @@ def library_connection(library: str = "gemma", *, busy_timeout_ms: int | None = 
     ensure write may wait for the lock (§77: status/dashboard callers pass a
     small cap so a mid-load writer cannot stall them for the configured 20s).
     """
-    db_url = os.environ.get("DATABASE_URL")
+    db_url = _get_pg_url()
     if db_url and psycopg2 is not None:
         return PostgresConnectionWrapper(psycopg2.connect(db_url))
     target = gemma_library_path()
@@ -341,7 +348,7 @@ CREATE INDEX IF NOT EXISTS idx_ingest_events_field ON ingest_events(scientific_f
 
 
 def get_connection() -> Any:
-    db_url = os.environ.get("DATABASE_URL")
+    db_url = _get_pg_url()
     if db_url and psycopg2 is not None:
         return PostgresConnectionWrapper(psycopg2.connect(db_url))
     settings = get_settings()
@@ -372,7 +379,7 @@ def get_connection() -> Any:
 
 def try_write_lock(timeout_ms: int = 1500) -> Any:
     """Acquire the database write lock briefly, or return None if busy."""
-    db_url = os.environ.get("DATABASE_URL")
+    db_url = _get_pg_url()
     if db_url and psycopg2 is not None:
         return PostgresConnectionWrapper(psycopg2.connect(db_url))
     conn = None
@@ -400,7 +407,7 @@ def try_write_lock(timeout_ms: int = 1500) -> Any:
 
 
 def get_read_connection(*, busy_timeout_ms: int = 750) -> Any:
-    db_url = os.environ.get("DATABASE_URL")
+    db_url = _get_pg_url()
     if db_url and psycopg2 is not None:
         return PostgresConnectionWrapper(psycopg2.connect(db_url))
     settings = get_settings()
