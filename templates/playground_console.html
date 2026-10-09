@@ -507,6 +507,16 @@
     .scoutBadge.r4 { background: #f3e8f8; color: #5c2d80; border-color: #dcc2ec; }
     .liMeta { font-size: 12px; color: #5b6b7d; margin-top: 3px; }
 
+    /* §76: candidate list pagination — page numbers at the bottom, 25 per page. */
+    .pager { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+    .pagerInner { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; }
+    .pagerBtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 8px; border: 1px solid #ccd9ea; background: #f6f9fd; color: #1d2b3a; cursor: pointer; min-width: 32px; }
+    .pagerBtn:hover:not(:disabled) { background: #eaf1fa; }
+    .pagerBtn.active { background: #2f6fb2; border-color: #2f6fb2; color: #fff; }
+    .pagerBtn:disabled { opacity: 0.45; cursor: default; }
+    .pagerGap { color: #5b6b7d; font-size: 12.5px; padding: 0 2px; }
+    .pagerMeta { font-size: 11.5px; color: #5b6b7d; }
+
     @media (max-width: 1120px) {
       .shell { grid-template-columns: 1fr; }
       .sidebar { padding-bottom: 10px; }
@@ -645,6 +655,7 @@
           </label>
           <div id="scientificCandidateStatus" class="hint" style="margin-top:8px;">No discovery run yet.</div>
           <div id="scientificCandidateList" class="list" style="margin-top:10px;"></div>
+          <div id="scientificCandidatePager" class="pager"></div>
           <div id="loadQueuePanel" class="load-queue-panel" hidden></div>
         </div>
 
@@ -2128,6 +2139,39 @@
 
     // ---------- Per-field dataset sourcing worker (GitHub + Hugging Face + OpenAlex) ----------
     const sentinelFieldSourcingResults = {};
+
+    // §76 — pagination for every candidate list: page numbers at the bottom,
+    // 25 datasets per page, covering ALL datasets found (not just this page).
+    const CANDIDATE_PAGE_SIZE = 25;
+    const sentinelFieldSourcingPages = {};
+    const pagerPageNumbers = (pages, page) => {
+      const wanted = new Set([1, pages, page - 2, page - 1, page, page + 1, page + 2]);
+      const nums = [...wanted].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+      const out = [];
+      let prev = 0;
+      nums.forEach((n) => {
+        if (prev && n - prev > 1) out.push('…');
+        out.push(n);
+        prev = n;
+      });
+      return out;
+    };
+    const pagerHtml = ({ pages, page, total, scope }) => {
+      if (!total) return '';
+      const attrs = scope === 'panel' ? 'data-panel="1"' : `data-field-slug="${escapeAttr(scope)}"`;
+      const buttons = pagerPageNumbers(pages, page).map((n) => {
+        if (typeof n !== 'number') return '<span class="pagerGap">…</span>';
+        const active = n === page;
+        return `<button type="button" class="pagerBtn${active ? ' active' : ''}" data-pager-page="${n}"${active ? ' aria-current="page"' : ''} ${attrs}>${n}</button>`;
+      }).join('');
+      return `
+        <div class="pagerInner">
+          <button type="button" class="pagerBtn" data-pager-page="${page - 1}" ${attrs}${page <= 1 ? ' disabled' : ''}>‹ Prev</button>
+          ${buttons}
+          <button type="button" class="pagerBtn" data-pager-page="${page + 1}" ${attrs}${page >= pages ? ' disabled' : ''}>Next ›</button>
+        </div>
+        <div class="pagerMeta">Page ${page} of ${pages} · ${formatInt(total)} dataset${Number(total) === 1 ? '' : 's'} found · ${CANDIDATE_PAGE_SIZE} per page</div>`;
+    };
     const findCandidateById = (candidateId) => {
       const id = Number(candidateId || 0);
       for (const list of Object.values(sentinelFieldSourcingResults || {})) {
@@ -2229,7 +2273,13 @@
       if (!wrap) return;
       const root = wrap.querySelector('[data-role="sourcing-results"]');
       if (!root) return;
-      const cards = (candidates || []).map((item) => {
+      // §76 — one page of 25 at a time; the pager below reaches every result.
+      const all = (candidates || []).slice();
+      const pages = Math.max(1, Math.ceil(all.length / CANDIDATE_PAGE_SIZE));
+      const page = Math.min(Math.max(1, sentinelFieldSourcingPages[fieldSlug] || 1), pages);
+      sentinelFieldSourcingPages[fieldSlug] = page;
+      const slice = all.slice((page - 1) * CANDIDATE_PAGE_SIZE, page * CANDIDATE_PAGE_SIZE);
+      const cards = slice.map((item) => {
         const cid = Number(item.id || 0);
         const label = SOURCE_LABELS[String(item.source_type || '').toLowerCase()] || String(item.source_type || 'Dataset');
         const isLoaded = sentinelIsAlreadyLoaded(item);
@@ -2275,7 +2325,8 @@
       const bulkBar = loadable.length > 1
         ? `<div class="sourcing-bulkbar"><button type="button" data-role="sourcing-load-all" data-field="${escapeAttr(fieldSlug)}" data-ids="${escapeAttr(loadable.join(','))}">⚡ Load all shown (${loadable.length})</button><span class="hint">One click queues every dataset above — the sequential queue downloads them one at a time with live progress. No extra clicks.</span></div>`
         : '';
-      root.innerHTML = bulkBar + (cards || '<div class="hint">No candidates found — try the field\'s own name (e.g. "Physics") as the query.</div>');
+      const pager = `<div class="pager">${pagerHtml({ pages, page, total: all.length, scope: fieldSlug })}</div>`;
+      root.innerHTML = bulkBar + (cards || '<div class="hint">No candidates found — try the field\'s own name (e.g. "Physics") as the query.</div>') + pager;
     };
 
     const sentinelFindDatasets = async (fieldSlug) => {
@@ -2307,6 +2358,7 @@
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || 'Dataset search failed.');
         sentinelFieldSourcingResults[fieldSlug] = data.candidates || [];
+        sentinelFieldSourcingPages[fieldSlug] = 1;
         renderSourcingResults(fieldSlug, pubmedFullTextOnlyActive() || fullTextOnly ? hideAbstractOnly(data.candidates || []) : (data.candidates || []));
         if (statusEl) {
           const dupNote = Number(data.duplicates_skipped || 0) > 0
@@ -2335,6 +2387,7 @@
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || 'Clear failed.');
         delete sentinelFieldSourcingResults[fieldSlug];
+        delete sentinelFieldSourcingPages[fieldSlug];
         renderSourcingResults(fieldSlug, []);
         if (statusEl) {
           statusEl.textContent = `Cleared ${formatInt(data.deleted)} candidate(s) for this field. Loaded datasets are untouched and stay permanently listed below.`;
@@ -2381,6 +2434,15 @@
             if (pidx >= 0) {
               panel.splice(pidx, 1);
               renderScientificCandidates(hideAbstractOnly(panel));
+              // §76 — the rejected row left the pending set: keep the pager
+              // totals honest and clamp to the last real page.
+              const nextTotal = Math.max(0, panelPagerState.total - 1);
+              const nextPages = Math.max(1, Math.ceil(nextTotal / CANDIDATE_PAGE_SIZE));
+              if (panelPagerState.page > nextPages) {
+                loadScientificCandidates(nextPages).catch(() => {});
+              } else {
+                renderPanelPager({ ...panelPagerState, total: nextTotal, pages: nextPages });
+              }
             }
           }
         } else if (card) {
@@ -3251,15 +3313,44 @@
       ? (items || []).filter((c) => !(String(c.source_type || '') === 'pubmed' && !c.pmcid))
       : (items || []);
 
-    async function loadScientificCandidates() {
+    let panelPagerState = { page: 1, pages: 1, total: 0 };
+    const renderPanelPager = (state) => {
+      panelPagerState = {
+        page: Number(state.page || 1),
+        pages: Number(state.pages || 1),
+        total: Number(state.total || 0),
+      };
+      const root = byId('scientificCandidatePager');
+      if (root) root.innerHTML = pagerHtml({ ...panelPagerState, scope: 'panel' });
+    };
+
+    async function loadScientificCandidates(page = 1) {
       const fieldName = String(byId('scientificCandidateField')?.value || '').trim();
       const scope = fieldName ? `&scientific_field=${encodeURIComponent(fieldName)}` : '';
-      const response = await fetch(`/api/skill-review/candidates?status=pending${scope}`);
+      const response = await fetch(`/api/skill-review/candidates?status=pending&page=${encodeURIComponent(page)}&page_size=${CANDIDATE_PAGE_SIZE}${scope}`);
       const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.detail || data.error || 'Could not load candidates.');
       sentinelFieldSourcingResults.__panel__ = data.candidates || [];
       renderScientificCandidates(hideAbstractOnly(data.candidates || []));
+      // §76 — page numbers at the bottom cover ALL datasets found (server total).
+      renderPanelPager(data);
     }
+
+    // §76 — one delegated listener for every pager on the page.
+    document.addEventListener('click', (event) => {
+      const btn = event.target.closest('button[data-pager-page]');
+      if (!btn || btn.disabled) return;
+      const target = Math.max(1, Number(btn.dataset.pagerPage) || 1);
+      if (btn.dataset.panel === '1') {
+        loadScientificCandidates(target).catch(() => {});
+        return;
+      }
+      const wrap = btn.closest('.sentinel-field');
+      const slug = String(wrap?.dataset.fieldSlug || btn.dataset.fieldSlug || '');
+      if (!slug) return;
+      sentinelFieldSourcingPages[slug] = target;
+      renderSourcingResults(slug, sentinelFieldSourcingResults[slug] || []);
+    });
 
     const discoverScientificCandidates = async () => {
       const query = String(byId('scientificCandidateQuery')?.value || '').trim();

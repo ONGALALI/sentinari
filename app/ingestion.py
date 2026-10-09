@@ -268,6 +268,35 @@ def _upsert_document_with_chunks(
         overlap_chars=int(ingestion.get("chunk_overlap_chars") or 180),
         min_chunk_chars=int(ingestion.get("min_chunk_chars") or 220),
     )
+    # §77 (corrections 1): deterministic SHA-256 signatures per extracted
+    # block. Identical content — repeated sections inside a paper, or a chunk
+    # already ingested from any earlier document — never reaches the
+    # vectorizer again; it inherits the known chunk's embedding.
+    def _chunk_hash(chunk: str) -> str:
+        return hashlib.sha256(chunk.encode("utf-8", errors="replace")).hexdigest()
+
+    known_chunk_hashes: dict[str, str] = {}
+    try:
+        for row in conn.execute(
+            "SELECT chunk_hash, embedding_json FROM chunks WHERE chunk_hash != '';"
+        ).fetchall():
+            if row["embedding_json"]:
+                known_chunk_hashes[str(row["chunk_hash"])] = str(row["embedding_json"])
+    except sqlite3.OperationalError:
+        known_chunk_hashes = {}  # pre-migration database; gate degrades to off
+
+    chunk_hashes: list[str] = []
+    dedup_skipped = 0
+    for chunk in chunks:
+        digest = _chunk_hash(chunk)
+        chunk_hashes.append(digest)
+        if digest in known_chunk_hashes:
+            dedup_skipped += 1
+    if dedup_skipped:
+        load_progress.emit(
+            message=f"Chunk-hash gate: {dedup_skipped}/{len(chunks)} duplicate section(s) skip vectorization."
+        )
+
     embeddings: list[list[float] | None] = [None] * len(chunks)
     if embedding_model is not None:
         # Owner directive: hard per-document embed budget. One crawling embed
@@ -282,6 +311,11 @@ def _upsert_document_with_chunks(
         for idx, chunk in enumerate(chunks):
             if load_progress.cancel_requested():
                 raise load_progress.LoadCancelled("Load cancelled by owner at chunk boundary.")
+            if chunk_hashes[idx] in known_chunk_hashes:
+                # Exact duplicate of a previously vectorized chunk: reuse the
+                # stored embedding and keep the embed budget for novel text.
+                embeddings[idx] = json.loads(known_chunk_hashes[chunk_hashes[idx]])
+                continue
             if _time.monotonic() > _deadline:
                 load_progress.emit(
                     message=f"Embed budget ({_budget}s) exhausted after {idx}/{len(chunks)} chunks — continuing without vectors (the re-embed migration can fill them)."
@@ -359,13 +393,15 @@ def _upsert_document_with_chunks(
         )
         document_id = int(cur.lastrowid)
 
+    _record_document_edges(conn, document_id, title, metadata)
+
     for idx, chunk in enumerate(chunks):
         chunk = _sanitize_text(chunk)
         embedding = embeddings[idx]
         cur = conn.execute(
             """
-            INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json)
-            VALUES (?, ?, ?, ?, ?, ?);
+            INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json, chunk_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 document_id,
@@ -374,6 +410,7 @@ def _upsert_document_with_chunks(
                 _token_estimate(chunk),
                 _json_dumps({"source_id": source_id}),
                 json.dumps(embedding, ensure_ascii=True) if embedding else None,
+                chunk_hashes[idx] if idx < len(chunk_hashes) else "",
             ),
         )
         chunk_id = int(cur.lastrowid)
@@ -448,6 +485,58 @@ def _pdf_engine_from_metadata(metadata: dict[str, Any]) -> str:
     if isinstance(extra_metadata, dict):
         return str(extra_metadata.get("pdf_preprocess_engine") or "").strip()
     return ""
+
+
+def _record_document_edges(
+    conn: sqlite3.Connection,
+    document_id: int,
+    title: str,
+    metadata: dict[str, Any],
+) -> None:
+    """§77 (corrections 1): graph-relational map maintenance.
+
+    Links each document to its authors, publisher, and scientific field via
+    typed edges so metadata relationships can be traversed structurally
+    ("what else did this author publish in this field?") without a flat
+    vector scan. Best-effort: a missing edge table (pre-migration library)
+    simply skips the write.
+    """
+    try:
+        conn.execute("DELETE FROM document_edges WHERE document_id = ?;", (int(document_id),))
+    except sqlite3.OperationalError:
+        return  # library not yet migrated
+
+    edges: list[tuple[str, str, str, str, str]] = []
+    title_value = str(title or "").strip()
+    if title_value:
+        edges.append(("document", title_value[:300], "is", "document", title_value[:300]))
+
+    authors_raw = str(metadata.get("authors") or "").strip()
+    for author in re.split(r"[;]| and |,", authors_raw):
+        author = author.strip().strip(".")
+        if len(author) >= 3:
+            edges.append(("author", author, "wrote", "document", title_value[:300]))
+
+    publisher = str(metadata.get("publisher") or "").strip()
+    if publisher:
+        edges.append(("publisher", publisher, "published", "document", title_value[:300]))
+
+    field = str(metadata.get("scientific_field") or "").strip()
+    if field:
+        edges.append(("document", title_value[:300], "belongs_to", "scientific_field", field))
+
+    if not edges:
+        return
+    try:
+        conn.executemany(
+            """
+            INSERT OR IGNORE INTO document_edges (src_type, src_value, edge_type, dst_type, dst_value, document_id)
+            VALUES (?, ?, ?, ?, ?, ?);
+            """,
+            [(s, sv, et, dt, dv, int(document_id)) for (s, sv, et, dt, dv) in edges],
+        )
+    except sqlite3.OperationalError:
+        pass
 
 
 def ingest_files(

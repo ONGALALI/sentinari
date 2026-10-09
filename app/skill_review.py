@@ -287,17 +287,36 @@ class DiscoveryRequest(BaseModel):
 def list_candidates(
     status: str = Query(default="pending"),
     scientific_field: str = Query(default=""),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=200),
 ) -> dict[str, Any]:
+    """Stored candidates for the review panel, paginated (§76).
+
+    OpenAlex rows sort first (owner directive), then newest discovery.
+    ``total``/``pages`` let the UI draw page numbers covering ALL datasets
+    found — not just the rows on this page.
+    """
     _ensure_schema()
     field = scientific_field.strip().lower().replace(" ", "-")
-    sql = "SELECT * FROM skill_review_candidates WHERE status = ?"
+    where = "status = ?"
     args: list[Any] = [status.strip() or "pending"]
     if field:
-        sql += " AND REPLACE(LOWER(scientific_field), ' ', '-') = ?"
+        where += " AND REPLACE(LOWER(scientific_field), ' ', '-') = ?"
         args.append(field)
-    sql += " ORDER BY discovered_at DESC LIMIT 300"
     with get_connection() as conn:
-        rows = conn.execute(sql, args).fetchall()
+        total = int(conn.execute(f"SELECT COUNT(1) AS n FROM skill_review_candidates WHERE {where}", args).fetchone()["n"])
+        pages = max(1, (total + page_size - 1) // page_size)
+        current = min(max(1, page), pages)
+        rows = conn.execute(
+            f"""
+            SELECT * FROM skill_review_candidates
+            WHERE {where}
+            ORDER BY CASE LOWER(source_type) WHEN 'openalex' THEN 0 ELSE 1 END,
+                     discovered_at DESC, id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (*args, page_size, (current - 1) * page_size),
+        ).fetchall()
     candidates: list[dict[str, Any]] = []
     for row in rows:
         item = dict(row)
@@ -313,7 +332,14 @@ def list_candidates(
                     item[k] = str(meta.get(k) or nested.get(k) or "")
             item["has_full_text"] = bool(item.get("pmcid"))
         candidates.append(item)
-    return {"ok": True, "candidates": candidates}
+    return {
+        "ok": True,
+        "candidates": candidates,
+        "total": total,
+        "page": current,
+        "page_size": page_size,
+        "pages": pages,
+    }
 
 
 @router.get("/loaded-identities")
@@ -1101,6 +1127,17 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
     scored: list[dict[str, Any]] = []
     precision_dropped = 0
     for item in candidates:
+        if str(item.get("source_type") or "").lower() == "worldbank":
+            # §76 World Bank exemption (owner directive: World Bank datasets
+            # must be listed): DBnomics rows are official-statistics catalogue
+            # entries — their identifiers and descriptions ("OECD/DSD_…") can
+            # never carry a scientific free-text query, so the whole-string
+            # law structurally dropped 100% of that lane. The lane's own
+            # DBnomics search already scoped them to the query; keep them.
+            item["_precision_tier"] = 0
+            item["_precision_hits"] = len(terms)
+            scored.append(item)
+            continue
         tier, hits = _precision_score(item, terms, phrase)
         item["_precision_tier"] = tier
         item["_precision_hits"] = hits
@@ -1122,6 +1159,10 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         # Default mode: precision tier leads; the stable sort preserves each
         # lane's own relevance order within a tier.
         candidates.sort(key=lambda c: int(c.get("_precision_tier") or 0))
+    # Owner directive (§76): OpenAlex is the primary R&D source — its
+    # datasets are listed FIRST, ahead of every other lane. Stable sort, so
+    # precision/novelty order inside each group is preserved.
+    candidates.sort(key=lambda c: 0 if str(c.get("source_type") or "").lower() == "openalex" else 1)
     for item in candidates:
         item.pop("_precision_tier", None)
         item.pop("_precision_hits", None)

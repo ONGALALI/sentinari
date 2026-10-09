@@ -294,6 +294,33 @@ def _refresh_field_counts(conn: Any) -> None:
     )
 
 
+def _sentinel_schema_present() -> bool:
+    """True when the sentinel tables already exist in the library database.
+
+    Cheap read-only check used to skip the DDL ensure pass on steady-state
+    status calls (§77 anti-stall fix).
+    """
+    try:
+        from .db import library_read_connection
+
+        conn = library_read_connection(busy_timeout_ms=500)
+    except Exception:
+        return False
+    try:
+        row = conn.execute(
+            "SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name IN "
+            "('sentinel_domains', 'sentinel_scientific_fields');"
+        ).fetchone()
+        return int(row[0] or 0) == 2
+    except Exception:
+        return False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def get_sentinel_status(*, refresh_counts: bool = True) -> dict[str, Any]:
     """Status snapshot for the playground UI: domains, fields, progress, MB.
 
@@ -303,9 +330,21 @@ def get_sentinel_status(*, refresh_counts: bool = True) -> dict[str, Any]:
     field-count refresh are best-effort; reads always proceed.
     """
     write_available = try_write_lock(timeout_ms=1500) is not None
-    if write_available:
+    from .db import try_library_write_lock
+
+    # The sentinel tables live in the LIBRARY database: an ensure pass is a
+    # write there, so a mid-load learning engine holding the library lock
+    # would stall this endpoint for the full busy timeout (20s) even with a
+    # free main database. Schema exists in steady state; skip when busy.
+    library_write_free = try_library_write_lock(timeout_ms=750)
+    if write_available and library_write_free:
         try:
-            ensure_sentinel_database()
+            # §77: steady-state fast path — the sentinel schema is created once
+            # by /sentinel/ensure or first use. Re-running the DDL script here
+            # on every status call turned any lock grabbed between the probe
+            # and the write into a 20s stall. Only ensure when actually absent.
+            if not _sentinel_schema_present():
+                ensure_sentinel_database()
         except Exception as ensure_ex:
             # Schema already exists in steady state; a locked database just means
             # the ensure pass must wait for a quieter moment.
@@ -315,15 +354,27 @@ def get_sentinel_status(*, refresh_counts: bool = True) -> dict[str, Any]:
                     _log_handle.write(f"[{datetime.utcnow().isoformat()}] get_sentinel_status ensure deferred: {ensure_ex!r}\n")
             except Exception:
                 pass
+    conn = None
     try:
-        from .db import library_connection
+        # Read-only by default: a bulk ingestion writer holding the write lock
+        # (WAL allows concurrent readers) must not stall this endpoint long
+        # enough for the browser to abort the fetch. Only take the read/write
+        # connection when the LIBRARY lock is also free — a count refresh is a
+        # write against the library database, so checking only the main
+        # database still allowed a mid-load learning engine to stall us.
+        from .db import library_connection, library_read_connection
 
-        conn_cm = library_connection("gemma")
-        conn = conn_cm
+        try:
+            if refresh_counts and write_available and library_write_free:
+                conn = library_connection("gemma", busy_timeout_ms=1500)
+            else:
+                conn = library_read_connection()
+        except FileNotFoundError:
+            conn = library_connection("gemma")  # first run: create the library
     except Exception:
         raise
     try:
-        if refresh_counts and write_available:
+        if conn is not None and refresh_counts and write_available and library_write_free:
             try:
                 _refresh_field_counts(conn)
                 conn.commit()
@@ -415,7 +466,26 @@ def get_sentinel_status(*, refresh_counts: bool = True) -> dict[str, Any]:
 
 
 def _resolve_field(field: str) -> dict[str, Any]:
-    ensure_sentinel_database()
+    # §82: the ensure pass opens a WRITE transaction on the 12.9 GB library.
+    # When another writer holds the lock, waiting for it here fails the whole
+    # load (§74j's "database is locked" — owner saw failed loads that had
+    # nothing to do with their dataset). The registry is static in STEADY
+    # STATE: try the ensure pass but, if the library is merely busy, resolve
+    # the field from the live database read-only and continue — the ensure
+    # pass retries at the next /sentinel/ensure or status probe.
+    try:
+        ensure_sentinel_database()
+    except sqlite3.OperationalError as ensure_ex:
+        if "locked" not in str(ensure_ex).lower():
+            raise
+        try:
+            (get_project_root() / "Logs").mkdir(parents=True, exist_ok=True)
+            with open(get_project_root() / "Logs" / "sentinel-ensure.log", "a", encoding="utf-8") as _log_handle:
+                _log_handle.write(
+                    f"[{datetime.utcnow().isoformat()}] _resolve_field ensure deferred (library busy): {ensure_ex!r}\n"
+                )
+        except Exception:
+            pass
     wanted = slugify(str(field or ""))
     for domain in SENTINEL_DOMAINS:
         for item in domain.get("fields", []):

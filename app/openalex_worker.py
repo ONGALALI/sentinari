@@ -114,14 +114,28 @@ _KEY_TOKEN_RE = re.compile(r"[A-Za-z0-9._-]{8,}")
 
 
 def _extract_key_from_line(line: str) -> list[str]:
-    """Pull candidate API keys out of one config line, best guess first."""
+    """Pull candidate API keys out of one config line, best guess first.
+
+    Handles bare keys, URL-embedded keys, and ``KEY=value`` lines — the
+    in-tree ``.env`` stores the live key as ``OPENALEX_API_KEY=...`` (§76:
+    the old extractor only matched bare tokens, so the valid .env key was
+    never seen and a stale doc key got the lane 401-killed every search).
+    """
     candidates: list[str] = []
+
+    def _add(token: str) -> None:
+        token = token.strip().strip("\"'").rstrip(",;)]}")
+        if token and _KEY_TOKEN_RE.fullmatch(token) and token not in candidates:
+            if not token.lower().startswith(("http", "api.")):
+                candidates.append(token)
+
     # Format: https://api.openalex.org/<key>
     if "openalex.org/" in line:
-        tail = line.split("openalex.org/", 1)[1].strip().split()[0]
-        tail = tail.rstrip(",;\"')]")
-        if _KEY_TOKEN_RE.fullmatch(tail):
-            candidates.append(tail)
+        _add(line.split("openalex.org/", 1)[1].strip().split()[0])
+    # Format: KEY=value (e.g. OPENALEX_API_KEY=abc123 in .env)
+    if "=" in line and "http" not in line.lower():
+        value = line.split("=", 1)[1]
+        _add(value.split()[0] if value.split() else value)
     # Whole line is a bare key (possibly 'label KEY')
     tokens = [t for t in line.replace("api.openalex.org", " ").split() if _KEY_TOKEN_RE.fullmatch(t)]
     for token in tokens:
@@ -140,8 +154,9 @@ def _key_sources() -> list[str]:
 
     key_file = get_project_root() / "app" / "apis" / "open-alex-api.md"
     candidate_lines: list[str] = []
-    if key_file.exists():
-        candidate_lines.extend(key_file.read_text(encoding="utf-8", errors="replace").splitlines())
+    # Live secrets first: the in-tree .env is the operator's current key
+    # store (§76) — the doc file below is only a fallback, and its key can
+    # rot without the owner noticing while .env stays valid.
     for env_file in (
         get_project_root() / ".env",          # in-tree first — folder is self-contained
         get_project_root().parent / ".env",   # legacy parent-folder fallback
@@ -150,6 +165,8 @@ def _key_sources() -> list[str]:
             for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
                 if "openalex" in line.lower():
                     candidate_lines.append(line.strip())
+    if key_file.exists():
+        candidate_lines.extend(key_file.read_text(encoding="utf-8", errors="replace").splitlines())
 
     for line in candidate_lines:
         line = line.strip()
@@ -205,6 +222,14 @@ def _get_with_key_retry(url: str, params: dict[str, Any], timeout: int = 60) -> 
         if resp.status_code not in (401, 403):
             return resp
         last_resp = resp
+    # Every stored key was rejected (§76): fall back to a keyless request
+    # instead of failing the whole lane — OpenAlex still serves anonymous
+    # traffic, and a rotting doc key must never zero out the OpenAlex lane.
+    keyless = dict(params)
+    keyless.pop("api_key", None)
+    resp = _retry_get(url, params=keyless, headers=_openalex_headers(), timeout=timeout)
+    if resp.status_code not in (401, 403):
+        return resp
     assert last_resp is not None
     return last_resp
 

@@ -83,6 +83,12 @@
   .alert.ok { background: #e6f6ea; border: 1px solid #b7e2c2; color: #22743a; }
   .alert.err { background: #fdf0f1; border: 1px solid #efc3c9; color: #8f3a45; }
   .topbar-note { font-size: 12.5px; color: #5b6b7d; margin-top: 2px; }
+  /* §80b: ⓘ info tags with hover pop-ups on static terms (§74c pattern from the learning ladder) */
+  .ptag { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: #dcebf9; border: 1px solid #b9d4ee; color: #103c6b; font-size: 9px; font-weight: 700; line-height: 12px; text-align: center; cursor: help; user-select: none; position: relative; vertical-align: middle; margin-left: 4px; }
+  .ptag .ptip { position: absolute; bottom: calc(100% + 6px); right: -6px; width: 300px; background: #10233d; color: #e8f0fb; border-radius: 8px; padding: 9px 11px; font-size: 11px; line-height: 1.5; opacity: 0; pointer-events: none; transition: opacity .15s ease; z-index: 30; box-shadow: 0 6px 18px rgba(16,35,61,.35); text-align: left; font-weight: 400; }
+  .ptag .ptip:after { content: ""; position: absolute; top: 100%; right: 16px; border: 6px solid transparent; border-top-color: #10233d; }
+  .ptag:hover .ptip, .ptag:focus .ptip { opacity: 1; }
+  .stat .ptag { margin-left: 3px; }
 </style>
 </head>
 <body>
@@ -101,6 +107,10 @@
   <main class="page-shell">
     <h1>Scientific Patterns Discovery</h1>
     <div class="topbar-note">Containers below are named for their scientific fields. Cross-field patterns appear in combination containers (Field A + Field B). Every container shows live recognition progress, the potential benefits of each pattern, and an APA 7th edition report (HTML preview / PDF download) covering all fields in the container, its data sources, and its Works Cited.</div>
+    <div class="report-actions" style="margin-top:10px;">
+      <button type="button" class="primary" data-role="assessment-matrix">View document (HTML) &mdash; Assessment Matrix</button>
+      <span class="muted">The scoring law behind this workspace: impact dimensions<span class="ptag" tabindex="0">i<span class="ptip"><b>Impact dimensions (7).</b> Knowledge, Intelligence, Decision, Human Agency, Societal, Scientific, Risk. Each level x_i (0–10) is measured from the pattern's real extraction record: evidence-chunk depth, source-document breadth, entity/relation graph mass, pipeline confidence, cross-field span, and recorded benefits. Sustainability Weights: Knowledge 0.18 · Human Agency 0.16 · Societal 0.16 · Intelligence 0.14 · Decision 0.14 · Scientific 0.14 · Risk 0.08.</span></span>, level bands<span class="ptag" tabindex="0">i<span class="ptip"><b>Impact level bands.</b> Normalized Dimension Impact SD_i(%) = (W_i × S_i(x)) ÷ NSIS × 100, where NSIS = Σ W_j·S_j(x) is the Net Sustainable Impact Score. Bands: 0–33.33% Level 1 (Low) · 33.34–67.67% Level 2 (Medium) · 67.68–100% Level 3 (High).</span></span>, and the coupled bell curve<span class="ptag" tabindex="0">i<span class="ptip"><b>Coupled bell curve.</b> Each dimension has a sustainability function S_i(x) = G_i(x) ÷ A_i with G_i(x) = A_i·exp(−(x−μ_i)² ÷ (2σ_i²)). Coupling rules from the Assessment Matrix: Intelligence &gt; 7 contracts Human Agency (μ −0.4·excess, σ −0.15·excess); Risk &gt; 5 widens Societal σ (+0.3·excess) and drops Decision μ (−0.25·excess); Scientific &gt; 7 lifts Knowledge amplitude (+0.05, capped 1.0).</span></span>.</span>
+    </div>
 
     <div id="pageAlert" class="alert" hidden></div>
 
@@ -120,13 +130,13 @@
       </div>
       <div id="pausedBanner" class="alert err" style="margin-top:10px;" hidden></div>
       <div class="stats-grid">
-        <div class="stat"><b id="stDocs">0</b><span>Library documents</span></div>
-        <div class="stat"><b id="stAnalyzed">0</b><span>Documents analyzed</span></div>
-        <div class="stat"><b id="stCandidates">0</b><span>Candidate patterns</span></div>
-        <div class="stat"><b id="stEntities">0</b><span>Entities mapped</span></div>
-        <div class="stat"><b id="stRelations">0</b><span>Relations mapped</span></div>
+        <div class="stat"><b id="stDocs">0</b><span>Library documents<span class="ptag" tabindex="0">i<span class="ptip"><b>Library documents.</b> The total documents in the knowledge library across all scientific fields — the denominator of the recognition progress bar below.</span></span></span></div>
+        <div class="stat"><b id="stAnalyzed">0</b><span>Documents analyzed<span class="ptag" tabindex="0">i<span class="ptip"><b>Documents analyzed.</b> Documents the discovery engine has fully processed (entities, relations and patterns extracted). Progress % = analyzed ÷ library documents.</span></span></span></div>
+        <div class="stat"><b id="stCandidates">0</b><span>Candidate patterns<span class="ptag" tabindex="0">i<span class="ptip"><b>Candidate patterns.</b> Patterns raised so far. Each starts as Candidate and moves through your review: Approve → Testing → Active, or Reject. Every state change is recorded in patterns.db.</span></span></span></div>
+        <div class="stat"><b id="stEntities">0</b><span>Entities mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Entities mapped.</b> Scientific entities (concepts, materials, methods, quantities) extracted from analyzed documents and stored in the pattern_entities table — the nodes of a pattern's evidence graph.</span></span></span></div>
+        <div class="stat"><b id="stRelations">0</b><span>Relations mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Relations mapped.</b> Directed links between mapped entities, stored in pattern_relations — the edges that let a pattern state HOW things connect, not just that they do.</span></span></span></div>
       </div>
-      <div class="progress-head">New pattern recognition in progress — <span id="overallPct">0.0%</span></div>
+      <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Recognition progress.</b> The share of the whole library processed for new patterns: analyzed documents ÷ library documents. The label beneath gives the exact counts and what is still queued.</span></span> — <span id="overallPct">0.0%</span></div>
       <div class="lp-track"><div class="lp-fill" id="overallFill"></div></div>
       <div class="lp-label" id="overallLabel">Waiting for status…</div>
     </div>
@@ -248,7 +258,7 @@
     try { fields = JSON.parse(p.fields_involved || '[]'); } catch (_) { fields = []; }
     const conf = Math.round((Number(p.confidence) || 0) * 100);
     const benefitsBlock = p.has_benefits
-      ? `<div class="benefits"><div class="benefits-title">Potential benefits</div>${esc(p.benefits)}</div>`
+      ? `<div class="benefits"><div class="benefits-title">Potential benefits<span class="ptag" tabindex="0">i<span class="ptip"><b>Potential benefits.</b> Generated by analyzing the pattern's own evidence with the local engine: what the pattern could enable, why it matters, and the measured inputs (evidence depth, sources, graph mass) that feed its dimension levels.</span></span></div>${esc(p.benefits)}</div>`
       : `<div class="actions"><button type="button" data-role="benefits" data-id="${p.id}">Analyze benefits</button></div><div class="benefits" data-role="benefits-slot-${p.id}" hidden></div>`;
     return `
       <div class="pattern-item">
@@ -256,7 +266,7 @@
         <div class="meta-pills">
           <span class="meta-pill status-${esc(status)}">${esc(STATUS_LABELS[status] || status)}</span>
           <span class="meta-pill">${esc(p.pattern_type || 'general')}</span>
-          <span class="meta-pill"><span class="confidence-track"><span class="confidence-fill" style="width:${conf}%"></span></span>${conf}% confidence</span>
+          <span class="meta-pill"><span class="confidence-track"><span class="confidence-fill" style="width:${conf}%"></span></span>${conf}% confidence<span class="ptag" tabindex="0">i<span class="ptip"><b>Confidence.</b> The extraction pipeline's confidence (0–100%) that this pattern is real, from the evidence it was found in. It also feeds the Assessment Matrix: higher confidence lowers the Risk level and lifts Knowledge, Intelligence and Decision.</span></span></span>
           ${fields.map((f) => `<span class="meta-pill">${esc(f)}</span>`).join('')}
         </div>
         <div class="statement">${esc(p.statement)}</div>
@@ -289,7 +299,7 @@
       <div class="container-card${c.is_combination ? ' combination' : ''}">
         <div class="container-title">${esc(name)}${c.is_combination ? '<span class="cross-pill">Cross-field</span>' : ''}</div>
         <div class="hint" style="margin-top:3px;">${c.is_combination ? 'Pattern bridging several scientific fields.' : 'Patterns discovered within this scientific field.'} · <b>${c.pattern_count}</b> pattern${c.pattern_count === 1 ? '' : 's'}</div>
-        <div class="progress-head">New pattern recognition in progress — <span>${barPct.toFixed(1)}%</span></div>
+        <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Field recognition progress.</b> Share of THIS field's documents analyzed for patterns${c.is_combination ? ' (combination container: the bridge between these fields)' : ''}: analyzed ÷ library documents for the container.</span></span> — <span>${barPct.toFixed(1)}%</span></div>
         <div class="lp-track"><div class="lp-fill${liveJob ? ' active' : ''}" style="width:${Math.max(0, Math.min(100, barPct))}%"></div></div>
         <div class="lp-label">${esc(barLabel)}</div>
         <div class="report-actions">
@@ -400,8 +410,7 @@
         const data = await api(`/api/patterns/${id}/benefits`);
         const slot = document.querySelector(`[data-role="benefits-slot-${id}"]`);
         if (slot) {
-          slot.hidden = false;
-          slot.innerHTML = `<div class="benefits-title">Potential benefits</div>${esc(data.benefits)}`;
+          slot.hidden = false;            slot.innerHTML = `<div class="benefits-title">Potential benefits<span class="ptag" tabindex="0">i<span class="ptip"><b>Potential benefits.</b> Generated by analyzing the pattern's own evidence with the local engine: what the pattern could enable, why it matters, and the measured inputs (evidence depth, sources, graph mass) that feed its dimension levels.</span></span></div>${esc(data.benefits)}`;
         }
         btn.remove();
       } catch (error) {
@@ -416,8 +425,10 @@
         : `/api/patterns/reports/container/${key}/report?format=${fmt}`;
       if (fmt === 'pdf') { window.location.href = url; }
       else { window.open(url, '_blank', 'noopener'); }
+    } else if (btn.dataset.role === 'assessment-matrix') {
+      window.open('/api/patterns/assessment-matrix', '_blank', 'noopener');
     } else if (btn.dataset.role === 'rd-paper') {
-      btn.disabled = true; btn.textContent = 'Logging…';
+      btn.disabled = true; btn.textContent = 'Generating…';
       try {
         const r = await api('/api/patterns/future-requests/rd-paper', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -426,6 +437,8 @@
         showAlert(r.message || 'R&D paper request logged as future work.', true);
         btn.textContent = 'R&D paper ✓ logged';
         await loadFutureRequests();
+        // §79: open the generated validation paper (math computed from the pattern's record).
+        window.open(`/api/patterns/rd-paper/${encodeURIComponent(id)}/report`, '_blank', 'noopener');
       } catch (error) {
         btn.disabled = false; btn.textContent = 'Request R&D Paper';
         showAlert(error.message, false);

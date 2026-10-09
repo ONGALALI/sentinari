@@ -526,6 +526,10 @@ async def ui_no_store_cache_guard(request: Request, call_next):
 
 @app.middleware("http")
 async def localhost_access_guard(request: Request, call_next):
+    # Automatically permit remote traffic when deployed on Cloud Run (K_SERVICE is set)
+    # or when ALLOW_REMOTE / SENTINARI_ALLOW_REMOTE is explicitly configured.
+    if os.environ.get("K_SERVICE") or os.environ.get("ALLOW_REMOTE") or os.environ.get("SENTINARI_ALLOW_REMOTE"):
+        return await call_next(request)
     settings = get_settings()
     security = settings.get("security", {}) if isinstance(settings.get("security"), dict) else {}
     localhost_only = bool(security.get("localhost_only", True))

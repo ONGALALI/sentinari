@@ -11,7 +11,10 @@ onnxruntime==1.30.0
 onnx
 onnx-ir
 torch
-transformers
+# transformers PINNED (§75): the builder's imports need 5.x (Qwen3_5 symbols)
+# and Gemma needs the rope-compat source patch that convert_to_onnx.py
+# auto-applies (_ensure_rope_compat). 5.18.0 verified end-to-end for both.
+transformers==5.18.0
 sentencepiece
 protobuf
 huggingface_hub>=0.30

@@ -85,7 +85,7 @@ def get_state() -> dict[str, Any]:
     with _connect() as conn:
         functional_open = _get_flag(conn, "swe_gate_functional_open").startswith("owner_ordered")
     hle_score = float(run.get("hle_score")) if run and run.get("hle_score") is not None and run.get("hle_score") >= 0 else None
-    return {
+    state = {
         "ok": True,
         "stage": str(run.get("stage")) if run else "data_parsing",
         "status": str(run.get("status")) if run else "not_started",
@@ -103,6 +103,16 @@ def get_state() -> dict[str, Any]:
         },
         "updated_at": str(run.get("updated_at")) if run else "",
     }
+    # §81: surface the question-level detail so the UI can render the exam's
+    # asked questions, expected answers, engine replies and verdicts.
+    try:
+        detail = json.loads(str(run.get("hle_detail_json") or "[]")) if run else []
+    except Exception:
+        detail = []
+    state["hle_detail"] = detail if isinstance(detail, list) else []
+    state["hle_total"] = int(run.get("hle_total") or 0) if run else 0
+    state["hle_detail_at"] = str(run.get("updated_at")) if run else ""
+    return state
 
 
 def start_run(notes: str = "") -> dict[str, Any]:
@@ -287,16 +297,28 @@ def record_hle_run(correct: int, total: int, detail: list[dict] | None = None) -
 
 
 def _normalize(text: str) -> str:
-    return re.sub(r"[^a-z0-9 ]+", " ", str(text or "").lower()).strip()
+    """Normalize for grading: articles dropped, chess check/mate symbols
+    stripped, punctuation collapsed. Case and punctuation never change an
+    answer's truth; a genuinely different answer must still fail."""
+    t = str(text or "").lower().replace("\u2019", "'")
+    t = re.sub(r"\b(?:a|an|the)\b", " ", t)
+    t = re.sub(r"[+#]", " ", t)
+    t = re.sub(r"[^a-z0-9 ]+", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _grade_answer(expected: str, produced: str) -> dict[str, Any]:
-    """Local, honest grader: normalized exact match, else token overlap."""
+    """Local, honest grader: normalized exact match, containment, else token
+    overlap. HLE expected answers are short ('42', 'B', 'Rxf3, Rf1#') while
+    the engine wraps them in prose ('The answer is 42.') — containment
+    recognizes that without ever marking a DIFFERENT answer correct."""
     exp, got = _normalize(expected), _normalize(produced)
     if not exp:
         return {"correct": False, "match": "none", "overlap": 0.0}
     if exp == got:
         return {"correct": True, "match": "exact", "overlap": 1.0}
+    if exp in got or got in exp:
+        return {"correct": True, "match": "contained", "overlap": 1.0}
     exp_tokens, got_tokens = set(exp.split()), set(got.split())
     if not exp_tokens:
         return {"correct": False, "match": "none", "overlap": 0.0}
@@ -346,7 +368,15 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
         verdict = _grade_answer(expected, produced)
         correct += 1 if verdict["correct"] else 0
         total += 1
-        detail.append({"index": i, "match": verdict["match"], "overlap": verdict["overlap"], "correct": verdict["correct"]})
+        detail.append({
+            "index": i,
+            "match": verdict["match"],
+            "overlap": verdict["overlap"],
+            "correct": verdict["correct"],
+            "question": question[:600],
+            "expected": expected[:300],
+            "produced": str(produced or "")[:600],
+        })
         if total >= sample_size:
             break
     state = record_hle_run(correct, total, detail) if total else {"ok": False, "reason": "no_gradable_questions"}

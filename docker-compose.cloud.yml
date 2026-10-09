@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  sentinari-db:
+    image: pgvector/pgvector:pg16
+    container_name: sentinari-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: sentinari
+      POSTGRES_USER: sentinari_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sentinari_secret_change_me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/cloud_cutover_schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinari_user -d sentinari"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sentinari-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinari-core
+    restart: always
+    depends_on:
+      sentinari-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://sentinari_user:${DB_PASSWORD:-sentinari_secret_change_me}@sentinari-db:5432/sentinari
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-seninari}
+      PORT: 8099
+    ports:
+      - "8099:8099"
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  pgdata:

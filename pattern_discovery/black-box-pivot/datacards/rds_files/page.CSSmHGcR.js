@@ -1,0 +1,1 @@
+import{t as e}from"./prefetch.Bl5sJOlk.js?dpl=dpl_8Nh39WXet8ZAdiMtEHkwk1YocfW1";e();

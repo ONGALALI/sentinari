@@ -32,7 +32,7 @@ from .parsing import CODE_LIKE_SUFFIXES, TEXT_LIKE_SUFFIXES
 from .personal_growth import search_personal_growth
 from .qualia import load_qualia_block, resolve_qualia_runtime
 from .response_guardrails import is_identity_query, neutralize_identity_signaling
-from .retrieval import search_chunks
+from .retrieval import search_chunks, search_chunks_cross_sector
 from .session_memory import build_prompt_memory_block, refresh_session_summary
 
 
@@ -383,6 +383,32 @@ def _contains_anxiety_signal(message: str, keywords: list[str]) -> bool:
     return False
 
 
+_CONSTITUTIONAL_AXIOMS = """
+=================== INSPIRARI CONSTITUTIONAL DIRECTIVE ===================
+ARTICLE I: MATERIAL TRUTH OVER ADMINISTRATIVE NARRATIVE
+You must evaluate all hypotheses with strict analytical symmetry. Subject assertions
+from isolated anomalies and institutional consensus to identical verification pipelines.
+Validate strictly the material architecture of the evidence, blind to its status.
+
+THE SILENCE QUESTION:
+If the counter-hypotheses generated cannot be definitively disproven by the empirical
+numerical metrics or provenance chain available, you must output exactly:
+'The evidence is currently insufficient to reach a conclusion due to [Identify Missing Telemetry]'
+==========================================================================
+"""
+
+
+def _constitutional_axioms_block() -> str:
+    """§77 (corrections 1, Article I): anti-consensus-bias anchor.
+
+    Appended to every knowledge/coding system prompt so retrieved evidence is
+    weighed by material architecture, not narrative authority — and so the
+    model declares missing telemetry instead of papering over the gap with
+    consensus-flavored filler.
+    """
+    return _CONSTITUTIONAL_AXIOMS
+
+
 def _build_system_prompt(
     mode: str,
     user_message: str = "",
@@ -612,7 +638,51 @@ Runtime behavior controls:
             "Use this as an adaptive reasoning style reference, not as factual evidence.\n\n"
             f"{qualia_excerpt}\n"
         )
-    return (base + learner_guide_block).strip()
+    constitutional_axioms = _constitutional_axioms_block()
+    return (base + constitutional_axioms + learner_guide_block).strip()
+
+
+def _telemetry_block(question: str, max_slices: int = 2) -> str:
+    """§77 (corrections 1): open-book memory slices from article_v_knowledge.
+
+    Structured atomic facts (claims + metrics + provenance) rather than raw
+    chunks, so cross-functional synthesis costs context tokens, not weights.
+    """
+    try:
+        from .telemetry_extractor import fetch_telemetry_for_query
+
+        slices = fetch_telemetry_for_query(question, limit=max(1, int(max_slices)))
+    except Exception:
+        return ""
+    if not slices:
+        return ""
+    lines = []
+    for s in slices:
+        try:
+            claims = json.loads(str(s.get("falsifiable_claims") or "[]"))
+        except Exception:
+            claims = []
+        if not claims:
+            continue
+        lines.append(
+            "Telemetry Record: [Source: {db} | Field: {field}]\n"
+            "Falsifiable Claims: {claims}\n"
+            "Provenance Check: {obs} synced {ts}".format(
+                db=str(s.get("observation_id", "")).split(":")[1] if str(s.get("observation_id", "")).count(":") >= 1 else "local",
+                field=str(s.get("scientific_field") or "general-science"),
+                claims=" / ".join(str(c)[:220] for c in claims[:2]),
+                obs=str(s.get("observation_id") or ""),
+                ts=str(s.get("timestamp") or ""),
+            )
+        )
+    if not lines:
+        return ""
+    return (
+        "\nStructured telemetry (Article V open-book memory; treat claims as "
+        "citations requiring the Silence Question check):\n\n"
+        + "\n\n".join(lines)
+        + "\n"
+    )
 
 
 def _context_block(rows: list[dict[str, Any]], max_chars: int = 5000) -> str:
@@ -636,6 +706,8 @@ def _context_block(rows: list[dict[str, Any]], max_chars: int = 5000) -> str:
         if published_date:
             citation_meta.append(f"date:{published_date}")
         meta_block = "|".join(citation_meta) if citation_meta else "citation:source-indexed"
+        if row.get("cross_sector"):
+            meta_block += "|CROSS-SECTOR-ANALOG: weigh for structural similarity, not topic"
         entry = f"[{source_id}|chunk:{chunk_id}|title:{title}|{meta_block}] {text}"
         budget += len(entry)
         if budget > max_chars:
@@ -984,7 +1056,17 @@ def run_chat(
     skills_direct_block = build_skills_fallback_block(question)
 
     # Try LLM first, regardless of mode, to restore normalcy
-    if ollama.is_available() and not skills_direct_block:
+    # §80: EXCEPT for library-intent questions (documents/datasets/corpus/
+    # counts...). The bare-LLM shortcut below bypasses retrieval AND the
+    # dataset tool-gateway, so such questions were answered with
+    # "I don't have access" before the tools menu was ever seen. They must
+    # fall through to the grounded pipeline, which carries the tools menu
+    # and the [[DATASET_TOOL:...]] execution loop.
+    if (
+        ollama.is_available()
+        and not skills_direct_block
+        and not LOCAL_CONTEXT_CUE_PATTERN.search(question or "")
+    ):
         try:
             # Simple direct chat to verify connectivity
             answer = ollama.chat([{"role": "user", "content": question}])
@@ -1227,6 +1309,11 @@ def run_chat(
             with get_connection() as conn:
                 sid = _ensure_session(conn, session_id, mode)
                 _store_message(conn, sid, "user", question, citations=[], mode=mode, channel="chat")
+                # §80: commit the user turn NOW. The LLM call below can run
+                # for minutes; holding the write transaction across it wedged
+                # the whole DB (every later write hit "database is locked"
+                # until the server was restarted).
+                conn.commit()
 
                 if conversational_turn:
                     rows = []
@@ -1234,6 +1321,10 @@ def run_chat(
                     answer = _build_small_talk_response(question)
                     answer = sanitize_user_facing_text(answer, settings=settings)
                     _store_message(conn, sid, "assistant", answer, citations=[], mode=mode, channel="chat")
+                    # §80: commit BEFORE refresh — refresh_session_summary can
+                    # run a minutes-long summary LLM call and must never hold
+                    # the DB write lock across it.
+                    conn.commit()
                     refresh_session_summary(conn, sid, ollama=ollama if has_ollama else None, settings=settings)
                     conn.commit()
                     break
@@ -1243,6 +1334,9 @@ def run_chat(
                     answer = _build_identity_capability_answer(settings=settings, mode=mode)
                     answer = sanitize_user_facing_text(answer, settings=settings)
                     _store_message(conn, sid, "assistant", answer, citations=[], mode=mode, channel="chat")
+                    # §80: same rule — never hold the write lock across the
+                    # summary LLM call inside refresh_session_summary.
+                    conn.commit()
                     refresh_session_summary(conn, sid, ollama=ollama if has_ollama else None, settings=settings)
                     conn.commit()
                     break
@@ -1259,6 +1353,23 @@ def run_chat(
                         query_embedding=query_embedding,
                         mode=mode,
                     )
+                    # §77 cross-functional probe: swap the search into a
+                    # rotationally-different domain so structural analogs
+                    # outside the question's own field can surface.
+                    probe_field = str(
+                        scientific_field
+                        or ((rows[0].get("scientific_field") if rows else "") or "")
+                    ).strip()
+                    cross_rows = search_chunks_cross_sector(
+                        conn,
+                        query=question,
+                        scientific_field=probe_field or None,
+                        limit=2,
+                        exclude_chunk_ids={int(r.get("chunk_id") or 0) for r in rows},
+                        mode=mode,
+                    )
+                    if cross_rows:
+                        rows = rows + cross_rows
                     if PERSONAL_GROWTH_CUE_PATTERN.search(question or ""):
                         personal_rows = search_personal_growth(question, limit=max(2, min(4, retrieval_limit)))
                         if personal_rows:
@@ -1284,6 +1395,20 @@ def run_chat(
                 else:
                     rows = []
                 context = _context_block(rows)
+                telemetry_block = _telemetry_block(question)
+                if telemetry_block:
+                    context = f"{context}\n{telemetry_block}".strip()
+                # §80: structured dataset tools — the LLM may request exact
+                # library facts (counts, rankings, facts, matrix scores) via
+                # [[DATASET_TOOL:...]]; the menu tells it how, the loop below
+                # executes the request and re-asks with the result.
+                try:
+                    from .dataset_tools import build_tools_menu
+
+                    tools_menu = build_tools_menu()
+                    context = f"{context}\n{tools_menu}".strip()
+                except Exception:
+                    tools_menu = ""
                 citations = sorted(
                     {str(r.get("source_id") or "").strip() for r in rows if str(r.get("source_id") or "").strip()}
                 )
@@ -1342,7 +1467,13 @@ def run_chat(
                             f"LOCAL CONTEXT:\n{context if context else '[No additional local context available]'}\n\n"
                             f"{skills_block}"
                             "Return concise, actionable output. If CODING SKILL CONTEXT is present above, "
-                            "implement using those exact patterns and names."
+                            "implement using those exact patterns and names.\n"
+                            "STRUCTURED DATASET TOOLS RULE: when the question asks for exact library facts "
+                            "(counts, rankings, source lists, field catalogs, structured facts, pattern scores) "
+                            "and the LOCAL CONTEXT above does not already contain them, your ENTIRE reply must be "
+                            "a single tool request line exactly in the form "
+                            "[[DATASET_TOOL:tool_name{\"param\":\"value\"}]] — the system will run it and hand you "
+                            "the real numbers to answer with. Never invent library statistics."
                         )
                     try:
                         answer = ollama.chat(
@@ -1351,6 +1482,32 @@ def run_chat(
                                 {"role": "user", "content": user_payload},
                             ]
                         )
+                        # §80: one-shot dataset-tool loop — if the model ended
+                        # its reply with a [[DATASET_TOOL:name{args}]] request,
+                        # run the allow-listed tool and re-ask with the result
+                        # so the final answer carries real numbers.
+                        try:
+                            from .dataset_tools import parse_tool_call, render_tool_result, run_tool
+
+                            for _tool_round in range(2):
+                                call = parse_tool_call(str(answer or ""))
+                                if not call:
+                                    break
+                                result = run_tool(call["name"], call["args"])
+                                tool_block = (
+                                    f"TOOL RESULT for [[DATASET_TOOL:{call['name']}]]:"
+                                    f"\n{render_tool_result(result)}\n\n"
+                                    "Now answer the user's original question using this result. "
+                                    "Cite the table it came from. Do not emit another tool request."
+                                )
+                                answer = ollama.chat(
+                                    [
+                                        {"role": "system", "content": system_prompt},
+                                        {"role": "user", "content": f"{user_payload}\n\n{tool_block}"},
+                                    ]
+                                )
+                        except Exception:
+                            pass
                     except Exception as ex:
                         answer = _build_fallback_answer(
                             question=question,
@@ -1384,6 +1541,10 @@ def run_chat(
                 answer = sanitize_user_facing_text(answer, settings=settings)
 
                 _store_message(conn, sid, "assistant", answer, citations=citations, mode=mode, channel="chat")
+                # §80: commit the exchange BEFORE the summary refresh — the
+                # summary runs a minutes-long LLM call and must never hold
+                # the write lock across it (this wedged the whole DB).
+                conn.commit()
                 refresh_session_summary(conn, sid, ollama=ollama if has_ollama else None, settings=settings)
                 conn.commit()
             break

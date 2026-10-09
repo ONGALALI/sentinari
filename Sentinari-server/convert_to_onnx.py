@@ -57,12 +57,92 @@ from pathlib import Path
 # parses our arguments ("ValueError: badly formed help string"). The shim
 # relaxes that one check inside the builder's own subprocess; nothing else
 # is touched, and on Python <= 3.13 it is a no-op (the attribute is absent).
-_BUILDER_SHIM = (
-    "import argparse, runpy, sys\n"
-    "if hasattr(argparse.ArgumentParser, '_check_help'):\n"
-    "    argparse.ArgumentParser._check_help = lambda self, action: None\n"
-    "runpy.run_module('onnxruntime_genai.models.builder', run_name='__main__')\n"
-)
+_BUILDER_SHIM = r'''
+import argparse, runpy, sys
+if hasattr(argparse.ArgumentParser, '_check_help'):
+    argparse.ArgumentParser._check_help = lambda self, action: None
+
+def _install_rope_compat():
+    """transformers>=5 collapses Gemma 3's per-attention RoPE dicts
+    (sliding/default theta 10000 + full/linear factor 8 theta 1e6) into a
+    NESTED config.rope_parameters, but this builder wants a FLAT rope_type
+    (or none at all) plus top-level rope_theta / rope_local_base_freq.
+    Normalize right after the builder's own config collapse so the theta
+    read (base.py:315) and make_rope_init (base.py:344) see the
+    pre-5.x shape. Non-nested configs pass through untouched."""
+    from onnxruntime_genai.models.builders import base as _base
+    _orig = _base.Model.make_config_init
+    def _patched(self, config):
+        result = _orig(self, config)
+        rp = getattr(config, 'rope_parameters', None)
+        print('[rope-compat] after collapse: rp =', str(rp)[:120], flush=True)
+        if isinstance(rp, dict) and 'rope_type' not in rp and isinstance(rp.get('sliding_attention'), dict):
+            sliding = rp.get('sliding_attention') or {}
+            full = rp.get('full_attention') or sliding
+            if not getattr(config, 'rope_theta', None) and 'rope_theta' in full:
+                config.rope_theta = full['rope_theta']
+            if not getattr(config, 'rope_local_base_freq', None) and 'rope_theta' in sliding:
+                config.rope_local_base_freq = sliding['rope_theta']
+            config.rope_parameters = None
+        return result
+    _base.Model.make_config_init = _patched
+    print('[rope-compat] patched Model id =', id(_base.Model), 'qualname:', _base.Model.make_config_init.__qualname__, flush=True)
+    _orig_rope = _base.Model.make_rope_init
+    def _rope_probe(self, config):
+        rp = getattr(config, 'rope_parameters', None)
+        print('[rope-compat] make_rope_init sees rp =', str(rp)[:100], '| self class id =', id(type(self)), '| Model id =', id(_base.Model), flush=True)
+        return _orig_rope(self, config)
+    _base.Model.make_rope_init = _rope_probe
+
+_install_rope_compat()
+runpy.run_module('onnxruntime_genai.models.builder', run_name='__main__')
+'''
+
+
+def _ensure_rope_compat() -> None:
+    """Idempotent source patch for onnxruntime-genai's builders/base.py.
+
+    transformers>=5 hands Gemma 3/4 a NESTED per-attention rope_parameters
+    ({sliding/full: {rope_type, rope_theta}}) while the builder wants a FLAT
+    rope_type plus top-level rope_theta / rope_local_base_freq — without the
+    normalization the build dies with KeyError 'rope_type' (learned 2026-10-06,
+    §75). Applied here so a venv reinstall re-earns the fix; no-op when the
+    marker comment is already present.
+    """
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("onnxruntime_genai.models.builders.base")
+        if not spec or not spec.origin:
+            return
+        path = Path(spec.origin)
+        source = path.read_text(encoding="utf-8")
+        if "[sentinari rope-compat]" in source:
+            return
+        anchor = (
+            '        if hasattr(config, "rope_parameters") and isinstance(config.rope_parameters, dict):\n'
+            "            # Collapse all options inside rope_parameters to the top-level config for easier access.\n"
+            "            rope_params = config.rope_parameters\n"
+            "            for key in rope_params:\n"
+            "                if not hasattr(config, key):\n"
+            "                    setattr(config, key, rope_params[key])"
+        )
+        if anchor not in source:
+            print("[rope-compat] anchor not found — builder source changed; NOT patched", file=sys.stderr)
+            return
+        addition = anchor + '\n\n        # [sentinari rope-compat]\n        _rp = getattr(config, "rope_parameters", None)\n'
+        addition += '        if isinstance(_rp, dict) and "rope_type" not in _rp and isinstance(_rp.get("sliding_attention"), dict):\n'
+        addition += '            _sliding = _rp.get("sliding_attention") or {}\n'
+        addition += '            _full = _rp.get("full_attention") or _sliding\n'
+        addition += '            if not getattr(config, "rope_theta", None) and "rope_theta" in _full:\n'
+        addition += '                config.rope_theta = _full["rope_theta"]\n'
+        addition += '            if not getattr(config, "rope_local_base_freq", None) and "rope_theta" in _sliding:\n'
+        addition += '                config.rope_local_base_freq = _sliding["rope_theta"]\n'
+        addition += '            config.rope_parameters = None'
+        path.write_text(source.replace(anchor, addition, 1), encoding="utf-8")
+        print("[rope-compat] applied to", path)
+    except Exception as ex:  # a broken patch must never block the CLI check
+        print(f"[rope-compat] could not apply: {ex}", file=sys.stderr)
 
 
 def _builder_module() -> str:
@@ -122,6 +202,7 @@ def main() -> None:
         return
 
     module = _builder_module()  # importability check only (see _BUILDER_SHIM)
+    _ensure_rope_compat()
     cli = [sys.executable, "-c", _BUILDER_SHIM]
     if args.input:
         input_path = Path(args.input).resolve()

@@ -16,23 +16,27 @@ paths:
   protected_dirs: []
   qualia_files: []
 llm:
-  provider: sentinari          # §74g item 4/§75: Enigma (:8100) via the 'sentinari' gateway provider
-  # §74g — the rig-day provider, wire recorded live:
-  #   POST /api/inference/chat {messages} -> {reply, degraded:false}.
-  # is_available() is TRUE only when the engine is LOADED — a degraded
-  # stub is never mistaken for model output (§58 honesty law).
+  provider: vertex             # Google Cloud Vertex AI (Project: seninari)
   sentinari:
     base_url: http://127.0.0.1:8100
     chat_model: qwen3-14b-onnx
     timeout_seconds: 600
-  # §41 cloud-seal + §45 purge: fallback_providers emptied (was [gemini]) and
-  # the Gemini provider class DELETED from llm_gateway. NOTHING may call the
-  # cloud; local inference only (Sentinari inference server :8100 joins as the
-  # 'sentinari' gateway provider on rig day).
+  vertex:
+    project: seninari
+    location: us-central1
+    chat_model: gemini-2.5-flash
+    embedding_model: text-embedding-004
+    embedding_dimensions: 768
+    timeout_seconds: 120
+  gemini:
+    chat_model: gemini-2.5-flash
+    embedding_model: text-embedding-004
+    embedding_dimensions: 768
+    timeout_seconds: 120
   fallback_providers: []
   base_url: http://127.0.0.1:8100
-  chat_model: qwen3-14b-onnx
-  embedding_model: ""            # Enigma serves chat only — embed() returns None honestly
+  chat_model: gemini-2.5-flash
+  embedding_model: text-embedding-004
   temperature: 0.1
   num_ctx: 8192
   chat_timeout_seconds: 300
@@ -45,10 +49,6 @@ llm:
   top_k_context_chunks: 4
 
 # §23 cord-cut switch: which backend builds the app-wide LLM client.
-#   ollama_client = legacy direct Ollama (pre-rig, kept for rollback)
-#   gateway       = provider-agnostic client (local providers only — the
-#                   cloud providers were deleted in §45). REQUIRED for the
-#                   'sentinari' provider to serve the app.
 runtime_llm:
   client_backend: gateway
 runtime:
@@ -58,9 +58,6 @@ runtime:
   sqlite_busy_timeout_ms: 20000
   chat_db_lock_retries: 10
   chat_db_lock_backoff_ms: 180
-# §43 persona switchover: Mira-VET (legacy ETDP/Foundry lineage) is DISCARDED.
-# The canonical profile lives in config/persona_sentinari.yaml and can only be
-# seeded from Sentinari's own constitution — never inherited from the ETDP.
 personality:
   name: Sentinari
   tone: Calm, precise, evidence-first; professional warmth without intimacy
@@ -84,16 +81,18 @@ security:
   admin_auth:
     enabled: false
   llm_firewall:
-    enforce_ollama_provider: true
-    # §45: the gemini entry that pre-authorized the cloud cut-over is REMOVED.
-    # Only local providers may ever serve LLM traffic. §75: 'sentinari' added
-    # in the same edit that flipped llm.provider (§74g item 4 checklist).
+    enforce_ollama_provider: false
     allowed_runtime_providers:
     - sentinari
+    - vertex
+    - gemini
     - ollama
+    - openai_compatible
     allowed_chat_models:
     - qwen3-14b-onnx
     - gemma4:12B
+    - gemini-2.5-flash
+    - gemini-1.5-flash
 playground:
   benchmark_baseline:
     behavior_variant: 4.8
@@ -172,7 +171,11 @@ ingestion:
   # Hard per-document embed budget: no crawl can stall a load while the
   # ingest write-lock is held. Chunks that miss the budget are stored
   # without vectors (a local re-embed pass can fill them later).
-  embed_budget_seconds: 300
+  # §80c: 300s budget meant a large document could hold the load lane for
+  # 5 minutes on embeddings alone — the main reason "datasets take forever
+  # to come online". 45s keeps a responsive load; the re-embed migration
+  # fills missed vectors later (embeddings are a search aid, not the data).
+  embed_budget_seconds: 45
   # §31 (owner, lean-Sentinel): the Qwen-era coding-corpus sync swept
   # Sentinel's own source (app/scripts/templates/config) into the knowledge
   # library on every startup. Sentinel's code is engineering, not knowledge.

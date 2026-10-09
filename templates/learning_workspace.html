@@ -162,6 +162,7 @@
         <button id="apDataBtn" class="ghost">Check datasets</button>
       </div>
       <div id="apStatus" class="status"></div>
+      <div id="apHleResults" class="soft-panel" style="margin-top:10px;">No HLE sample has run yet this session. Click "Run HLE sample (10)" above — the questions asked, the answers, and the score appear here.</div>
       <div id="apData" class="soft-panel" style="margin-top:10px;">Dataset status not loaded yet.</div>
     </div>
 
@@ -461,6 +462,7 @@
       const d = await res.json();
       if (!res.ok || d.ok === false) throw new Error(d.detail || d.reason || 'HLE sample failed.');
       st.textContent = `HLE sample graded: ${d.sample.correct}/${d.sample.graded} correct.`;
+      renderHleResults(d);
     } catch (e) { st.textContent = 'HLE sample failed: ' + (e.message || e); }
     loadAssessment();
   });
@@ -475,11 +477,61 @@
     } catch (e) { el.textContent = 'Dataset check failed: ' + (e.message || e); }
   });
 
+  // ---- §81: HLE sample results — the exam sheet, shown directly below the run ----
+  const renderHleResults = (d) => {
+    const el = byId('apHleResults');
+    if (!el) return;
+    const s = d.sample || {};
+    const items = Array.isArray(d.hle_detail) ? d.hle_detail : [];
+    const n = Number(s.graded || 0);
+    const c = Number(s.correct || 0);
+    if (!n) {
+      el.innerHTML = '<span class="hint">The run completed but graded 0 questions — nothing to show.</span>';
+      return;
+    }
+    const pct = (100 * c / n).toFixed(1);
+    const rows = items.map((it, k) => {
+      const ok = it && (it.correct === true || it.correct === 'true');
+      const badge = ok ? '<span class="pill" style="background:#e3f4e8;color:#1f6b3a;">CORRECT</span>'
+                       : '<span class="pill" style="background:#f9e3e3;color:#8f1f1f;">WRONG</span>';
+      const meta = [];
+      if (it && it.match) meta.push('match: ' + esc(it.match));
+      if (it && typeof it.overlap === 'number' && it.overlap < 1) meta.push('overlap: ' + Math.round(100 * it.overlap) + '%');
+      if (it && it.error !== undefined) meta.push('engine error: ' + esc(it.error));
+      return '<tr>'
+        + '<td><strong>' + (k + 1) + '</strong></td>'
+        + '<td style="max-width:420px;">' + esc(it && it.question ? it.question : '(question withheld)') + '</td>'
+        + '<td style="max-width:160px;"><strong>' + esc(it && it.expected ? it.expected : '—') + '</strong></td>'
+        + '<td style="max-width:260px;">' + esc(it && it.produced ? it.produced : '—') + '</td>'
+        + '<td>' + badge + (meta.length ? '<div class="hint" style="margin-top:4px;">' + meta.join(' · ') + '</div>' : '') + '</td>'
+        + '</tr>';
+    }).join('');
+    el.innerHTML = '<div class="row" style="align-items:center; justify-content:space-between; margin-bottom:6px;">'
+      + '<strong>HLE exam results — ' + c + '/' + n + ' correct · ' + pct + '%</strong>'
+      + (d.updated_at ? '<span class="hint">graded at ' + esc(d.updated_at).replace('T', ' ').replace('Z', ' UTC') + '</span>' : '')
+      + '</div>'
+      + '<table style="margin-top:6px;">'
+      + '<thead><tr><th style="width:34px;">#</th><th>Question asked</th><th>Expected answer</th><th>Engine reply</th><th style="width:110px;">Verdict</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody>'
+      + '</table>';
+  };
+
   loadAssessment();
   poll();
   loadExams();
   window.setInterval(poll, 20000);
   window.setInterval(loadAssessment, 30000);
+
+  // §81: on first load (and every 30 s after) restore the last graded HLE exam from the persisted state.
+  const restoreHleResults = async () => {
+    try {
+      const res = await fetch('/api/assessment/status');
+      const d = await res.json();
+      if (Array.isArray(d.hle_detail) && d.hle_detail.length) renderHleResults({ sample: { graded: d.hle_total || d.hle_detail.length, correct: d.hle_detail.filter((x) => x && x.correct === true).length }, hle_detail: d.hle_detail, updated_at: d.hle_detail_at || d.updated_at });
+    } catch (_) { /* honest: nothing to restore, the placeholder stays */ }
+  };
+  restoreHleResults();
+  window.setInterval(restoreHleResults, 30000);
 })();
 </script>
 </body>

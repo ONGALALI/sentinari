@@ -246,3 +246,101 @@ def _search_library_chunks(
 
     rows.sort(key=lambda r: r.get("relevance_score", 0.0), reverse=True)
     return rows[: max(1, min(100, limit))]
+
+
+# ---------------------------------------------------------------------------
+# §77 (corrections 1): Cross-functional pattern matching.
+# Spotting structural anomalies across disparate fields (a public-health
+# signal mirroring a chemistry dataset) requires querying OUTSIDE the field
+# the question names. search_chunks_cross_sector runs the same query against
+# a different Sentinel domain and merges only novel hits, so cross-domain
+# structure can surface without drowning the primary answer.
+# ---------------------------------------------------------------------------
+
+_CROSS_SECTOR_ROTATION = {
+    "life-and-biological-systems": "foundations-of-reality",
+    "foundations-of-reality": "computer-and-information-sciences",
+    "human-behavior-and-society": "life-and-biological-systems",
+    "applied-systems-and-technology": "foundations-of-reality",
+    "health-safety-and-well-being": "human-behavior-and-society",
+}
+_DEFAULT_CROSS_SECTOR_ROTATION = "foundations-of-reality"
+
+# Library documents carry fine-grained fields ("biology", "physics", ...);
+# map them into the five Sentinel domains so the rotation works regardless
+# of taxonomy granularity.
+_FIELD_DOMAIN_KEYWORDS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("bio", "gene", "zoo", "botan", "ecolog", "neuro", "microb", "protein"), "life-and-biological-systems"),
+    (("phys", "chem", "astron", "geolog", "quantum", "material"), "foundations-of-reality"),
+    (("psych", "socio", "econom", "polit", "educat", "law", "anthrop"), "human-behavior-and-society"),
+    (("comput", "informat", "engineer", "software", "ai", "math"), "computer-and-information-sciences"),
+    (("medic", "health", "nurs", "clinic", "epidem", "public-health", "safety", "well-?being"), "health-safety-and-well-being"),
+)
+
+
+def _domain_for_field(field: str) -> str:
+    """Map any stored scientific_field (slug or free text) to a Sentinel domain."""
+    f = (field or "").strip().lower()
+    if not f:
+        return ""
+    for domain in _CROSS_SECTOR_ROTATION:
+        if f == domain or f.startswith(domain):
+            return domain
+    for keywords, domain in _FIELD_DOMAIN_KEYWORDS:
+        if any(k in f for k in keywords):
+            return domain
+    return ""
+
+
+def cross_sector_target(scientific_field: str | None) -> str | None:
+    """The domain to probe for structural analogs of the given field."""
+    if not scientific_field:
+        return None
+    return _CROSS_SECTOR_ROTATION.get(scientific_field.strip(), _DEFAULT_CROSS_SECTOR_ROTATION)
+
+
+def search_chunks_cross_sector(
+    conn: sqlite3.Connection,
+    query: str,
+    *,
+    scientific_field: str | None = None,
+    limit: int = 3,
+    exclude_chunk_ids: set[int] | None = None,
+    mode: str | None = None,
+) -> list[dict[str, Any]]:
+    """Probe a rotationally-different Sentinel domain for structural analogs.
+
+    Returns at most ``limit`` rows whose chunk ids are not in
+    ``exclude_chunk_ids`` and whose scientific_field differs from the caller's
+    field. Never raises: a cross-sector miss must not break the primary
+    retrieval path.
+    """
+    try:
+        target_domain = cross_sector_target(scientific_field)
+        if not target_domain:
+            return []
+        caller_domain = _domain_for_field(scientific_field or "")
+        probe_rows = search_chunks(
+            conn,
+            query=query,
+            limit=max(8, int(limit) * 4),
+            mode=mode,
+        )
+        excluded = exclude_chunk_ids or set()
+        merged: list[dict[str, Any]] = []
+        for row in probe_rows:
+            row_domain = _domain_for_field(str(row.get("scientific_field") or ""))
+            if not row_domain or row_domain == caller_domain:
+                continue
+            if row_domain != target_domain:
+                continue
+            if int(row.get("chunk_id") or 0) in excluded:
+                continue
+            row["cross_sector"] = True
+            row["relevance_score"] = float(row.get("relevance_score") or 0.0) * 0.6
+            merged.append(row)
+            if len(merged) >= max(1, int(limit)):
+                break
+        return merged
+    except Exception:
+        return []

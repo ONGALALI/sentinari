@@ -48,8 +48,13 @@ pubmedprocess.md
 
 # Live API key notes stay local-only (sanitized copies live in docs/)
 app/apis/
+sentinel/apis/
+
+# Binary vector index
+*.npy
 
 # Owner-downloaded SWE-bench execution harness (132MB, third-party) - stays local like data/
 assessments/swe-workbench/
 .venv-ml/
 engine/custom_engine_weights/
+

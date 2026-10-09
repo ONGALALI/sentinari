@@ -26,17 +26,20 @@ def main() -> int:
         import uvicorn
         import argparse
 
+        import os
         parser = argparse.ArgumentParser()
         parser.add_argument("--config", type=str, default=None)
-        parser.add_argument("--port", type=int, default=8099)
+        default_port = int(os.environ.get("PORT", 8099))
+        default_host = os.environ.get("HOST", "127.0.0.1")
+        parser.add_argument("--host", type=str, default=default_host)
+        parser.add_argument("--port", type=int, default=default_port)
         args, unknown = parser.parse_known_args()
 
         if args.config:
-            import os
             os.environ["SENTINARI_CONFIG_PATH"] = args.config
             os.environ["SMI_CONFIG_PATH"] = args.config
 
-        uvicorn.run("app.main:app", host="127.0.0.1", port=args.port, log_level="info")
+        uvicorn.run("app.main:app", host=args.host, port=args.port, log_level="info")
         return 0
     print("Usage: python run_smi.py serve")
     return 0

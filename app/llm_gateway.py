@@ -62,29 +62,33 @@ def _settings_llm() -> dict[str, Any]:
 
 
 def _env_key(env_var: str) -> str:
-    """Read an API key from the environment, falling back to the project .env.
-
-    Only ever used for LOCAL endpoints (e.g. a local proxy that issues its own
-    keys). Cloud vendors cannot be configured through this gateway anymore.
-    """
+    """Read an API key from environment, project .env, or sentinel/apis directory."""
     value = str(os.environ.get(str(env_var or "")) or "").strip()
     if value:
         return value
     try:
         from .config import get_project_root
+        root = get_project_root()
 
-        # In-tree .env first (self-contained folder), legacy parent fallback.
-        for env_file in (
-            get_project_root() / ".env",
-            get_project_root().parent / ".env",
-        ):
+        # In-tree .env first, then parent fallback
+        for env_file in (root / ".env", root.parent / ".env"):
             if env_file.exists():
                 prefix = f"{env_var}="
                 for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
                     line = line.strip()
                     if line.startswith(prefix):
-                        return line[len(prefix):].strip().strip('"').strip("'")
-        return ""
+                        val = line[len(prefix):].strip().strip('"').strip("'")
+                        if val:
+                            return val
+
+        # Check dedicated key files in sentinel/apis/ and app/apis/
+        apis_dir = root / "sentinel" / "apis"
+        if env_var.upper() in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+            gemini_file = apis_dir / "gemini_api.md"
+            if gemini_file.exists():
+                raw = gemini_file.read_text(encoding="utf-8", errors="replace").strip()
+                if raw and not raw.startswith("#"):
+                    return raw
     except Exception:
         pass
     return ""
@@ -275,10 +279,302 @@ class SentinariProvider:
         return None
 
 
+class GeminiProvider:
+    """Google Gemini API provider (cloud / Vertex AI compatible)."""
+
+    name = "gemini"
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        gemini = dict(config.get("gemini") or {})
+        self.api_key = _env_key(str(gemini.get("api_key_env") or "GEMINI_API_KEY"))
+        self.chat_model = str(
+            gemini.get("chat_model")
+            or config.get("chat_model")
+            or "gemini-2.5-flash"
+        )
+        self.chat_fallback_models = [
+            str(m).strip()
+            for m in (gemini.get("fallback_chat_models") or ["gemini-flash-latest", "gemini-1.5-flash"])
+            if str(m).strip()
+        ]
+        # outputDimensionality = 768 matches Sentinari's 768-d vector schema exactly!
+        self.embedding_model = str(gemini.get("embedding_model") or "text-embedding-004")
+        self.embedding_dims = int(gemini.get("embedding_dimensions") or 768)
+        self.timeout = max(10, int(config.get("chat_timeout_seconds") or 120))
+        self.base = "https://generativelanguage.googleapis.com/v1beta"
+
+    def is_available(self) -> bool:
+        return bool(self.api_key)
+
+    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.1, max_tokens: int = 768) -> str:
+        import time as _time
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                return self._chat_once(messages, temperature=temperature, max_tokens=max_tokens)
+            except requests.HTTPError as ex:
+                status = getattr(ex.response, "status_code", 0)
+                if status not in (429, 500, 503, 504) or attempt == 2:
+                    raise
+                last_error = ex
+                _time.sleep(2.0 * (attempt + 1))
+        if last_error is not None:
+            raise last_error
+        raise LLMGatewayError("Gemini chat failed after retries.")
+
+    def _gemini_post(self, path: str, payload: dict[str, Any], timeout: int) -> requests.Response:
+        return requests.post(
+            f"{self.base}{path}",
+            headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+
+    def _chat_once(self, messages: list[dict[str, str]], *, temperature: float, max_tokens: int) -> str:
+        system_text = "\n".join(
+            str(m.get("content") or "") for m in messages if str(m.get("role") or "") == "system"
+        ).strip()
+        contents = []
+        for message in messages:
+            role = str(message.get("role") or "user")
+            content = str(message.get("content") or "").strip()
+            if not content or role == "system":
+                continue
+            contents.append(
+                {
+                    "role": "model" if role == "assistant" else "user",
+                    "parts": [{"text": content}],
+                }
+            )
+        payload: dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens,
+            },
+        }
+        if system_text:
+            payload["systemInstruction"] = {"parts": [{"text": system_text}]}
+        last_error: Exception | None = None
+        for model in [self.chat_model, *self.chat_fallback_models]:
+            resp = self._gemini_post(f"/models/{model}:generateContent", payload, self.timeout)
+            if resp.status_code in (429, 500, 502, 503, 504):
+                last_error = requests.HTTPError(f"{model}: {resp.status_code}", response=resp)
+                continue
+            resp.raise_for_status()
+            data = resp.json() or {}
+            candidates = data.get("candidates") or []
+            if not candidates:
+                last_error = LLMGatewayError(f"{model}: empty candidates")
+                continue
+            parts = (candidates[0].get("content") or {}).get("parts") or []
+            return " ".join(str(part.get("text") or "") for part in parts).strip()
+        if last_error is not None:
+            raise last_error
+        raise LLMGatewayError("Gemini chat returned no usable response.")
+
+    def embed(self, text: str) -> list[float] | None:
+        if not self.api_key or not self.embedding_model:
+            return None
+        try:
+            payload: dict[str, Any] = {
+                "content": {"parts": [{"text": str(text or "")[:8000]}]}
+            }
+            if self.embedding_dims:
+                payload["outputDimensionality"] = self.embedding_dims
+            resp = self._gemini_post(
+                f"/models/{self.embedding_model}:embedContent", payload, 30
+            )
+            resp.raise_for_status()
+            values = ((resp.json() or {}).get("embedding") or {}).get("values")
+            return [float(v) for v in values] if isinstance(values, list) else None
+        except Exception:
+            return None
+
+
+class OpenAICompatibleProvider:
+    """Any OpenAI-compatible cloud or endpoint (vLLM on GCP, Groq, Vertex AI, etc.)."""
+
+    name = "openai_compatible"
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        compatible = dict(config.get("openai_compatible") or config.get("http_json_provider") or {})
+        self.base_url = str(compatible.get("base_url") or "").rstrip("/")
+        self.api_key = _env_key(str(compatible.get("api_key_env") or "OPENAI_API_KEY"))
+        self.chat_model = str(compatible.get("chat_model") or config.get("chat_model") or "")
+        self.embedding_model = str(compatible.get("embedding_model") or "")
+        self.timeout = max(10, int(config.get("chat_timeout_seconds") or 120))
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
+
+    def is_available(self) -> bool:
+        return bool(self.base_url and self.chat_model)
+
+    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.1, max_tokens: int = 768) -> str:
+        resp = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers=self._headers(),
+            json={
+                "model": self.chat_model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json() or {}
+        choices = data.get("choices") or []
+        if not choices:
+            return ""
+        return str((choices[0].get("message") or {}).get("content") or "").strip()
+
+    def embed(self, text: str) -> list[float] | None:
+        if not self.base_url or not self.embedding_model:
+            return None
+        try:
+            resp = requests.post(
+                f"{self.base_url}/embeddings",
+                headers=self._headers(),
+                json={"model": self.embedding_model, "input": str(text or "")[:8000]},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json() or {}
+            embedding = ((data.get("data") or [{}])[0]).get("embedding")
+            return [float(v) for v in embedding] if isinstance(embedding, list) else None
+        except Exception:
+            return None
+
+
+class VertexAIProvider:
+    """Google Cloud Vertex AI provider (Enterprise / Project-based)."""
+
+    name = "vertex"
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        vertex = dict(config.get("vertex") or {})
+        self.project = str(vertex.get("project") or os.environ.get("GOOGLE_CLOUD_PROJECT") or "seninari").strip()
+        self.location = str(vertex.get("location") or "us-central1").strip()
+        self.chat_model = str(
+            vertex.get("chat_model")
+            or config.get("chat_model")
+            or "gemini-2.5-flash"
+        )
+        self.embedding_model = str(vertex.get("embedding_model") or "text-embedding-004")
+        self.embedding_dims = int(vertex.get("embedding_dimensions") or 768)
+        self.timeout = max(10, int(config.get("chat_timeout_seconds") or 120))
+        self.base = f"https://{self.location}-aiplatform.googleapis.com/v1/projects/{self.project}/locations/{self.location}/publishers/google"
+        self._cached_token = ""
+        self._token_expiry = 0.0
+
+    def _get_token(self) -> str:
+        import time as _time
+        if self._cached_token and _time.time() < self._token_expiry:
+            return self._cached_token
+        token = str(os.environ.get("GOOGLE_OAUTH_TOKEN") or "").strip()
+        if not token:
+            try:
+                import subprocess
+                out = subprocess.check_output("gcloud auth print-access-token", shell=True, timeout=8).decode().strip()
+                token = out.splitlines()[-1].strip()
+            except Exception:
+                token = ""
+        if token:
+            self._cached_token = token
+            self._token_expiry = _time.time() + 3000
+        return token
+
+    def is_available(self) -> bool:
+        return bool(self.project and self._get_token())
+
+    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.1, max_tokens: int = 768) -> str:
+        token = self._get_token()
+        if not token:
+            raise LLMGatewayError("Vertex AI: No OAuth access token available.")
+        
+        system_text = "\n".join(
+            str(m.get("content") or "") for m in messages if str(m.get("role") or "") == "system"
+        ).strip()
+        contents = []
+        for message in messages:
+            role = str(message.get("role") or "user")
+            content = str(message.get("content") or "").strip()
+            if not content or role == "system":
+                continue
+            contents.append(
+                {
+                    "role": "model" if role == "assistant" else "user",
+                    "parts": [{"text": content}],
+                }
+            )
+        payload: dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens,
+            },
+        }
+        if system_text:
+            payload["systemInstruction"] = {"parts": [{"text": system_text}]}
+
+        url = f"{self.base}/models/{self.chat_model}:generateContent"
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json=payload,
+            verify=False,
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json() or {}
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise LLMGatewayError(f"Vertex AI: empty response from {self.chat_model}")
+        parts = (candidates[0].get("content") or {}).get("parts") or []
+        return " ".join(str(p.get("text") or "") for p in parts).strip()
+
+    def embed(self, text: str) -> list[float] | None:
+        token = self._get_token()
+        if not token:
+            return None
+        url = f"{self.base}/models/{self.embedding_model}:predict"
+        payload = {
+            "instances": [{"content": str(text or "")[:8000], "task_type": "RETRIEVAL_DOCUMENT"}],
+            "parameters": {"outputDimensionality": self.embedding_dims},
+        }
+        try:
+            resp = requests.post(
+                url,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json=payload,
+                verify=False,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json() or {}
+            preds = data.get("predictions") or []
+            if preds:
+                vals = preds[0].get("embeddings", {}).get("values")
+                if isinstance(vals, list):
+                    return [float(v) for v in vals]
+        except Exception:
+            pass
+        return None
+
+
 _PROVIDERS: dict[str, type] = {
-    "ollama": OllamaProvider,
-    "http_json_provider": HTTPJSONProvider,
     "sentinari": SentinariProvider,
+    "vertex": VertexAIProvider,
+    "ollama": OllamaProvider,
+    "gemini": GeminiProvider,
+    "openai_compatible": OpenAICompatibleProvider,
+    "http_json_provider": HTTPJSONProvider,
 }
 
 

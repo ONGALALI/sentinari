@@ -141,6 +141,32 @@ def pattern_workspace() -> dict[str, Any]:
     }
 
 
+@router.get("/assessment-matrix")
+def assessment_matrix_endpoint() -> Response:
+    """§78: the Assessment Matrix document (corrections/Assessment_Matrix.docx)
+    rendered as a standalone HTML page — headings, prose, all tables, the
+    embedded figure and the code samples. This is the scoring law behind the
+    New Patterns workspace; the owner asked to containerise it here rather
+    than leave it as a raw docx.
+
+    Registered BEFORE the /{pattern_id} catch-all: FastAPI matches routes in
+    registration order, so a later literal path would be shadowed by it."""
+    from .config import get_project_root
+    from .assessment_matrix import get_assessment_matrix_html
+
+    try:
+        rendered = get_assessment_matrix_html(get_project_root())
+    except FileNotFoundError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f"Assessment Matrix render failed: {ex}")
+    return Response(
+        content=rendered,
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/discovery-status")
 def pattern_discovery_status() -> dict[str, Any]:
     """Overall recognition coverage across the whole knowledge library."""
@@ -505,6 +531,74 @@ def run_synthesis(max_pairs: int = Query(default=6, ge=1, le=20)) -> dict[str, A
         return synthesize_cross_domain(max_pairs=max_pairs)
     except LLMGatewayError as ex:
         raise HTTPException(status_code=503, detail=str(ex))
+
+
+# ---------------------------------------------------------------------------
+# §79: R&D Validation Papers — generate + view (math computed by
+# app/assessment_math.py from the pattern's real extraction record)
+# ---------------------------------------------------------------------------
+
+from .rd_paper import get_or_generate_rd_report, render_rd_report_html
+
+
+# ---------------------------------------------------------------------------
+# §80: ML hardening — PINN verification of discovered patterns (ml/ stack)
+# ---------------------------------------------------------------------------
+
+from .ml_hardening import get_cached_report, run_hardening
+
+
+@router.get("/ml-hardening/report")
+def ml_hardening_report() -> dict[str, Any]:
+    """Cached hardening report (verdicts for every pattern)."""
+    report = get_cached_report()
+    if report is None:
+        return {"ok": True, "cached": False, "message": "No hardening run yet — POST /api/patterns/ml-hardening/run to execute the PINN pass."}
+    return {"ok": True, "cached": True, "report": report}
+
+
+@router.post("/ml-hardening/run")
+def ml_hardening_run(
+    epochs: int = Query(default=600, ge=100, le=4000),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> dict[str, Any]:
+    """Run the PINN hardening pass in the .venv-ml environment (GPU when available).
+
+    Encodes every pattern's real extraction record into features, trains the
+    SiLU network to fit analysis outcomes, and enforces the Assessment
+    Matrix's volatility-anchor law (d(sustainability)/d(risk) <= 0) as a
+    differentiable constraint. Verdicts: stable / weak / volatile /
+    insufficient-data."""
+    report = run_hardening(limit=limit, epochs=epochs)
+    if not report.get("ok"):
+        raise HTTPException(status_code=503, detail=str(report.get("error") or "hardening run failed"))
+    return {"ok": True, "report": report}
+
+
+@router.get("/rd-paper/{pattern_id}/report")
+def rd_paper_report_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> Response:
+    """Generate (once, cached in the pattern store) and render the R&D
+    validation paper for a pattern. Matrix scores, SD_i(%) and the coupled
+    bell curves are computed from the pattern's actual extraction record."""
+    try:
+        report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
+    except ValueError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    return Response(
+        content=render_rd_report_html(report),
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/rd-paper/{pattern_id}/data")
+def rd_paper_data_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> dict[str, Any]:
+    """The raw reportData object (the schema from corrections/R&DPaper.md)."""
+    try:
+        report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
+    except ValueError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    return {"ok": True, "report": report}
 
 
 # ---------------------------------------------------------------------------

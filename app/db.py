@@ -64,21 +64,73 @@ def _attach_libraries(conn: sqlite3.Connection) -> None:
     )
 
 
-def library_connection(library: str = "gemma") -> sqlite3.Connection:
+def try_library_write_lock(timeout_ms: int = 750) -> bool:
+    """True when the Gemma library accepts a write transaction right now.
+
+    §77: the status endpoint must know whether a count refresh can proceed
+    without stalling behind a bulk writer (e.g. the learning engine writing
+    chunks mid-load). Uses a bare connection — no schema script, no views.
+    """
+    conn = None
+    try:
+        target = gemma_library_path()
+        if not target.exists():
+            return False
+        conn = sqlite3.connect(str(target), timeout=max(0.1, timeout_ms / 1000.0))
+        conn.execute(f"PRAGMA busy_timeout = {max(100, int(timeout_ms))};")
+        conn.execute("BEGIN IMMEDIATE;")
+        conn.execute("ROLLBACK;")
+        return True
+    except sqlite3.OperationalError:
+        return False
+    except Exception:
+        return False
+    finally:
+        try:
+            if conn is not None:
+                conn.close()
+        except Exception:
+            pass
+
+
+def library_read_connection(*, busy_timeout_ms: int = 750) -> sqlite3.Connection:
+    """Read-only connection to the physical Gemma library database.
+
+    Never writes and never runs the schema ensure script, so it succeeds
+    instantly even while a bulk ingestion writer holds the write lock
+    (WAL mode allows concurrent readers). Status/dashboard endpoints use
+    this so a long load can no longer stall them until the browser gives
+    up with `TypeError: Failed to fetch`.
+    """
+    target = gemma_library_path()
+    if not target.exists():
+        raise FileNotFoundError(f"Library database not found at {target}")
+    uri = f"file:{target.as_posix()}?mode=ro"
+    conn = sqlite3.connect(uri, timeout=max(0.1, busy_timeout_ms / 1000.0), uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute(f"PRAGMA busy_timeout = {max(100, int(busy_timeout_ms))};")
+    conn.execute("PRAGMA query_only = ON;")
+    return conn
+
+
+def library_connection(library: str = "gemma", *, busy_timeout_ms: int | None = None) -> sqlite3.Connection:
     """Direct read/write connection to the physical library database.
 
     All writes route to the single Gemma library. Creates the library schema
-    on first use.
+    on first use. Pass ``busy_timeout_ms`` to cap how long the built-in schema
+    ensure write may wait for the lock (§77: status/dashboard callers pass a
+    small cap so a mid-load writer cannot stall them for the configured 20s).
     """
     target = gemma_library_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
     runtime = settings.get("runtime", {})
-    busy_timeout_ms = max(1000, int(runtime.get("sqlite_busy_timeout_ms") or 1000))
+    if busy_timeout_ms is None:
+        busy_timeout_ms = max(1000, int(runtime.get("sqlite_busy_timeout_ms") or 1000))
+    busy_timeout_ms = max(250, int(busy_timeout_ms))
     conn = sqlite3.connect(str(target), timeout=max(1.0, busy_timeout_ms / 1000.0))
     conn.row_factory = sqlite3.Row
-    busy = max(1000, int(runtime.get("sqlite_busy_timeout_ms") or 1000))
-    conn.execute(f"PRAGMA busy_timeout = {busy};")
+    conn.execute(f"PRAGMA busy_timeout = {busy_timeout_ms};")
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA synchronous = NORMAL;")
@@ -124,11 +176,11 @@ CREATE TABLE IF NOT EXISTS chunks (
     token_estimate INTEGER NOT NULL DEFAULT 0,
     metadata_json TEXT NOT NULL DEFAULT '{}',
     embedding_json TEXT,
+    chunk_hash TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id, chunk_index);
-
 CREATE VIRTUAL TABLE IF NOT EXISTS chunk_fts
 USING fts5(content, document_id UNINDEXED, tokenize='unicode61');
 
@@ -188,16 +240,31 @@ def try_write_lock(timeout_ms: int = 1500) -> sqlite3.Connection | None:
     Used by dashboard/status endpoints so a long-running bulk writer (e.g. a
     corpus sync) degrades reads to stale-but-instant instead of blocking them
     for the whole busy timeout or failing with `database is locked`.
+
+    §77 fix: the probe uses a bare connection. `get_connection()` runs the
+    schema executescript (a write) on every call, so probing through it could
+    itself block behind a busy writer — the exact stall this helper exists to
+    avoid.
     """
+    conn = None
     try:
-        conn = get_connection()
+        settings = get_settings()
+        conn = sqlite3.connect(str(_db_path()), timeout=max(0.1, timeout_ms / 1000.0))
         conn.execute(f"PRAGMA busy_timeout = {max(100, int(timeout_ms))};")
         conn.execute("BEGIN IMMEDIATE;")
         conn.execute("ROLLBACK;")  # release; caller re-begins on their own connection
         return conn
     except sqlite3.OperationalError:
         try:
-            conn.close()  # type: ignore[possibly-undefined]
+            if conn is not None:
+                conn.close()
+        except Exception:
+            pass
+        return None
+    except Exception:
+        try:
+            if conn is not None:
+                conn.close()
         except Exception:
             pass
         return None
@@ -499,6 +566,40 @@ def initialize_database() -> None:
             (
                 ("attachments_json", "TEXT NOT NULL DEFAULT '[]'"),
             ),
+        )
+        conn.commit()
+    # Library-side migration (§77): deterministic chunk hashing for the
+    # ingestion dedup gate. Existing rows backfill to '' lazily on write.
+    with library_connection() as conn:
+        _ensure_columns(
+            conn,
+            "chunks",
+            (
+                ("chunk_hash", "TEXT NOT NULL DEFAULT ''"),
+            ),
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chunks_hash ON chunks(chunk_hash);"
+        )
+        conn.commit()
+        # Graph-relational map (§77 corrections 1): structural edges between
+        # documents and authors/publishers/fields so retrieval can traverse
+        # metadata relationships instead of relying on flat vector search alone.
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS document_edges (
+                src_type TEXT NOT NULL,
+                src_value TEXT NOT NULL,
+                edge_type TEXT NOT NULL,
+                dst_type TEXT NOT NULL,
+                dst_value TEXT NOT NULL,
+                document_id INTEGER NOT NULL,
+                PRIMARY KEY (src_type, src_value, edge_type, dst_type, dst_value, document_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_edges_src ON document_edges(src_type, src_value);
+            CREATE INDEX IF NOT EXISTS idx_edges_dst ON document_edges(dst_type, dst_value);
+            CREATE INDEX IF NOT EXISTS idx_edges_doc ON document_edges(document_id);
+            """
         )
         conn.commit()
 
