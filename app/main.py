@@ -635,12 +635,9 @@ def startup_event() -> None:
         # Sequential load queue (owner directive): one load at a time, with
         # live per-job status in the UI.
         _get_load_queue().start()
-        # Learning Index (owner directive §36): gentle background exams that
-        # prove Sentinel can APPLY ingested knowledge; % Learned shown on the
-        # Workflow Dashboard. Honors its own persisted pause toggle.
-        from .learning_index import start_learning_worker as _start_learning_worker
-
-        _start_learning_worker()
+        # Owner directive: the 1/2-page background self-exam loop in
+        # learning_index is stopped (Gemma does not benefit from self-written
+        # document questions; HLE is the only exam that matters).
         _warmup_llm_async(settings)
         _STARTUP_STATE.update({"ready": True, "error": ""})
     except Exception as _startup_ex:

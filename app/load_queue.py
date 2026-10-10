@@ -166,26 +166,12 @@ class LoadQueue:
                     entry["position"] = 0
                 load_progress.mark_job_running(job_id)
                 rep = load_progress.job_reporter(job_id)
-                # §39: the Learning Index's background exams must not compete
-                # with a load for the LLM and the database on the small
-                # machine (lock storms during loads were part of the owner's
-                # 4–8 reload problem). The examiner pauses for the load and
-                # is ALWAYS restored in finally.
-                from .learning_index import learning_enabled as _li_enabled, _set_setting as _li_set
-
-                _li_was_on = _li_enabled()
-                if _li_was_on:
-                    _li_set("learning_enabled", "off")
-                try:
-                    with load_progress.bind(rep):
-                        # §74j: same lock armor as the legacy worker — a
-                        # transient 'database is locked' now rides itself out
-                        # with a calm progress message instead of surfacing
-                        # as a scary failed entry the owner must re-click.
-                        result = _ingest_with_lock_armor(candidate_id, rep)
-                finally:
-                    if _li_was_on:
-                        _li_set("learning_enabled", "on")
+                with load_progress.bind(rep):
+                    # §74j: same lock armor as the legacy worker — a
+                    # transient 'database is locked' now rides itself out
+                    # with a calm progress message instead of surfacing
+                    # as a scary failed entry the owner must re-click.
+                    result = _ingest_with_lock_armor(candidate_id, rep)
                 ingested_count = int(result.get("ingested") or 0)
                 failed_count = int(result.get("failed") or 0)
                 if ingested_count <= 0:

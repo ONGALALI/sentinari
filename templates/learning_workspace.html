@@ -94,21 +94,20 @@
   </aside>
   <main>
     <h1>Sentinari Learning Index</h1>
-    <div class="hint">A gentle background examiner: for each ingested document, Sentinari writes one exam question from it and answers in her own words. Grounding is graded locally — applying the knowledge scores; reciting it does not. Calibration against the Qualia Lab is <strong>paused by default</strong> until you switch it on from the Qualia Lab (or here) when there is power to spare.</div>
+    <div class="hint">Tracks corpus coverage, Qualia-Lab calibration, and <strong>Humanity's Last Exam (HLE)</strong>. The legacy ½-page self-generated document question loop has been retired; <strong>HLE</strong> is the active benchmark exam.</div>
 
     <div class="card">
       <h2>% Learned — the learning-and-assessment path</h2>
       <div class="progress-track"><div class="progress-fill" id="liFill"></div></div>
       <div class="hint" id="liLabel" style="margin-top:6px;">Gathering status…</div>
       <div id="liExaminer" style="margin-top:8px; font-size:12.5px;"></div>
-      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder — hover the ⓘ tag on any row for what it means and its gate. <strong>Datasets Loaded</strong> shows each field's share of the total corpus (loaded ÷ corpus × 100, §74f). Owner's gate law (§74d): <strong>Calibration</strong> opens at 60% Formative Assessment; <strong>HLE</strong> at 55% after Calibration; <strong>Workbench</strong> at 50% HLE. Stages that have not run show an honest 0.</div>
+      <div class="hint" style="margin-top:10px;">Each chart is one scientific field on the ladder — hover the ⓘ tag on any row for what it means and its gate. <strong>Datasets Loaded</strong> shows each field's share of the total corpus (loaded ÷ corpus × 100, §74f). Owner's gate law (§74d): <strong>Calibration</strong> opens at 60% Formative Assessment; <strong>HLE</strong> at 55% after Calibration; <strong>Workbench</strong> at 50% HLE.</div>
       <div id="liLadderGrid" class="ladderGrid"></div>
-      <div id="liLatest" class="hint" style="margin-top:8px;"></div>
     </div>
 
     <div class="card">
       <h2>Stage of Preparedness — accumulative learning</h2>
-      <div class="hint">One full turn is the whole journey: six sectors, one per stage. The coloured arc is how far that stage has travelled overall; the outer ring shows the fields that carry it; grey is the road still ahead. Calibration · HLE · Workbench wait at their gates (§74d) — honest slivers, not zero-width lies.</div>
+      <div class="hint">One full turn is the whole journey: six sectors, one per stage. The coloured arc is how far that stage has travelled overall; the outer ring shows the fields that carry it; grey is the road still ahead.</div>
       <div class="burstWrap">
         <svg id="burstSvg" viewBox="0 0 440 440" role="img" aria-label="Sunburst of Sentinari's stage of preparedness"></svg>
         <div id="burstLegend" class="burstLegend"></div>
@@ -116,23 +115,27 @@
     </div>
 
     <div class="card">
-      <h2>Dataset Scout — moved to the dashboard</h2>
-      <div class="hint">Dataset discovery now lives on <a href="/ui/playground">Dashboard Home</a> as <strong>Scientific Dataset Discovery &amp; Review</strong>: it shows Sentinari's weakest fields (from the Learning Index, sharpened by the HLE assessment) and searches the outside world — priority order <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong> — for exactly that lacking knowledge. Proposals only; the intake firewall still guards the door.</div>
-    </div>
-
-    <div class="card">
-      <h2>Examination controls — for knowledge ALREADY digested</h2>
-      <div class="hint">These govern the gentle background examiner over knowledge already in the library (the bars above). For knowledge NOT yet in the library, use the Scientific Dataset Discovery &amp; Review card on Dashboard Home.</div>
+      <h2>Calibration Controls</h2>
+      <div class="hint">Toggle Qualia-Lab cross-checking calibration on or off, or run a calibration batch against the ingested library. (The ½-page self-written document exam loop is permanently stopped.)</div>
       <div class="row" style="margin-top:12px; align-items:center;">
-        <button id="liProbeBtn">Examine one now</button>
-        <label class="liSwitchWrap" id="liSwitchWrap" title="Learning Index master switch — persists across restarts">
-          <span class="liSwitch" id="liSwitch"><span class="liKnob"></span></span>
-          <span id="liSwitchLabel" style="font-weight:600;">Learning: On</span>
-        </label>
-        <button id="liCalBtn" class="ghost" title="Pauses/resumes Qualia-Lab cross-checking (heavy)">Calibration: …</button>
+        <button id="liCalBtn" class="ghost" title="Pauses/resumes Qualia-Lab cross-checking">Calibration: …</button>
         <button id="liCalRunBtn" class="ghost" title="Run a Learning Index vs Qualia-Lab calibration batch now">Run Calibration (6)</button>
       </div>
       <div id="liProbeStatus" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>HLE Assessment Ladder (Humanity's Last Exam) <span id="apGate" class="pill" style="margin-left:8px;">…</span></h2>
+      <div class="hint">Data Parsing &rarr; Training Phase 1 &rarr; <strong>HLE Assessment</strong> &rarr; Re-learning / Fine-tuning &rarr; SWE-bench Pro. SWE-bench Pro unlocks only at HLE &ge; 65%.</div>
+      <div class="row" style="margin-top:10px;">
+        <span class="pill" id="apStage">stage: …</span>
+        <span class="pill" id="apHle">HLE: …</span>
+        <button id="apHleBtn">Run HLE sample (10)</button>
+        <button id="apDataBtn" class="ghost">Check datasets</button>
+      </div>
+      <div id="apStatus" class="status"></div>
+      <div id="apHleResults" class="soft-panel" style="margin-top:10px;">No HLE sample has run yet this session. Click "Run HLE sample (10)" above — the questions asked, the answers, and the score appear here.</div>
+      <div id="apData" class="soft-panel" style="margin-top:10px;">Dataset status not loaded yet.</div>
     </div>
 
     <div class="card">
@@ -154,29 +157,8 @@
     </div>
 
     <div class="card">
-      <h2>Assessment Ladder <span id="apGate" class="pill" style="margin-left:8px;">…</span></h2>
-      <div class="hint">Data Parsing &rarr; Training Phase 1 &rarr; HLE Assessment &rarr; Re-learning / Fine-tuning &rarr; SWE-bench Pro. SWE-bench Pro unlocks only at HLE &ge; 65%.</div>
-      <div class="row" style="margin-top:10px;">
-        <span class="pill" id="apStage">stage: …</span>
-        <span class="pill" id="apHle">HLE: …</span>
-        <button id="apHleBtn">Run HLE sample (10)</button>
-        <button id="apDataBtn" class="ghost">Check datasets</button>
-      </div>
-      <div id="apStatus" class="status"></div>
-      <div id="apHleResults" class="soft-panel" style="margin-top:10px;">No HLE sample has run yet this session. Click "Run HLE sample (10)" above — the questions asked, the answers, and the score appear here.</div>
-      <div id="apData" class="soft-panel" style="margin-top:10px;">Dataset status not loaded yet.</div>
-    </div>
-
-    <div class="card">
-      <div class="row" style="align-items:center; justify-content:space-between;">
-        <h2 style="margin:0;">Exam Log</h2>
-        <button id="liExamsRefresh" class="ghost" type="button" title="Re-read the most recent exams from the ledger">↻ Refresh</button>
-      </div>
-      <div class="hint">The most recent exams, as graded.</div>
-      <table style="margin-top:8px;">
-        <thead><tr><th>Verdict</th><th>Document</th><th>Question</th><th>Mastery</th><th>When</th></tr></thead>
-        <tbody id="liExamRows"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody>
-      </table>
+      <h2>Dataset Scout — moved to the dashboard</h2>
+      <div class="hint">Dataset discovery now lives on <a href="/ui/playground">Dashboard Home</a> as <strong>Scientific Dataset Discovery &amp; Review</strong>: it shows Sentinari's weakest fields (from the Learning Index, sharpened by the HLE assessment) and searches the outside world — priority order <strong>1) OpenAlex → 2) Medical web (Europe PMC) → 3) GitHub → 4) HuggingFace</strong> — for exactly that lacking knowledge.</div>
     </div>
   </main>
 </div>
@@ -186,34 +168,21 @@
   const fmt = (n) => Number(n || 0).toLocaleString('en-US');
   const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   let calOn = false;
-  let learnOn = true;
 
   const render = (d) => {
     const pct = Number(d.percent || 0);
     byId('liFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
-    byId('liLabel').innerHTML = `<strong>% Learned: ${pct}%</strong> — ${fmt(d.assessed)} of ${fmt(d.total)} ingested documents examined.`;
+    byId('liLabel').innerHTML = `<strong>% Learned: ${pct}%</strong> — ${fmt(d.assessed)} of ${fmt(d.total)} classified documents recorded.`;
     const eng = d.engine || {};
     const ex = byId('liExaminer');
+    const model = eng.chat_model ? ' (' + esc(eng.chat_model) + ')' : '';
     if (eng.available) {
-      ex.innerHTML = '<span class="pill" style="background:#e3f4e8;color:#1f6b3a;">Examiner: LIVE</span> — one exam every 10 s; the needle moves.';
+      ex.innerHTML = '<span class="pill" style="background:#e3f4e8;color:#1f6b3a;">Engine: ONLINE' + model + '</span> — ½-page self-exam loop stopped; <strong>HLE</strong> is the active assessment.';
       byId('liFill').classList.remove('parked');
     } else {
-      const model = eng.chat_model ? ' (' + esc(eng.chat_model) + ')' : '';
-      ex.innerHTML = '<span class="pill" style="background:#fbe9e7;color:#8c3b2e;">Examiner: DARK — no engine (§58)</span> — the needle is parked' + model + '; nothing is consumed until an engine serves the gateway.';
+      ex.innerHTML = '<span class="pill" style="background:#fbe9e7;color:#8c3b2e;">Engine: OFFLINE' + model + '</span>';
       byId('liFill').classList.add('parked');
     }
-    const PRIORITY_LABELS = {
-      0: 'P1 · AI & Information Science',
-      1: 'P1 · AI & Information Science',
-      2: 'P2 · Physics',
-      3: 'P3 · Engineering',
-    };
-    byId('liLatest').innerHTML = (d.latest || []).slice(0, 3).map((l) =>
-      `<div>• [${esc(l.verdict)}] ${esc(String(l.title || '').slice(0, 70))}</div>`).join('');
-    learnOn = Boolean(d.enabled);
-    const sw = byId('liSwitch');
-    sw.classList.toggle('on', learnOn);
-    byId('liSwitchLabel').textContent = learnOn ? 'Learning: On' : 'Learning: Paused';
     calOn = Boolean(d.calibration_enabled);
     const calBtn = byId('liCalBtn');
     calBtn.textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
@@ -364,34 +333,6 @@
     } catch (_) {}
   };
 
-  byId('liProbeBtn').addEventListener('click', async () => {
-    const st = byId('liProbeStatus');
-    st.textContent = 'Examining one document now…';
-    try {
-      const res = await fetch('/api/learning/probe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-      const d = await res.json();
-      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Probe failed.');
-      const r = d.result || {};
-      st.innerHTML = `Verdict: <strong>${esc(r.verdict)}</strong> — grounding ${(100 * Number(r.mastery || 0)).toFixed(0)}% · “${esc(String(r.question || '').slice(0, 120))}”`;
-    } catch (e) { st.textContent = 'Probe failed: ' + (e.message || e); }
-    poll();
-  });
-
-  byId('liSwitchWrap').addEventListener('click', async () => {
-    const wrap = byId('liSwitchWrap');
-    wrap.style.pointerEvents = 'none';
-    try {
-      const res = await fetch('/api/learning/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !learnOn }) });
-      const d = await res.json();
-      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Toggle failed.');
-      learnOn = !learnOn;
-      const sw = byId('liSwitch');
-      sw.classList.toggle('on', learnOn);
-      byId('liSwitchLabel').textContent = learnOn ? 'Learning: On' : 'Learning: Paused';
-    } catch (e) { byId('liProbeStatus').textContent = 'Toggle failed: ' + (e.message || e); }
-    wrap.style.pointerEvents = '';
-  });
-
   byId('liCalBtn').addEventListener('click', async () => {
     const btn = byId('liCalBtn');
     btn.disabled = true;
@@ -463,27 +404,6 @@
     } catch (e) { st.textContent = 'Failed: ' + (e.message || e); }
   });
 
-  const loadExams = async () => {
-    try {
-      const res = await fetch('/api/learning/exams?limit=25');
-      const d = await res.json();
-      const rows = (d.exams || []).map((e) =>
-        `<tr><td>${esc(e.verdict)}</td><td>${esc(String(e.title || '').slice(0, 46))}</td><td>${esc(String(e.question || '').slice(0, 70))}</td><td>${Number(e.mastery || 0).toFixed(2)}</td><td>${esc(String(e.assessed_at || '').slice(0, 16).replace('T', ' '))}</td></tr>`).join('');
-      byId('liExamRows').innerHTML = rows || '<tr><td colspan="5" class="hint">No exams recorded yet.</td></tr>';
-    } catch (_) { byId('liExamRows').innerHTML = '<tr><td colspan="5" class="hint">Exam log unavailable.</td></tr>'; }
-  };
-
-  byId('liExamsRefresh').addEventListener('click', async () => {
-    const btn = byId('liExamsRefresh');
-    btn.disabled = true;
-    byId('liExamRows').innerHTML = '<tr><td colspan="5" class="hint">Refreshing…</td></tr>';
-    try {
-      await loadExams();
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
   // ---- Assessment ladder (§47) ----
   const loadAssessment = async () => {
     try {
@@ -500,7 +420,7 @@
 
   byId('apHleBtn').addEventListener('click', async () => {
     const st = byId('apStatus');
-    st.textContent = 'Running local HLE sample… (requires the local engine online)';
+    st.textContent = 'Running HLE sample (10 questions)…';
     try {
       const res = await fetch('/api/assessment/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run_hle_sample', sample_size: 10 }) });
       const d = await res.json();
@@ -509,6 +429,7 @@
       renderHleResults(d);
     } catch (e) { st.textContent = 'HLE sample failed: ' + (e.message || e); }
     loadAssessment();
+    poll();
   });
 
   byId('apDataBtn').addEventListener('click', async () => {
@@ -539,6 +460,7 @@
       const badge = ok ? '<span class="pill" style="background:#e3f4e8;color:#1f6b3a;">CORRECT</span>'
                        : '<span class="pill" style="background:#f9e3e3;color:#8f1f1f;">WRONG</span>';
       const meta = [];
+      if (it && it.category) meta.push(esc(it.category));
       if (it && it.match) meta.push('match: ' + esc(it.match));
       if (it && typeof it.overlap === 'number' && it.overlap < 1) meta.push('overlap: ' + Math.round(100 * it.overlap) + '%');
       if (it && it.error !== undefined) meta.push('engine error: ' + esc(it.error));
@@ -562,7 +484,6 @@
 
   loadAssessment();
   poll();
-  loadExams();
   window.setInterval(poll, 20000);
   window.setInterval(loadAssessment, 30000);
 

@@ -38,37 +38,65 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from .config import get_settings  # noqa: E402
+from .db import _get_pg_url, get_connection  # noqa: E402
 
 DB_PATH = ROOT / "data" / "assessment_pipeline.sqlite3"
 QUALIFY_THRESHOLD = 0.65
 
 STAGES = ("data_parsing", "training_phase_1", "hle_assessment", "relearning", "swe_bench_pro")
+_SCHEMA_READY = False
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=15)
-    conn.row_factory = sqlite3.Row
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS pipeline_runs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            stage TEXT NOT NULL DEFAULT 'data_parsing',
-            status TEXT NOT NULL DEFAULT 'ready',
-            hle_score REAL NOT NULL DEFAULT -1,
-            hle_total INTEGER NOT NULL DEFAULT 0,
-            hle_detail_json TEXT NOT NULL DEFAULT '[]',
-            swe_gate_open INTEGER NOT NULL DEFAULT 0,
-            notes TEXT NOT NULL DEFAULT ''
+def _connect():
+    global _SCHEMA_READY
+    if _get_pg_url():
+        conn = get_connection()
+    else:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH, timeout=15)
+        conn.row_factory = sqlite3.Row
+    if not _SCHEMA_READY:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pipeline_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                stage TEXT NOT NULL DEFAULT 'data_parsing',
+                status TEXT NOT NULL DEFAULT 'ready',
+                hle_score REAL NOT NULL DEFAULT -1,
+                hle_total INTEGER NOT NULL DEFAULT 0,
+                hle_detail_json TEXT NOT NULL DEFAULT '[]',
+                swe_gate_open INTEGER NOT NULL DEFAULT 0,
+                notes TEXT NOT NULL DEFAULT ''
+            )
+            """
         )
-        """
-    )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pipeline_flags (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stage_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stage TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                report_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+        _SCHEMA_READY = True
     return conn
 
 
@@ -158,11 +186,11 @@ def _flag(conn: sqlite3.Connection, key: str, value: str) -> None:
     )
 
 
-def _get_flag(conn: sqlite3.Connection, key: str) -> str:
+def _get_flag(conn: Any, key: str) -> str:
     try:
         row = conn.execute("SELECT value FROM pipeline_flags WHERE key = ?", (key,)).fetchone()
-        return str(row[0]) if row else ""
-    except sqlite3.OperationalError:
+        return str(row["value"] if hasattr(row, "keys") else row[0]) if row else ""
+    except Exception:
         return ""
 
 
@@ -333,20 +361,20 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
     chat_fn = None
     engine_name = "unknown"
     try:
-        from .ingestion import build_ollama_client
-        client = build_ollama_client()
-        if client.is_available():
-            chat_fn = lambda messages: client.chat(messages)
-            engine_name = "ollama"
+        from .llm_gateway import get_gateway
+        gw = get_gateway()
+        chat_fn = lambda messages: gw.chat(messages, temperature=0.0, max_tokens=2048)
+        engine_name = gw.provider_name
     except Exception:
         pass
 
     if chat_fn is None:
         try:
-            from .llm_gateway import get_gateway
-            gw = get_gateway()
-            chat_fn = lambda messages: gw.chat(messages)
-            engine_name = gw.provider_name
+            from .ingestion import build_ollama_client
+            client = build_ollama_client()
+            if client.is_available():
+                chat_fn = lambda messages: client.chat(messages)
+                engine_name = "ollama"
         except Exception:
             pass
 
@@ -374,6 +402,7 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
     for i, item in zip(range(sample_size), dataset):
         question = str(item.get("question") or "")
         expected = str(item.get("answer") or "")
+        category = str(item.get("category") or item.get("field") or "")
         if not question or not expected:
             continue
         try:
@@ -384,13 +413,14 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
                 ]
             )
         except Exception as ex:
-            detail.append({"index": i, "error": str(ex)[:200]})
+            detail.append({"index": i, "category": category, "error": str(ex)[:200]})
             continue
         verdict = _grade_answer(expected, produced)
         correct += 1 if verdict["correct"] else 0
         total += 1
         detail.append({
             "index": i,
+            "category": category,
             "match": verdict["match"],
             "overlap": verdict["overlap"],
             "correct": verdict["correct"],

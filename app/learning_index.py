@@ -181,14 +181,14 @@ def _set_setting(key: str, value: str) -> None:
 
 
 def learning_enabled() -> bool:
-    """True unless the owner paused the Learning Index (persisted)."""
-    return _get_setting("learning_enabled", "on").lower() != "off"
+    """Owner directive: the 1/2-page self-generated document exam loop is retired
+    because Gemma is not benefiting from it; HLE is the active assessment."""
+    return False
 
 
 def calibration_enabled() -> bool:
     """Calibration runs only when the owner explicitly enables it (§38):
-    default OFF until the new rig provides the power for it. The regular
-    learning sweep is unaffected — only the heavy cross-checking pauses."""
+    default OFF until toggled on. Persisted in learning_settings."""
     return _get_setting("calibration_enabled", "off").lower() == "on"
 
 
@@ -631,28 +631,13 @@ class LearningWorker:
         self._stop = threading.Event()
 
     def start(self) -> None:
-        if self._thread is not None and self._thread.is_alive():
-            return
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="learning-index", daemon=True)
-        self._thread.start()
+        # Owner directive: the 1/2-page document self-exam background worker is
+        # permanently retired because Gemma is not benefiting from it. HLE is
+        # the active assessment instrument.
+        return
 
     def _loop(self) -> None:
-        while not self._stop.wait(POLL_INTERVAL_SECONDS):
-            try:
-                if not learning_enabled():
-                    continue
-                # §58: engine dark → idle, never consume documents as 'skipped'.
-                try:
-                    gateway_ready = bool(get_gateway().describe().get("available"))
-                except Exception:
-                    gateway_ready = False
-                if not gateway_ready:
-                    continue
-                probe_next()
-            except Exception:
-                # A background index must never take the app down.
-                time.sleep(POLL_INTERVAL_SECONDS)
+        return
 
 
 _worker = LearningWorker()
@@ -660,7 +645,6 @@ _worker = LearningWorker()
 
 def start_learning_worker() -> None:
     _ensure_schema()
-    _worker.start()
 
 
 # ---------------------------------------------------------------------------
@@ -708,7 +692,7 @@ LADDER_MEANINGS: dict[str, str] = {
     "datasets_learned": "% of documents examined by the gentle examiner",
     "formative_assessment": "% achieved — average exam mastery over the field's graded exams",
     "calibration": "500-word test on subject matter, % achieved",
-    "hle": "% of total documents assessed on Humanity's Last Exam",
+    "hle": "% achieved on Humanity's Last Exam (HLE)",
     "workbench": "% of the field's corpus applied in the workbench",
 }
 LADDER_DISPLAY: dict[str, str] = {
@@ -718,6 +702,12 @@ LADDER_DISPLAY: dict[str, str] = {
     "calibration": "Calibration",
     "hle": "HLE",
     "workbench": "Workbench = % Achieved",
+}
+
+_HLE_CATEGORY_TO_FIELD: dict[str, str] = {
+    "computer-science": "computer-and-information-sciences",
+    "thermodynamics": "physics",
+    "law": "political-science",
 }
 
 
@@ -730,14 +720,9 @@ def api_learning_ladder() -> dict[str, Any]:
       datasets_learned      % of documents examined (assessed / total)
       formative_assessment  % achieved — average exam mastery over graded exams
       calibration           500-word test on subject matter — 0 while paused (38)
-      hle                   % of total documents — 0 while deferred (71c)
+      hle                   % achieved on Humanity's Last Exam
       workbench             % of the field's corpus applied — 0 until the rig runs it
-    Stages without a live source report an honest 0 with their gating note, and
-    every stage carries its meaning + the owner's 74d gate state for the UI's
-    hover pop-ups.
     """
-    # Field keys are NORMALIZED (74c lesson from the first render: raw strings
-    # split 'Physics'/'physics' into duplicate charts with wrong numbers).
     with library_connection("gemma") as conn:
         totals: dict[str, int] = {}
         for r in conn.execute(
@@ -753,10 +738,6 @@ def api_learning_ladder() -> dict[str, Any]:
         ).fetchall():
             key = _norm_field(r["f"])
             loaded[key] = loaded.get(key, 0) + int(r["n"])
-    # 74f — the owner's denominator: Datasets Loaded is measured against the
-    # TOTAL corpus (every document in the library, unclassified included),
-    # not against the field's own total. Physics 300 loaded / 14,999 corpus
-    # × 100 is his formula, verbatim.
     corpus_total = sum(totals.values())
     exams: dict[str, tuple[int, float]] = {}
     with get_connection() as conn:
@@ -766,7 +747,6 @@ def api_learning_ladder() -> dict[str, Any]:
         ).fetchall():
             key = _norm_field(r["f"])
             n, m = exams.get(key, (0, 0.0))
-            # mastery merges as the exam-count-weighted mean
             exams[key] = (n + int(r["n"]), (m * n + float(r["m"] or 0.0) * int(r["n"])) / (n + int(r["n"])))
 
     cal_on = calibration_enabled()
@@ -788,6 +768,27 @@ def api_learning_ladder() -> dict[str, Any]:
     except Exception:
         pass
 
+    hle_by_field: dict[str, tuple[int, float]] = {}
+    overall_hle_pct = 0.0
+    hle_total_graded = 0
+    try:
+        from .assessment_pipeline import get_state as _get_ap_state
+
+        ap_state = _get_ap_state()
+        if ap_state.get("hle_score") is not None:
+            overall_hle_pct = round(100.0 * float(ap_state["hle_score"]), 1)
+        hle_total_graded = int(ap_state.get("hle_total") or 0)
+        for item in ap_state.get("hle_detail") or []:
+            if not isinstance(item, dict) or "correct" not in item:
+                continue
+            raw_cat = _norm_field(item.get("category") or "")
+            mapped = _HLE_CATEGORY_TO_FIELD.get(raw_cat, raw_cat)
+            val = 1.0 if item.get("correct") else 0.0
+            hn, hm = hle_by_field.get(mapped, (0, 0.0))
+            hle_by_field[mapped] = (hn + 1, (hm * hn + val) / (hn + 1))
+    except Exception:
+        pass
+
     fields: list[dict[str, Any]] = []
     for field, total in totals.items():
         if field == "unclassified":
@@ -796,12 +797,14 @@ def api_learning_ladder() -> dict[str, Any]:
         with_chunks = loaded.get(field, 0)
         cal_n, cal_score = cal_by_field.get(field, (0, 0.0))
         field_cal_pct = (100.0 * cal_score) if (cal_on and cal_n > 0) else 0.0
+        hle_n, hle_score_f = hle_by_field.get(field, (0, 0.0))
+        field_hle_pct = (100.0 * hle_score_f) if hle_n > 0 else overall_hle_pct
         pcts = {
             "datasets_loaded": 100.0 * with_chunks / corpus_total if corpus_total else 0.0,
             "datasets_learned": 100.0 * n_exams / total if total else 0.0,
             "formative_assessment": 100.0 * avg_mastery,
             "calibration": field_cal_pct,
-            "hle": 0.0,
+            "hle": field_hle_pct,
             "workbench": 0.0,
         }
         instrument_notes = {
@@ -810,7 +813,11 @@ def api_learning_ladder() -> dict[str, Any]:
                 if (cal_on and cal_n > 0)
                 else ("Qualia-Lab calibration enabled — ready to run" if cal_on else "instrument paused (38) — toggle Calibration: On to enable")
             ),
-            "hle": "instrument deferred (71c) — procurement gate",
+            "hle": (
+                f"HLE active — {field_hle_pct:.1f}% achieved ({hle_n if hle_n > 0 else hle_total_graded} question(s) graded)"
+                if hle_total_graded > 0
+                else "HLE ready — click Run HLE sample in the Assessment card below"
+            ),
             "workbench": "instrument waits for the rig",
         }
         stage_values = {
@@ -818,7 +825,7 @@ def api_learning_ladder() -> dict[str, Any]:
             "datasets_learned": n_exams,
             "formative_assessment": n_exams * avg_mastery,
             "calibration": cal_n * cal_score if cal_on else 0.0,
-            "hle": 0.0,
+            "hle": (hle_n * hle_score_f) if hle_n > 0 else (overall_hle_pct / 100.0 if hle_total_graded > 0 else 0.0),
             "workbench": 0.0,
         }
         stages: dict[str, Any] = {}
@@ -855,10 +862,6 @@ def api_learning_ladder() -> dict[str, Any]:
         )
     fields.sort(key=lambda f: (f["priority_rank"], -f["total"]))
 
-    # 74e — owner's uniform badge law: every field carries its P-number, no
-    # blanks. Doctrine bands first (P1 = AI & Information Science, P2 = Physics,
-    # P3 = Engineering), then the rest numbered sequentially in display order
-    # (largest first) — public-health lands P4 exactly as the owner asked.
     next_rest = 4
     for f in fields:
         rank = f["priority_rank"]
@@ -872,7 +875,6 @@ def api_learning_ladder() -> dict[str, Any]:
             f["badge"] = f"P{next_rest}"
             next_rest += 1
 
-    # 74j — overall stage values for the Stage-of-Preparedness sunburst
     classified_total = corpus_total - totals.get("unclassified", 0)
     assessed_total = sum(n for fkey, (n, _m) in exams.items() if fkey != "unclassified")
     mastery_mass_total = sum(n * m for fkey, (n, m) in exams.items() if fkey != "unclassified")
@@ -884,7 +886,7 @@ def api_learning_ladder() -> dict[str, Any]:
         "learned_percent": round(100.0 * assessed_total / classified_total, 1) if classified_total else 0.0,
         "formative_percent": round(100.0 * mastery_mass_total / assessed_total, 1) if assessed_total else 0.0,
         "calibration_percent": overall_cal_pct if cal_on else 0.0,
-        "hle_percent": 0.0,
+        "hle_percent": overall_hle_pct,
         "workbench_percent": 0.0,
     }
     return {
@@ -904,10 +906,8 @@ def api_learning_ladder() -> dict[str, Any]:
 
 @router.post("/toggle")
 def api_learning_toggle(payload: ToggleRequest) -> dict[str, Any]:
-    _set_setting("learning_enabled", "on" if payload.enabled else "off")
-    if payload.enabled:
-        start_learning_worker()
-    return {"ok": True, "enabled": payload.enabled}
+    _set_setting("learning_enabled", "off")
+    return {"ok": True, "enabled": False, "note": "The 1/2-page document self-exam loop is retired; HLE is the active assessment."}
 
 
 @router.post("/probe")
@@ -1067,10 +1067,6 @@ def _run_calibration(samples: int) -> dict[str, Any]:
 
     import gc
 
-    # One examiner at a time on a small machine: the background learning
-    # worker pauses its own exams for the duration (restored in `finally`).
-    _set_setting("learning_enabled", "off")
-
     applied_t, partial_t, recited_t = _grade_thresholds()
     with get_connection() as conn:
         rows = conn.execute(
@@ -1081,8 +1077,7 @@ def _run_calibration(samples: int) -> dict[str, Any]:
             (samples,),
         ).fetchall()
     if not rows:
-        _set_setting("learning_enabled", "on")
-        return {"ok": False, "error": "No assessed documents to calibrate against — run some probes first."}
+        return {"ok": False, "error": "No assessed documents to calibrate against."}
 
     def _progress(done: int, total: int) -> None:
         try:
@@ -1155,11 +1150,6 @@ def _run_calibration(samples: int) -> dict[str, Any]:
         verbatims = sorted(float(s["li_verbatim"]) for s in graded)
         median_verbatim = verbatims[len(verbatims) // 2]
 
-        # Quantile-matching proposal: if the Qualia pipeline (with retrieval)
-        # can answer a share R of these documents above the current applied
-        # threshold, the own-knowledge examiner should call approximately the
-        # same share "applied" — set the threshold at the (1-R) quantile of
-        # the observed mastery distribution.
         masteries = sorted(float(s["li_mastery"]) for s in graded)
         target_share = min(0.85, max(0.15, rag_support_rate))
         idx = min(len(masteries) - 1, max(0, round((1.0 - target_share) * len(masteries))))
@@ -1188,7 +1178,6 @@ def _run_calibration(samples: int) -> dict[str, Any]:
             recommendation["mean_qualia_overall"] = round(sum(qualia_scores) / len(qualia_scores), 4)
         report["calibration"] = recommendation
 
-        # Audit trail: keep the calibration in learning_settings.
         history = _get_setting("calibration_history", "[]")
         try:
             entries = json.loads(history)
@@ -1204,22 +1193,12 @@ def _run_calibration(samples: int) -> dict[str, Any]:
             }
         )
         _set_setting("calibration_history", json.dumps(entries[-20:], ensure_ascii=True))
-    # Hand the examination desk back to the background worker.
-    _set_setting("learning_enabled", "on")
     return report
 
 
 @router.post("/calibrate")
 def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
-    """Start a Learning Index vs Qualia Lab calibration as a background job
-    (each sample runs retrieval + one gateway call — minutes on the small
-    machine — so the request returns immediately and /calibrate/status
-    reports results).
-
-    Owner directive (§38): gated behind the manual calibration toggle —
-    paused by default until the new rig provides the power. The learning
-    sweep itself continues unaffected.
-    """
+    """Start a Learning Index vs Qualia Lab calibration as a background job."""
     global _calibration_thread
     if not calibration_enabled():
         raise HTTPException(
@@ -1231,9 +1210,7 @@ def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
     _calibration_lock.release()
     state = _get_setting("calibration_state", "idle")
     if state == "running" and not (_calibration_thread is not None and _calibration_thread.is_alive()):
-        # Stale state from a killed/restarted server (§37) — heal and proceed.
         _set_setting("calibration_state", "interrupted")
-        _set_setting("learning_enabled", "on")
         state = "interrupted"
     if state == "running":
         raise HTTPException(status_code=409, detail="A calibration run is already in progress — check /api/learning/calibrate/status.")
@@ -1247,9 +1224,6 @@ def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
         except Exception as exc:
             _set_setting("calibration_report", json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=True))
             _set_setting("calibration_state", "error")
-        finally:
-            # The examiner must NEVER stay paused because a run crashed.
-            _set_setting("learning_enabled", "on")
 
     _calibration_thread = threading.Thread(target=_job, name="learning-calibration", daemon=True)
     _calibration_thread.start()
@@ -1258,7 +1232,7 @@ def api_learning_calibrate(payload: CalibrationRequest) -> dict[str, Any]:
 
 @router.post("/calibration-toggle")
 def api_learning_calibration_toggle(payload: ToggleRequest) -> dict[str, Any]:
-    """Manual calibration switch (§38): OFF until the new rig. Persisted."""
+    """Manual calibration switch (§38): OFF until toggled on. Persisted."""
     _set_setting("calibration_enabled", "on" if payload.enabled else "off")
     return {"ok": True, "calibration_enabled": payload.enabled}
 
@@ -1280,18 +1254,12 @@ def api_learning_exams(
 
 @router.get("/calibrate/status")
 def api_learning_calibrate_status() -> dict[str, Any]:
-    """Latest calibration run: state + full report when done.
-
-    Self-healing: a 'running' state with no live worker thread (server was
-    restarted mid-run, §37 lesson) is downgraded to 'interrupted' instead of
-    blocking future runs forever, and the examiner toggle is restored.
-    """
+    """Latest calibration run: state + full report when done."""
     state = _get_setting("calibration_state", "idle")
     if state == "running":
         thread_alive = _calibration_thread is not None and _calibration_thread.is_alive()
         if not thread_alive:
             _set_setting("calibration_state", "interrupted")
-            _set_setting("learning_enabled", "on")
             state = "interrupted"
     report_raw = _get_setting("calibration_report", "")
     report: dict[str, Any] | None = None
