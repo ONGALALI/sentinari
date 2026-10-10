@@ -85,7 +85,7 @@ class PostgresConnectionWrapper:
         if m:
             table = m.group(1).lower()
             return f"SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name='{table}'"
-        if u.startswith("PRAGMA") or u.startswith("ATTACH") or "TEMP VIEW" in u or "DROP VIEW" in u:
+        if u.startswith("PRAGMA") or u.startswith("ATTACH") or "TEMP VIEW" in u or "DROP VIEW" in u or "VIRTUAL TABLE" in u or ("CHUNK_FTS" in u and u.startswith("INSERT INTO")):
             return ""
         if "sqlite_master" in s:
             s = s.replace(
@@ -94,10 +94,13 @@ class PostgresConnectionWrapper:
             )
         s = re.sub(r"\bINTEGER PRIMARY KEY AUTOINCREMENT\b", "SERIAL PRIMARY KEY", s, flags=re.IGNORECASE)
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
-        s = s.replace("datetime('now')", "CURRENT_TIMESTAMP")
+        s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", s)
         s = re.sub(r"\bembedding_json\b", "embedding", s)
         if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
             s = re.sub(r"\bADD\s+COLUMN\b", "ADD COLUMN IF NOT EXISTS", s, flags=re.IGNORECASE)
+        if re.search(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", s, re.IGNORECASE):
+            s = re.sub(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", "INSERT INTO", s, flags=re.IGNORECASE)
+            s = s.rstrip("; \t\n") + " ON CONFLICT DO NOTHING"
         s = s.replace("?", "%s")
         return s
 
@@ -134,6 +137,14 @@ class PostgresConnectionWrapper:
             stmt = stmt.strip()
             if stmt:
                 self.execute(stmt)
+
+    def executemany(self, sql: str, seq_of_params: Iterable[Any]) -> Any:
+        clean_sql = self._convert_sql(sql)
+        if not clean_sql:
+            return DummyCursor()
+        cur = self._conn.cursor(cursor_factory=DictCursor)
+        cur.executemany(clean_sql, list(seq_of_params))
+        return PostgresCursorWrapper(cur)
 
     def commit(self) -> None:
         self._conn.commit()

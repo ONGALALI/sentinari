@@ -288,18 +288,17 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
             "SELECT id, title FROM documents WHERE IFNULL(scientific_field, '') = ? ORDER BY id DESC LIMIT 60",
             (field_slug,),
         ).fetchall()
-    triaged: list[tuple[float, int, str, dict[str, Any]]] = []
-    for row in pool_rows:
-        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
-            return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": 0}
-        with _library_connection("gemma") as conn:
+        triaged: list[tuple[float, int, str, dict[str, Any]]] = []
+        for row in pool_rows:
+            if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+                return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": 0}
             chunk_rows = conn.execute(
                 "SELECT content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT 8",
                 (int(row["id"]),),
             ).fetchall()
-        text = " ".join(str(r["content"] or "") for r in chunk_rows)
-        triage = scan_document_text(text)
-        triaged.append((float(triage.get("score") or 0.0), int(row["id"]), str(row["title"] or ""), triage))
+            text = " ".join(str(r["content"] or "") for r in chunk_rows)
+            triage = scan_document_text(text)
+            triaged.append((float(triage.get("score") or 0.0), int(row["id"]), str(row["title"] or ""), triage))
     triaged.sort(key=lambda item: -item[0])
     picked = triaged[: max(1, min(12, int(max_documents)))]
     doc_ids = [item[1] for item in picked]
