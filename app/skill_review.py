@@ -135,6 +135,13 @@ def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any]
             return f"hf:{dataset}"
         return f"url:{_norm_url(url)}"
 
+    if stype == "oecd":
+        agency = str(metadata.get("agency") or "oecd").lower()
+        dataset = str(metadata.get("dataset") or "").lower()
+        if dataset:
+            return f"oecd:{agency}:{dataset}"
+        return f"url:{_norm_url(url)}"
+
     key = _norm_url(url)
     return f"url:{key}" if key else f"title:{str(title or '').strip().lower()}"
 
@@ -938,7 +945,17 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    # All four sources at the same time. A shared deadline keeps one slow lane
+    def _oecd_search() -> list[dict[str, Any]]:
+        # Official OECD SDMX REST API statistical dataflows.
+        try:
+            from .oecd_worker import search_oecd_datasets
+
+            result = search_oecd_datasets(query, field=field_text, limit=max(2, min(10, payload.limit)))
+            return list(result.get("candidates") or [])
+        except Exception:
+            return []
+
+    # All sources at the same time. A shared deadline keeps one slow lane
     # (OpenAlex and NCBI can crawl) from holding the whole search hostage —
     # whichever lanes have answered when the deadline passes are what's shown.
     # The pool is shut down WITHOUT waiting: a lane still running past the
@@ -954,19 +971,21 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    pool = ThreadPoolExecutor(max_workers=5)
+    pool = ThreadPoolExecutor(max_workers=6)
     try:
         github_future = pool.submit(_github_search)
         hf_future = pool.submit(_huggingface_search)
         openalex_future = pool.submit(_openalex_search)
         pubmed_future = pool.submit(_pubmed_search)
         worldbank_future = pool.submit(_worldbank_search)
+        oecd_future = pool.submit(_oecd_search)
         candidates = [
             *_lane_result(github_future),
             *_lane_result(hf_future),
             *_lane_result(openalex_future),
             *_lane_result(pubmed_future),
             *_lane_result(worldbank_future),
+            *_lane_result(oecd_future),
         ]
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
@@ -1128,8 +1147,8 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
     scored: list[dict[str, Any]] = []
     precision_dropped = 0
     for item in candidates:
-        if str(item.get("source_type") or "").lower() == "worldbank":
-            # §76 World Bank exemption (owner directive: World Bank datasets
+        if str(item.get("source_type") or "").lower() in {"worldbank", "oecd"}:
+            # §76 World Bank / OECD exemption (official statistics catalogue entries)
             # must be listed): DBnomics rows are official-statistics catalogue
             # entries — their identifiers and descriptions ("OECD/DSD_…") can
             # never carry a scientific free-text query, so the whole-string
@@ -1192,6 +1211,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
         "pubmed_count": sum(1 for c in candidates if c["source_type"] == "pubmed"),
         "worldbank_count": sum(1 for c in candidates if c["source_type"] == "worldbank"),
+        "oecd_count": sum(1 for c in candidates if c["source_type"] == "oecd"),
         "pubmed_fulltext_count": sum(
             1 for c in candidates
             if c.get("source_type") == "pubmed" and (c.get("has_full_text") or str(c.get("pmcid") or ""))
@@ -1409,7 +1429,14 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
     source_type = str(candidate.get("source_type") or "").strip().lower()
 
     field, field_slug = _resolve_target_field(candidate_id, candidate, metadata)
-    _SOURCE_LABELS = {"github": "GitHub", "huggingface": "Hugging Face", "openalex": "OpenAlex", "pubmed": "PubMed", "worldbank": "World Bank (DBnomics)"}
+    _SOURCE_LABELS = {
+        "github": "GitHub",
+        "huggingface": "Hugging Face",
+        "openalex": "OpenAlex",
+        "pubmed": "PubMed",
+        "worldbank": "World Bank (DBnomics)",
+        "oecd": "OECD (Official Statistics)",
+    }
     _source_label = _SOURCE_LABELS.get(source_type, source_type or "the source")
     load_progress.emit_meta(
         field=field_slug,
@@ -1463,6 +1490,20 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             },
         )
         result["source_type"] = "worldbank"
+    elif source_type == "oecd":
+        load_progress.stage("download", "Fetching OECD SDMX observations and structure...")
+        from .oecd_worker import load_oecd_dataset_into_field
+
+        result = load_oecd_dataset_into_field(
+            field,
+            {
+                "agency": str(metadata.get("agency") or "OECD"),
+                "dataset": str(metadata.get("dataset") or ""),
+                "version": str(metadata.get("version") or "1.0"),
+                "query": str(metadata.get("query") or ""),
+            },
+        )
+        result["source_type"] = "oecd"
     else:
         load_progress.stage("download", "Fetching the work from OpenAlex (PDF, landing page, or record)...")
         work = {
@@ -1502,6 +1543,10 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             pmid = str(metadata.get("pmid") or _pmid_from_url(str(candidate.get("source_url") or "")))
             if pmid:
                 like_patterns = [f"%pm{slugify(pmid)}%"]
+        elif source_type == "oecd":
+            dataset = str(metadata.get("dataset") or "")
+            if dataset:
+                like_patterns = [f"%oecd-{slugify(dataset)}%"]
         try:
             if like_patterns:
                 with library_connection("gemma") as conn:
