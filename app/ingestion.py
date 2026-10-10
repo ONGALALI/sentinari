@@ -280,9 +280,17 @@ def _upsert_document_with_chunks(
         for row in conn.execute(
             "SELECT chunk_hash, embedding_json FROM chunks WHERE chunk_hash != '';"
         ).fetchall():
-            if row["embedding_json"]:
-                known_chunk_hashes[str(row["chunk_hash"])] = str(row["embedding_json"])
-    except sqlite3.OperationalError:
+            emb = None
+            if hasattr(row, "get"):
+                emb = row.get("embedding_json") or row.get("embedding")
+            else:
+                try:
+                    emb = row["embedding_json"]
+                except Exception:
+                    emb = None
+            if emb:
+                known_chunk_hashes[str(row["chunk_hash"])] = str(emb)
+    except Exception:
         known_chunk_hashes = {}  # pre-migration database; gate degrades to off
 
     chunk_hashes: list[str] = []

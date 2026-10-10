@@ -96,7 +96,16 @@ class PostgresConnectionWrapper:
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
         s = re.sub(r"\bCASE\s+WHEN\b(.*?)\bdatetime\('now'\)(.*?)\bEND\b", r"CASE WHEN\1CURRENT_TIMESTAMP::text\2END", s, flags=re.IGNORECASE | re.DOTALL)
         s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", s)
-        s = re.sub(r"\bembedding_json\b", "embedding", s)
+        m_sel = re.match(r"^(SELECT\s+)(.*?)(\s+FROM\s+.*)$", s, flags=re.IGNORECASE | re.DOTALL)
+        if m_sel:
+            select_part = m_sel.group(1)
+            cols = m_sel.group(2)
+            rest = m_sel.group(3)
+            cols = re.sub(r"\b(c\.)?embedding_json\b(\s+AS\s+\w+)?", r"\g<1>embedding AS embedding_json", cols, flags=re.IGNORECASE)
+            rest = re.sub(r"\bembedding_json\b", "embedding", rest)
+            s = select_part + cols + rest
+        else:
+            s = re.sub(r"\bembedding_json\b", "embedding", s)
         if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
             s = re.sub(r"\bADD\s+COLUMN\b", "ADD COLUMN IF NOT EXISTS", s, flags=re.IGNORECASE)
         if re.search(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", s, re.IGNORECASE):
