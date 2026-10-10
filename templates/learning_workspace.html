@@ -130,6 +130,7 @@
           <span id="liSwitchLabel" style="font-weight:600;">Learning: On</span>
         </label>
         <button id="liCalBtn" class="ghost" title="Pauses/resumes Qualia-Lab cross-checking (heavy)">Calibration: …</button>
+        <button id="liCalRunBtn" class="ghost" title="Run a Learning Index vs Qualia-Lab calibration batch now">Run Calibration (6)</button>
       </div>
       <div id="liProbeStatus" class="status"></div>
     </div>
@@ -214,7 +215,11 @@
     sw.classList.toggle('on', learnOn);
     byId('liSwitchLabel').textContent = learnOn ? 'Learning: On' : 'Learning: Paused';
     calOn = Boolean(d.calibration_enabled);
-    byId('liCalBtn').textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
+    const calBtn = byId('liCalBtn');
+    calBtn.textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
+    calBtn.style.background = calOn ? '#e3f4e8' : '';
+    calBtn.style.color = calOn ? '#1f6b3a' : '';
+    calBtn.style.borderColor = calOn ? '#a5d6a7' : '';
   };
 
   // ---- §74c ladder bar graphs (owner's drawing) ----
@@ -396,7 +401,46 @@
       if (!res.ok || d.ok === false) throw new Error(d.detail || 'Toggle failed.');
       calOn = !calOn;
       btn.textContent = calOn ? 'Calibration: On' : 'Calibration: Off';
+      btn.style.background = calOn ? '#e3f4e8' : '';
+      btn.style.color = calOn ? '#1f6b3a' : '';
+      btn.style.borderColor = calOn ? '#a5d6a7' : '';
+      byId('liProbeStatus').textContent = calOn ? 'Calibration enabled — Qualia-Lab cross-checking is now active.' : 'Calibration paused.';
+      poll();
     } catch (e) { byId('liProbeStatus').textContent = 'Calibration toggle failed: ' + (e.message || e); }
+    btn.disabled = false;
+  });
+
+  byId('liCalRunBtn')?.addEventListener('click', async () => {
+    const btn = byId('liCalRunBtn');
+    const st = byId('liProbeStatus');
+    btn.disabled = true;
+    try {
+      if (!calOn) {
+        await fetch('/api/learning/calibration-toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true }) });
+        calOn = true;
+      }
+      st.textContent = 'Starting Learning Index vs Qualia-Lab calibration (6 samples)…';
+      const res = await fetch('/api/learning/calibrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ samples: 6 }) });
+      const d = await res.json();
+      if (!res.ok || d.ok === false) throw new Error(d.detail || 'Calibration failed to start.');
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 2500));
+        const sr = await fetch('/api/learning/calibrate/status');
+        const sd = await sr.json();
+        if (sd.state === 'done' || sd.state === 'error' || sd.state === 'interrupted') {
+          const rep = sd.report || {};
+          if (rep.ok) {
+            const pct = rep.agreement_rate != null ? Math.round(100 * rep.agreement_rate) + '%' : '?';
+            st.innerHTML = `Calibration complete: <strong>${rep.verdict_agreement || 0}/${rep.samples_graded || 0} agreed (${pct})</strong> · recommendation: <strong>${esc((rep.calibration || {}).recommendation || 'keep current')}</strong>`;
+          } else {
+            st.textContent = 'Calibration error: ' + (rep.error || sd.state);
+          }
+          break;
+        }
+        st.textContent = 'Calibrating against Qualia Lab… (' + sd.state + ')';
+      }
+      poll();
+    } catch (e) { st.textContent = 'Calibration failed: ' + (e.message || e); }
     btn.disabled = false;
   });
 

@@ -6,14 +6,13 @@ engine/
 .venv-ml/
 .venv-convert/
 .freebuff/
-pattern_discovery/
+pattern_discovery/black-box-pivot/
 Bigtech&Model_Reviews/
 world_bank/
 ml/
 Logs/
 docs/
 scripts/
-corrections/
 tests/
 __pycache__/
 *.pyc

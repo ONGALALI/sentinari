@@ -26,6 +26,8 @@ RUN pip install --no-cache-dir psycopg2-binary numpy
 COPY app/ ./app/
 COPY assessments/ ./assessments/
 COPY config/ ./config/
+COPY corrections/ ./corrections/
+COPY pattern_discovery/key_words_tags.md ./pattern_discovery/key_words_tags.md
 COPY sentinel/ ./sentinel/
 COPY templates/ ./templates/
 COPY run_smi.py .

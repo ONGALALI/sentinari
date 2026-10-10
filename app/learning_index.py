@@ -50,7 +50,7 @@ CHUNKS_PROBED = 3
 MAX_CHARS_PER_CHUNK = 3500
 MAX_CHARS_SOURCE = 9000
 LLM_TEMPERATURE = 0.2
-LLM_MAX_TOKENS = 600
+LLM_MAX_TOKENS = 2048
 # Documents are scanned newest-first; this window keeps each tick cheap while
 # the index sweeps the whole library over time.
 RECENT_WINDOW = 400
@@ -279,7 +279,7 @@ def _load_probe_material(document_id: int) -> tuple[str, str, str] | None:
     """(title, scientific_field, source_text) from the knowledge library."""
     with library_connection("gemma") as conn:
         doc = conn.execute(
-            "SELECT title, IFNULL(scientific_field, '') AS field FROM documents WHERE id = ?",
+            "SELECT title, COALESCE(scientific_field, '') AS field FROM documents WHERE id = ?",
             (document_id,),
         ).fetchone()
         if doc is None:
@@ -426,7 +426,7 @@ def _candidate_documents() -> list[int]:
     the real throttle."""
     with library_connection("gemma") as conn:
         rows = conn.execute(
-            "SELECT id, IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f"
+            "SELECT id, COALESCE(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f"
             " FROM documents ORDER BY id DESC LIMIT ?", (RECENT_WINDOW,)
         ).fetchall()
     entries = [(int(r["id"]), str(r["f"])) for r in rows]
@@ -452,7 +452,7 @@ def _candidate_documents() -> list[int]:
     # eventually examined (gently, one per tick).
     with library_connection("gemma") as conn:
         all_rows = conn.execute(
-            "SELECT id, IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f"
+            "SELECT id, COALESCE(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f"
             " FROM documents ORDER BY id DESC"
         ).fetchall()
     all_entries = [(int(r["id"]), str(r["f"])) for r in all_rows]
@@ -537,7 +537,7 @@ def _field_totals() -> dict[str, int]:
     try:
         with library_connection("gemma") as conn:
             rows = conn.execute(
-                "SELECT IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
+                "SELECT COALESCE(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
                 " FROM documents GROUP BY f"
             ).fetchall()
         totals: dict[str, int] = {}
@@ -741,14 +741,14 @@ def api_learning_ladder() -> dict[str, Any]:
     with library_connection("gemma") as conn:
         totals: dict[str, int] = {}
         for r in conn.execute(
-            "SELECT IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
+            "SELECT COALESCE(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
             " FROM documents GROUP BY f"
         ).fetchall():
             key = _norm_field(r["f"])
             totals[key] = totals.get(key, 0) + int(r["n"])
         loaded: dict[str, int] = {}
         for r in conn.execute(
-            "SELECT IFNULL(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
+            "SELECT COALESCE(NULLIF(TRIM(scientific_field), ''), 'unclassified') AS f, COUNT(1) AS n"
             " FROM documents d WHERE EXISTS (SELECT 1 FROM chunks c WHERE c.document_id = d.id) GROUP BY f"
         ).fetchall():
             key = _norm_field(r["f"])
@@ -769,22 +769,47 @@ def api_learning_ladder() -> dict[str, Any]:
             # mastery merges as the exam-count-weighted mean
             exams[key] = (n + int(r["n"]), (m * n + float(r["m"] or 0.0) * int(r["n"])) / (n + int(r["n"])))
 
+    cal_on = calibration_enabled()
+    cal_by_field: dict[str, tuple[int, float]] = {}
+    overall_cal_pct = 0.0
+    try:
+        cal_raw = _get_setting("calibration_report", "")
+        cal_rep = json.loads(cal_raw) if cal_raw else None
+        if isinstance(cal_rep, dict) and cal_rep.get("ok"):
+            if cal_rep.get("agreement_rate") is not None:
+                overall_cal_pct = round(100.0 * float(cal_rep["agreement_rate"]), 1)
+            for s in cal_rep.get("samples") or []:
+                if not isinstance(s, dict) or s.get("rag_grounding") is None:
+                    continue
+                sf = _norm_field(s.get("field"))
+                match_val = 1.0 if s.get("li_verdict") == s.get("rag_verdict") else float(s.get("rag_grounding") or 0.0)
+                cn, cm = cal_by_field.get(sf, (0, 0.0))
+                cal_by_field[sf] = (cn + 1, (cm * cn + match_val) / (cn + 1))
+    except Exception:
+        pass
+
     fields: list[dict[str, Any]] = []
     for field, total in totals.items():
         if field == "unclassified":
             continue  # §59 held out from learning accounting
         n_exams, avg_mastery = exams.get(field, (0, 0.0))
         with_chunks = loaded.get(field, 0)
+        cal_n, cal_score = cal_by_field.get(field, (0, 0.0))
+        field_cal_pct = (100.0 * cal_score) if (cal_on and cal_n > 0) else 0.0
         pcts = {
             "datasets_loaded": 100.0 * with_chunks / corpus_total if corpus_total else 0.0,
             "datasets_learned": 100.0 * n_exams / total if total else 0.0,
             "formative_assessment": 100.0 * avg_mastery,
-            "calibration": 0.0,
+            "calibration": field_cal_pct,
             "hle": 0.0,
             "workbench": 0.0,
         }
         instrument_notes = {
-            "calibration": "instrument paused (38) — opens on the rig",
+            "calibration": (
+                f"Qualia-Lab calibration active ({cal_n} sample(s) graded)"
+                if (cal_on and cal_n > 0)
+                else ("Qualia-Lab calibration enabled — ready to run" if cal_on else "instrument paused (38) — toggle Calibration: On to enable")
+            ),
             "hle": "instrument deferred (71c) — procurement gate",
             "workbench": "instrument waits for the rig",
         }
@@ -792,7 +817,7 @@ def api_learning_ladder() -> dict[str, Any]:
             "datasets_loaded": with_chunks,
             "datasets_learned": n_exams,
             "formative_assessment": n_exams * avg_mastery,
-            "calibration": 0.0,
+            "calibration": cal_n * cal_score if cal_on else 0.0,
             "hle": 0.0,
             "workbench": 0.0,
         }
@@ -858,7 +883,7 @@ def api_learning_ladder() -> dict[str, Any]:
         "loaded_percent": round(100.0 * sum(loaded.values()) / corpus_total, 1) if corpus_total else 0.0,
         "learned_percent": round(100.0 * assessed_total / classified_total, 1) if classified_total else 0.0,
         "formative_percent": round(100.0 * mastery_mass_total / assessed_total, 1) if assessed_total else 0.0,
-        "calibration_percent": 0.0,
+        "calibration_percent": overall_cal_pct if cal_on else 0.0,
         "hle_percent": 0.0,
         "workbench_percent": 0.0,
     }
@@ -1015,7 +1040,7 @@ def _rag_answer_light(question: str, scientific_field: str | None) -> dict[str, 
                 },
             ],
             temperature=0.2,
-            max_tokens=600,
+            max_tokens=2048,
         )
     except Exception:
         return None

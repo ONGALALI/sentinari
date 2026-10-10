@@ -244,7 +244,7 @@ def _generate_benefits(pattern: dict[str, Any]) -> str:
             ),
         },
     ]
-    text = get_gateway().chat(messages, temperature=0.2, max_tokens=320)
+    text = get_gateway().chat(messages, temperature=0.2, max_tokens=1536)
     return str(text or "").strip()[:2000]
 
 

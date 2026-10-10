@@ -24,13 +24,17 @@ class PostgresRowWrapper:
 
     def __getitem__(self, key: Any) -> Any:
         try:
-            return self._row[key]
+            val = self._row[key]
         except (KeyError, IndexError):
             if key == "embedding_json" and "embedding" in self._row:
-                return self._row["embedding"]
-            if key == "document_metadata_json" and "document_metadata" in self._row:
-                return self._row["document_metadata"]
-            raise
+                val = self._row["embedding"]
+            elif key == "document_metadata_json" and "document_metadata" in self._row:
+                val = self._row["document_metadata"]
+            else:
+                raise
+        if hasattr(val, "isoformat"):
+            return val.isoformat()
+        return val
 
     def get(self, key: Any, default: Any = None) -> Any:
         try:
@@ -128,7 +132,8 @@ class PostgresConnectionWrapper:
             )
         s = re.sub(r"\bINTEGER PRIMARY KEY AUTOINCREMENT\b", "SERIAL PRIMARY KEY", s, flags=re.IGNORECASE)
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
-        s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP::text", s, flags=re.IGNORECASE)
+        s = re.sub(r"\bCASE\s+WHEN\b(.*?)\bdatetime\('now'\)(.*?)\bEND\b", r"CASE WHEN\1CURRENT_TIMESTAMP::text\2END", s, flags=re.IGNORECASE | re.DOTALL)
+        s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", s, flags=re.IGNORECASE)
         s = re.sub(r"\bIFNULL\s*\(", "COALESCE(", s, flags=re.IGNORECASE)
         s = re.sub(
             r"\bGROUP_CONCAT\s*\(\s*DISTINCT\s+([^)]+)\)",

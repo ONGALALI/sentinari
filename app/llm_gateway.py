@@ -554,26 +554,48 @@ class VertexAIProvider:
                     "parts": [{"text": content}],
                 }
             )
+        effective_max_tokens = (
+            max(int(max_tokens or 768), 2048) if "gemma" in self.chat_model_id.lower() else int(max_tokens or 768)
+        )
         payload: dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": max_tokens,
+                "maxOutputTokens": effective_max_tokens,
             },
         }
         if system_text:
             payload["systemInstruction"] = {"parts": [{"text": system_text}]}
 
         url = f"{self.base}/models/{self.chat_model_id}:generateContent"
-        resp = requests.post(
-            url,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=payload,
-            verify=False,
-            timeout=self.timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json() or {}
+        import time as _time
+
+        last_exc: Exception | None = None
+        data: dict[str, Any] = {}
+        for attempt in range(3):
+            try:
+                resp = requests.post(
+                    url,
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    json=payload,
+                    verify=False,
+                    timeout=self.timeout,
+                )
+                if resp.status_code in (429, 500, 502, 503, 504) and attempt < 2:
+                    _time.sleep(1.5 * (attempt + 1))
+                    continue
+                resp.raise_for_status()
+                data = resp.json() or {}
+                last_exc = None
+                break
+            except Exception as ex:
+                last_exc = ex
+                if attempt < 2:
+                    _time.sleep(1.5 * (attempt + 1))
+                else:
+                    raise
+        if last_exc is not None:
+            raise last_exc
         candidates = data.get("candidates") or []
         if not candidates:
             raise LLMGatewayError(f"Vertex AI: empty response from {self.chat_model}")
