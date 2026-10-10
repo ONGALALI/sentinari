@@ -18,19 +18,52 @@ except ImportError:
     psycopg2 = None
 
 
+class PostgresRowWrapper:
+    def __init__(self, row: Any) -> None:
+        self._row = row
+
+    def __getitem__(self, key: Any) -> Any:
+        try:
+            return self._row[key]
+        except (KeyError, IndexError):
+            if key == "embedding_json" and "embedding" in self._row:
+                return self._row["embedding"]
+            if key == "document_metadata_json" and "document_metadata" in self._row:
+                return self._row["document_metadata"]
+            raise
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except (KeyError, IndexError):
+            return default
+
+    def keys(self) -> Any:
+        return self._row.keys()
+
+    def __contains__(self, key: Any) -> bool:
+        return (
+            key in self._row
+            or (key == "embedding_json" and "embedding" in self._row)
+            or (key == "document_metadata_json" and "document_metadata" in self._row)
+        )
+
+
 class PostgresCursorWrapper:
     def __init__(self, cursor: Any, lastrowid: Any = None) -> None:
         self._cur = cursor
         self._lastrowid = lastrowid
 
     def fetchone(self) -> Any:
-        return self._cur.fetchone()
+        row = self._cur.fetchone()
+        return PostgresRowWrapper(row) if row is not None else None
 
     def fetchall(self) -> list[Any]:
-        return self._cur.fetchall()
+        return [PostgresRowWrapper(r) for r in self._cur.fetchall()]
 
     def fetchmany(self, size: int | None = None) -> list[Any]:
-        return self._cur.fetchmany(size) if size else self._cur.fetchmany()
+        rows = self._cur.fetchmany(size) if size else self._cur.fetchmany()
+        return [PostgresRowWrapper(r) for r in rows]
 
     @property
     def rowcount(self) -> int:
@@ -45,7 +78,8 @@ class PostgresCursorWrapper:
         return self._cur.description
 
     def __iter__(self) -> Any:
-        return iter(self._cur)
+        for r in self._cur:
+            yield PostgresRowWrapper(r)
 
 
 class DummyCursor:
@@ -96,16 +130,7 @@ class PostgresConnectionWrapper:
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
         s = re.sub(r"\bCASE\s+WHEN\b(.*?)\bdatetime\('now'\)(.*?)\bEND\b", r"CASE WHEN\1CURRENT_TIMESTAMP::text\2END", s, flags=re.IGNORECASE | re.DOTALL)
         s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", s)
-        m_sel = re.match(r"^(SELECT\s+)(.*?)(\s+FROM\s+.*)$", s, flags=re.IGNORECASE | re.DOTALL)
-        if m_sel:
-            select_part = m_sel.group(1)
-            cols = m_sel.group(2)
-            rest = m_sel.group(3)
-            cols = re.sub(r"\b(c\.)?embedding_json\b(\s+AS\s+\w+)?", r"\g<1>embedding AS embedding_json", cols, flags=re.IGNORECASE)
-            rest = re.sub(r"\bembedding_json\b", "embedding", rest)
-            s = select_part + cols + rest
-        else:
-            s = re.sub(r"\bembedding_json\b", "embedding", s)
+        s = re.sub(r"\bembedding_json\b", "embedding", s)
         if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
             s = re.sub(r"\bADD\s+COLUMN\b", "ADD COLUMN IF NOT EXISTS", s, flags=re.IGNORECASE)
         if re.search(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", s, re.IGNORECASE):
@@ -136,11 +161,15 @@ class PostgresConnectionWrapper:
                 self._conn.rollback()
                 cur = self._conn.cursor(cursor_factory=DictCursor)
 
-        if params is not None:
-            cur.execute(clean_sql, params)
-        else:
-            cur.execute(clean_sql)
-        return PostgresCursorWrapper(cur, lastrowid=lastrowid)
+        try:
+            if params is not None:
+                cur.execute(clean_sql, params)
+            else:
+                cur.execute(clean_sql)
+            return PostgresCursorWrapper(cur, lastrowid=lastrowid)
+        except Exception:
+            self._conn.rollback()
+            raise
 
     def executescript(self, sql: str) -> None:
         clean = re.sub(r"--[^\n]*", "", sql)
