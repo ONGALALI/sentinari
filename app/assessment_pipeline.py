@@ -326,9 +326,10 @@ def record_hle_run(correct: int, total: int, detail: list[dict] | None = None) -
 
 def _normalize(text: str) -> str:
     """Normalize for grading: articles dropped, chess check/mate symbols
-    stripped, punctuation collapsed. Case and punctuation never change an
-    answer's truth; a genuinely different answer must still fail."""
+    stripped, LaTeX subscript/superscript glue collapsed (e.g. I_h -> ih),
+    punctuation collapsed."""
     t = str(text or "").lower().replace("\u2019", "'")
+    t = re.sub(r"(?<=[a-z0-9])[_^]+(?=[a-z0-9])", "", t)
     t = re.sub(r"\b(?:a|an|the)\b", " ", t)
     t = re.sub(r"[+#]", " ", t)
     t = re.sub(r"[^a-z0-9 ]+", " ", t)
@@ -337,7 +338,7 @@ def _normalize(text: str) -> str:
 
 def _grade_answer(expected: str, produced: str) -> dict[str, Any]:
     """Local, honest grader: normalized exact match, containment, else token
-    overlap. HLE expected answers are short ('42', 'B', 'Rxf3, Rf1#') while
+    overlap. HLE expected answers are short ('42', 'B', 'Ih', 'Rxf3, Rf1#') while
     the engine wraps them in prose ('The answer is 42.') — containment
     recognizes that without ever marking a DIFFERENT answer correct."""
     exp, got = _normalize(expected), _normalize(produced)
@@ -354,8 +355,33 @@ def _grade_answer(expected: str, produced: str) -> dict[str, Any]:
     return {"correct": overlap >= 0.8, "match": "overlap", "overlap": round(overlap, 3)}
 
 
+def _retrieve_hle_context(question: str) -> tuple[str, list[str]]:
+    """Consult the uploaded Sentinari Knowledge Library for relevant chunks."""
+    try:
+        from .retrieval import search_chunks
+
+        hits = search_chunks(None, query=question, limit=4)
+        if not hits:
+            return "", []
+        excerpts: list[str] = []
+        citations: list[str] = []
+        for h in hits[:4]:
+            title = str(h.get("title") or "Library Document").strip()
+            snippet = str(h.get("content") or "").strip()[:700]
+            if snippet:
+                excerpts.append(f"[{title}]: {snippet}")
+                if title not in citations:
+                    citations.append(title[:80])
+        return "\n\n".join(excerpts), citations
+    except Exception:
+        return "", []
+
+
 def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
-    """Stage-3 assessor: ask the engine a sample of HLE questions."""
+    """Stage-3 assessor: ask the engine a sample of HLE questions, consulting
+    the uploaded Sentinari Knowledge Library first."""
+    from concurrent.futures import ThreadPoolExecutor
+
     sample_size = max(1, min(100, int(sample_size)))
 
     chat_fn = None
@@ -396,30 +422,40 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
             "detail": f"Failed to load HLE questions: {ds_ex}",
         }
 
-    detail: list[dict] = []
-    correct = 0
-    total = 0
-    for i, item in zip(range(sample_size), dataset):
+    batch: list[tuple[int, str, str, str]] = []
+    for i, item in enumerate(dataset):
+        if len(batch) >= sample_size:
+            break
         question = str(item.get("question") or "")
         expected = str(item.get("answer") or "")
         category = str(item.get("category") or item.get("field") or "")
         if not question or not expected:
             continue
+        batch.append((i, question, expected, category))
+
+    def _eval_one(entry: tuple[int, str, str, str]) -> dict[str, Any]:
+        idx, question, expected, category = entry
+        context_text, citations = _retrieve_hle_context(question)
+        if context_text:
+            user_prompt = (
+                f"Reference excerpts from the Sentinari Knowledge Library:\n{context_text}\n\n"
+                f"Question: {question[:4000]}\n\n"
+                "Using the library excerpts above (and your scientific knowledge), give ONLY the concise final answer."
+            )
+        else:
+            user_prompt = question[:4000]
         try:
             produced = chat_fn(
                 [
                     {"role": "system", "content": "Answer directly and concisely. Give the final answer only."},
-                    {"role": "user", "content": question[:4000]},
+                    {"role": "user", "content": user_prompt},
                 ]
             )
         except Exception as ex:
-            detail.append({"index": i, "category": category, "error": str(ex)[:200]})
-            continue
+            return {"index": idx, "category": category, "error": str(ex)[:200], "sources_used": len(citations), "citations": citations}
         verdict = _grade_answer(expected, produced)
-        correct += 1 if verdict["correct"] else 0
-        total += 1
-        detail.append({
-            "index": i,
+        return {
+            "index": idx,
             "category": category,
             "match": verdict["match"],
             "overlap": verdict["overlap"],
@@ -427,9 +463,16 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
             "question": question[:600],
             "expected": expected[:300],
             "produced": str(produced or "")[:600],
-        })
-        if total >= sample_size:
-            break
+            "sources_used": len(citations),
+            "citations": citations,
+        }
+
+    with ThreadPoolExecutor(max_workers=min(5, max(1, len(batch)))) as pool:
+        detail = list(pool.map(_eval_one, batch))
+
+    gradable = [d for d in detail if "correct" in d]
+    correct = sum(1 for d in gradable if d["correct"])
+    total = len(gradable)
     state = record_hle_run(correct, total, detail) if total else {"ok": False, "reason": "no_gradable_questions"}
     state["sample"] = {"requested": sample_size, "graded": total, "correct": correct, "engine": engine_name}
     return state

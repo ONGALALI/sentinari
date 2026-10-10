@@ -462,6 +462,7 @@
       const meta = [];
       if (it && it.category) meta.push(esc(it.category));
       if (it && it.match) meta.push('match: ' + esc(it.match));
+      if (it && typeof it.sources_used === 'number') meta.push('library sources: ' + it.sources_used);
       if (it && typeof it.overlap === 'number' && it.overlap < 1) meta.push('overlap: ' + Math.round(100 * it.overlap) + '%');
       if (it && it.error !== undefined) meta.push('engine error: ' + esc(it.error));
       return '<tr>'

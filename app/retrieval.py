@@ -91,9 +91,42 @@ def _coding_source_boost(row: dict[str, Any], *, settings: dict[str, Any] | None
     return boost
 
 
+def _pg_query_tokens(query: str) -> tuple[list[str], list[str]]:
+    stop = {
+        "the", "and", "for", "with", "that", "this", "what", "does", "how", "why",
+        "when", "where", "from", "into", "are", "was", "were", "which", "whose",
+        "whom", "have", "has", "had", "will", "would", "could", "should", "can",
+    }
+    generic = {
+        "point", "group", "value", "values", "number", "system", "state", "first",
+        "order", "table", "level", "model", "index", "total", "using", "given",
+        "under", "between", "within", "about", "after", "before",
+    }
+    tokens: list[str] = []
+    for raw in str(query or "").replace('"', " ").split():
+        token = "".join(ch for ch in raw if ch.isalnum()).strip().lower()
+        if len(token) < 2 or token in stop:
+            continue
+        if token not in tokens:
+            tokens.append(token)
+    specific = [
+        t for t in tokens
+        if t not in generic and (len(t) >= 5 or any(ch.isdigit() for ch in t))
+    ]
+    return tokens[:12], specific[:10]
+
+
+def _pg_tsquery_from_text(query: str) -> str:
+    tokens, specific = _pg_query_tokens(query)
+    chosen = specific if specific else tokens
+    if not chosen:
+        return ""
+    return " | ".join(chosen[:10])
+
+
 def search_chunks(
-    conn: sqlite3.Connection,
-    query: str,
+    conn: Any = None,
+    query: str = "",
     limit: int = 8,
     module: str | None = None,
     topic: str | None = None,
@@ -103,14 +136,33 @@ def search_chunks(
     query_embedding: list[float] | None = None,
     mode: str | None = None,
 ) -> list[dict[str, Any]]:
+    from .db import _get_pg_url, library_connection
+
+    coding_focus = _is_coding_focus(query, mode)
+    if _get_pg_url():
+        tsq = _pg_tsquery_from_text(query)
+        if not tsq:
+            return []
+        with library_connection("gemma") as pg_conn:
+            return _search_library_chunks_pg(
+                pg_conn,
+                tsq,
+                query=query,
+                limit=limit,
+                module=module,
+                topic=topic,
+                scientific_field=scientific_field,
+                vocational_discipline=vocational_discipline,
+                source_collection=source_collection,
+                query_embedding=query_embedding,
+                coding_focus=coding_focus,
+            )
+
     fts_query = _fts_query_from_text(query)
     if not fts_query:
         return []
-    coding_focus = _is_coding_focus(query, mode)
 
-    # Single-library retrieval: the Sentinel library holds every field
-    # (the former separate coding library was folded in).
-    from .library_router import library_path_for, field_boost_for
+    from .library_router import library_path_for
 
     lib_conn = sqlite3.connect(str(library_path_for()), timeout=15)
     lib_conn.row_factory = sqlite3.Row
@@ -130,6 +182,150 @@ def search_chunks(
         )
     finally:
         lib_conn.close()
+
+
+def _run_pg_fts_query(
+    conn: Any,
+    tsq: str,
+    *,
+    module: str | None,
+    topic: str | None,
+    scientific_field: str | None,
+    vocational_discipline: str | None,
+    source_collection: str | None,
+    candidate_cap: int,
+) -> list[dict[str, Any]]:
+    sql = """
+    SELECT
+        c.id AS chunk_id,
+        c.document_id AS document_id,
+        c.chunk_index AS chunk_index,
+        c.content AS content,
+        c.embedding_json AS embedding_json,
+        ts_rank_cd(to_tsvector('english'::regconfig, substring(c.content, 1, 100000)), to_tsquery('english'::regconfig, ?)) AS pg_rank,
+        d.source_id AS source_id,
+        d.title AS title,
+        d.source_type AS source_type,
+        d.source_url AS source_url,
+        d.source_path AS source_path,
+        d.authors AS authors,
+        d.publisher AS publisher,
+        d.published_date AS published_date,
+        d.module AS module,
+        d.topic AS topic,
+        d.scientific_field AS scientific_field,
+        d.vocational_discipline AS vocational_discipline,
+        d.source_collection AS source_collection,
+        d.priority AS priority
+    FROM chunks c
+    JOIN documents d ON d.id = c.document_id
+    WHERE to_tsvector('english'::regconfig, substring(c.content, 1, 100000)) @@ to_tsquery('english'::regconfig, ?)
+    """
+    args: list[Any] = [tsq, tsq]
+
+    if module:
+        sql += " AND COALESCE(d.module, '') = ?"
+        args.append(module.strip())
+    if topic:
+        sql += " AND COALESCE(d.topic, '') = ?"
+        args.append(topic.strip())
+    if scientific_field:
+        sql += " AND COALESCE(d.scientific_field, '') = ?"
+        args.append(scientific_field.strip())
+    if vocational_discipline:
+        sql += " AND COALESCE(d.vocational_discipline, '') = ?"
+        args.append(vocational_discipline.strip())
+    if source_collection:
+        sql += " AND COALESCE(d.source_collection, '') = ?"
+        args.append(source_collection.strip())
+
+    sql += " ORDER BY pg_rank DESC LIMIT ?"
+    args.append(candidate_cap)
+    return [dict(r) for r in conn.execute(sql, tuple(args)).fetchall()]
+
+
+def _search_library_chunks_pg(
+    conn: Any,
+    tsq: str,
+    *,
+    query: str,
+    limit: int,
+    module: str | None,
+    topic: str | None,
+    scientific_field: str | None,
+    vocational_discipline: str | None,
+    source_collection: str | None,
+    query_embedding: list[float] | None,
+    coding_focus: bool,
+) -> list[dict[str, Any]]:
+    from .library_router import field_boost_for
+
+    tokens, specific = _pg_query_tokens(query)
+    candidate_cap = max(1, min(160, limit * (12 if coding_focus else 8)))
+    rows = _run_pg_fts_query(
+        conn,
+        tsq,
+        module=module,
+        topic=topic,
+        scientific_field=scientific_field,
+        vocational_discipline=vocational_discipline,
+        source_collection=source_collection,
+        candidate_cap=candidate_cap,
+    )
+    if not rows and specific and len(tokens) > len(specific):
+        fallback_tsq = " | ".join(tokens[:10])
+        rows = _run_pg_fts_query(
+            conn,
+            fallback_tsq,
+            module=module,
+            topic=topic,
+            scientific_field=scientific_field,
+            vocational_discipline=vocational_discipline,
+            source_collection=source_collection,
+            candidate_cap=candidate_cap,
+        )
+    if not rows:
+        return rows
+
+    specific_set = set(specific)
+    for row in rows:
+        rank = float(row.get("pg_rank") or 0.0)
+        title_lc = str(row.get("title") or "").lower()
+        content_lc = str(row.get("content") or "")[:6000].lower()
+        coverage_bonus = 0.0
+        for tok in tokens:
+            is_spec = tok in specific_set
+            if tok in title_lc:
+                coverage_bonus += 2.5 if is_spec else 0.6
+            if tok in content_lc:
+                coverage_bonus += 1.5 if is_spec else 0.3
+        score = max(0.05, rank) + coverage_bonus
+        row["lexical_score"] = score
+        row["relevance_score"] = score
+        if coding_focus:
+            row["relevance_score"] *= _coding_source_boost(row)
+        row["relevance_score"] *= field_boost_for(row.get("scientific_field"))
+
+    if query_embedding:
+        for row in rows:
+            emb_raw = row.get("embedding_json")
+            vector_score = 0.0
+            if emb_raw:
+                try:
+                    emb = json.loads(str(emb_raw))
+                    if isinstance(emb, list):
+                        vector_score = _cosine_similarity(query_embedding, [float(v) for v in emb])
+                except Exception:
+                    vector_score = 0.0
+            row["relevance_score"] = (0.65 * row["relevance_score"]) + (0.35 * max(-1.0, min(1.0, vector_score)))
+
+    for row in rows:
+        row.pop("embedding_json", None)
+        if not coding_focus and _is_noise_source(row.get("source_path")):
+            row["relevance_score"] *= 0.75
+
+    rows.sort(key=lambda r: r.get("relevance_score", 0.0), reverse=True)
+    return rows[: max(1, min(100, limit))]
 
 
 def _search_library_chunks(
@@ -215,13 +411,11 @@ def _search_library_chunks(
     if not rows:
         return rows
 
-    # Lexical baseline score: lower bm25 is better. Convert to monotonic relevance.
     for row in rows:
         lexical = float(row.get("lexical_score") or 0.0)
         row["relevance_score"] = 1.0 / (1.0 + max(0.0, lexical))
         if coding_focus:
             row["relevance_score"] *= _coding_source_boost(row)
-        # Sentinel focus profile: boost the fields the operator prioritized.
         row["relevance_score"] *= field_boost_for(row.get("scientific_field"))
 
     if query_embedding:
@@ -235,10 +429,8 @@ def _search_library_chunks(
                         vector_score = _cosine_similarity(query_embedding, [float(v) for v in emb])
                 except Exception:
                     vector_score = 0.0
-            # Weighted blend with lexical baseline.
             row["relevance_score"] = (0.65 * row["relevance_score"]) + (0.35 * max(-1.0, min(1.0, vector_score)))
 
-    # Hide large internal vectors from API-facing payloads.
     for row in rows:
         row.pop("embedding_json", None)
         if not coding_focus and _is_noise_source(row.get("source_path")):
