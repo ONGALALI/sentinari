@@ -37,12 +37,21 @@ def _load_fields(fields_json: str) -> list[str]:
 
 
 def _container_patterns(container_key: str) -> list[dict[str, Any]]:
-    """All patterns whose field combination matches the container key."""
-    wanted = [f.strip().lower() for f in container_key.split("+") if f.strip()]
+    """All patterns whose canonical field combination matches the container key."""
+    from .sentinel_domains import sanitize_pattern_fields
+
+    wanted = sorted(sanitize_pattern_fields(container_key))
+    if not wanted:
+        wanted = sorted([f.strip().lower() for f in container_key.split("+") if f.strip()])
     out: list[dict[str, Any]] = []
     for row in list_patterns(status="", limit=500):
-        fields = [f.lower() for f in _load_fields(str(row.get("fields_involved") or "[]"))]
-        if wanted and sorted(fields) == sorted(wanted):
+        fields = sorted(
+            sanitize_pattern_fields(
+                row.get("fields_involved"),
+                fallback_text=f"{row.get('title') or ''} {row.get('statement') or ''}",
+            )
+        )
+        if wanted and fields == wanted:
             out.append(row)
     return out
 
@@ -62,40 +71,72 @@ def _library_doc(document_id: int) -> dict[str, Any]:
         return {}
 
 
-def _container_sources(fields: list[str]) -> list[dict[str, Any]]:
-    """Data sources feeding the container's fields (repos, datasets, works)."""
+def _container_sources(fields: list[str], evidence_doc_ids: list[int] | None = None) -> list[dict[str, Any]]:
+    """Data sources feeding the container's fields and pattern evidence (repos, datasets, works)."""
     from .db import library_connection
 
     out: list[dict[str, Any]] = []
-    if not fields:
-        return out
+    seen_names: set[str] = set()
     try:
-        marks = ",".join("?" for _ in fields)
         with library_connection("gemma") as conn:
-            rows = conn.execute(
-                f"""
-                SELECT source_type, COALESCE(module, '') AS module, COALESCE(topic, '') AS topic,
-                       COALESCE(source_url, '') AS url, COUNT(1) AS files
-                FROM documents
-                WHERE LOWER(COALESCE(scientific_field, '')) IN ({marks})
-                GROUP BY source_type, module, topic, source_url
-                ORDER BY files DESC
-                LIMIT 40
-                """,
-                fields,
-            ).fetchall()
-        for r in rows:
-            item = dict(r)
-            name = str(item.get("topic") or item.get("module") or "").strip()
-            stype = str(item.get("source_type") or "").strip()
-            out.append(
-                {
-                    "source_type": stype or "library document",
-                    "name": name or "(unnamed source)",
-                    "url": str(item.get("url") or ""),
-                    "files": int(item.get("files") or 0),
-                }
-            )
+            if evidence_doc_ids:
+                marks_ev = ",".join("?" for _ in evidence_doc_ids)
+                ev_rows = conn.execute(
+                    f"""
+                    SELECT id, title, source_type, COALESCE(source_url, '') AS url, COALESCE(scientific_field, '') AS field
+                    FROM documents
+                    WHERE id IN ({marks_ev})
+                    ORDER BY id DESC
+                    """,
+                    list(evidence_doc_ids),
+                ).fetchall()
+                for r in ev_rows:
+                    item = dict(r)
+                    title = str(item.get("title") or "").strip() or f"Dataset #{item.get('id')}"
+                    stype = str(item.get("source_type") or "library document").strip()
+                    url = str(item.get("url") or f"/api/skill-review/documents/{int(item['id'])}/download").strip()
+                    key = title.lower()
+                    if key not in seen_names:
+                        seen_names.add(key)
+                        out.append(
+                            {
+                                "source_type": stype,
+                                "name": title,
+                                "url": url,
+                                "files": 1,
+                            }
+                        )
+            if fields:
+                marks = ",".join("?" for _ in fields)
+                rows = conn.execute(
+                    f"""
+                    SELECT source_type, COALESCE(module, '') AS module, COALESCE(topic, '') AS topic,
+                           MAX(title) AS sample_title, COALESCE(source_url, '') AS url, COUNT(1) AS files
+                    FROM documents
+                    WHERE LOWER(COALESCE(scientific_field, '')) IN ({marks})
+                    GROUP BY source_type, module, topic, source_url
+                    ORDER BY files DESC
+                    LIMIT 30
+                    """,
+                    fields,
+                ).fetchall()
+                for r in rows:
+                    item = dict(r)
+                    name = str(item.get("topic") or item.get("module") or "").strip()
+                    if not name or name in {"sentinel-upload", "uploaded-document", "openalex"}:
+                        name = str(item.get("sample_title") or name or "Sentinel Library Dataset").strip()
+                    stype = str(item.get("source_type") or "").strip()
+                    key = name.lower()
+                    if key not in seen_names:
+                        seen_names.add(key)
+                        out.append(
+                            {
+                                "source_type": stype or "library document",
+                                "name": name,
+                                "url": str(item.get("url") or ""),
+                                "files": int(item.get("files") or 0),
+                            }
+                        )
     except Exception:
         pass
     return out
@@ -219,22 +260,30 @@ def build_report(
     pattern_id: int | None = None,
 ) -> dict[str, Any]:
     """Collect all data for a container-level or single-pattern report."""
+    from .sentinel_domains import sanitize_pattern_fields
+
     ensure_pattern_store()
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     if pattern_id is not None:
         pattern = get_pattern(int(pattern_id))
         if pattern is None:
             raise ValueError(f"Pattern {pattern_id} not found.")
-        fields = _load_fields(str(pattern.get("fields_involved") or "[]"))
+        fields = sanitize_pattern_fields(
+            pattern.get("fields_involved"),
+            fallback_text=f"{pattern.get('title') or ''} {pattern.get('statement') or ''}",
+        )
         patterns = [pattern]
         name = f"Pattern: {pattern.get('title')}"
     else:
-        fields = [f.strip() for f in container_key.split("+") if f.strip()]
+        fields = sorted(sanitize_pattern_fields(container_key))
+        if not fields:
+            fields = [f.strip() for f in container_key.split("+") if f.strip()]
         patterns = _container_patterns(container_key)
         name = _container_name(fields)
 
     pattern_blocks: list[dict[str, Any]] = []
     all_refs: OrderedDict[str, str] = OrderedDict()
+    ev_doc_ids: list[int] = []
     for p in patterns:
         # list_patterns rows omit evidence; fetch the full record for citations.
         full = get_pattern(int(p.get("id") or 0))
@@ -245,13 +294,16 @@ def build_report(
             all_refs[r.lower()] = r
         evidence = []
         for e in (p.get("evidence") or [])[:3]:
+            did = int((e or {}).get("document_id") or 0)
+            if did > 0 and did not in ev_doc_ids:
+                ev_doc_ids.append(did)
             text = str((e or {}).get("chunk_text") or "").strip()
             if text:
                 evidence.append(text[:600])
-        try:
-            fields_involved = _load_fields(str(p.get("fields_involved") or "[]"))
-        except Exception:
-            fields_involved = []
+        fields_involved = sanitize_pattern_fields(
+            p.get("fields_involved"),
+            fallback_text=f"{p.get('title') or ''} {p.get('statement') or ''}",
+        )
         pattern_blocks.append(
             {
                 "id": int(p.get("id") or 0),
@@ -267,7 +319,7 @@ def build_report(
             }
         )
 
-    sources = _container_sources([f.lower() for f in fields]) if not pattern_id else []
+    sources = _container_sources([f.lower() for f in fields], evidence_doc_ids=ev_doc_ids)
     return {
         "title": name,
         "fields": fields,

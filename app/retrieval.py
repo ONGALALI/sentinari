@@ -239,8 +239,20 @@ def _run_pg_fts_query(
         sql += " AND COALESCE(d.topic, '') = ?"
         args.append(topic.strip())
     if scientific_field:
-        sql += " AND COALESCE(d.scientific_field, '') = ?"
-        args.append(scientific_field.strip())
+        from .sentinel_domains import resolve_domain_or_field_filter
+
+        d_slug, f_slugs = resolve_domain_or_field_filter(scientific_field)
+        if d_slug and f_slugs:
+            marks = ",".join("?" for _ in f_slugs)
+            sql += f" AND (REPLACE(LOWER(COALESCE(d.scientific_field, '')), ' ', '-') IN ({marks}) OR LOWER(COALESCE(d.domain, '')) = ?)"
+            args.extend([*f_slugs, d_slug])
+        elif f_slugs:
+            marks = ",".join("?" for _ in f_slugs)
+            sql += f" AND REPLACE(LOWER(COALESCE(d.scientific_field, '')), ' ', '-') IN ({marks})"
+            args.extend(f_slugs)
+        else:
+            sql += " AND LOWER(COALESCE(d.scientific_field, '')) = LOWER(?)"
+            args.append(scientific_field.strip())
     if vocational_discipline:
         sql += " AND COALESCE(d.vocational_discipline, '') = ?"
         args.append(vocational_discipline.strip())
@@ -303,8 +315,20 @@ def _run_pg_vector_query(
         sql += " AND COALESCE(d.topic, '') = ?"
         args.append(topic.strip())
     if scientific_field:
-        sql += " AND COALESCE(d.scientific_field, '') = ?"
-        args.append(scientific_field.strip())
+        from .sentinel_domains import resolve_domain_or_field_filter
+
+        d_slug, f_slugs = resolve_domain_or_field_filter(scientific_field)
+        if d_slug and f_slugs:
+            marks = ",".join("?" for _ in f_slugs)
+            sql += f" AND (REPLACE(LOWER(COALESCE(d.scientific_field, '')), ' ', '-') IN ({marks}) OR LOWER(COALESCE(d.domain, '')) = ?)"
+            args.extend([*f_slugs, d_slug])
+        elif f_slugs:
+            marks = ",".join("?" for _ in f_slugs)
+            sql += f" AND REPLACE(LOWER(COALESCE(d.scientific_field, '')), ' ', '-') IN ({marks})"
+            args.extend(f_slugs)
+        else:
+            sql += " AND LOWER(COALESCE(d.scientific_field, '')) = LOWER(?)"
+            args.append(scientific_field.strip())
     if vocational_discipline:
         sql += " AND COALESCE(d.vocational_discipline, '') = ?"
         args.append(vocational_discipline.strip())

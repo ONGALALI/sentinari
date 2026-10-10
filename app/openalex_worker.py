@@ -255,9 +255,12 @@ def list_fields() -> list[dict[str, Any]]:
     return fields
 
 
-def _resolve_field_meta(field: str) -> dict[str, Any]:
+def _resolve_field_meta(field: str, fallback_text: str = "") -> dict[str, Any]:
     """Return the SENTINEL_DOMAINS registry entry for a field (no DB access)."""
-    wanted = slugify(field)
+    from .sentinel_domains import sanitize_field_and_domain
+
+    f_slug, _ = sanitize_field_and_domain(field, fallback_text=fallback_text)
+    wanted = f_slug or slugify(field)
     for item in list_fields():
         if item["field_slug"] == wanted or slugify(item["field_name"]) == wanted:
             return item
@@ -290,6 +293,10 @@ def _work_artifacts(work: dict[str, Any]) -> dict[str, Any]:
     year = work.get("publication_year")
     cited_by = int(work.get("cited_by_count") or 0)
     is_oa = bool(work.get("open_access", {}).get("is_oa"))
+    primary_topic = work.get("primary_topic") if isinstance(work.get("primary_topic"), dict) else {}
+    oa_field = str((primary_topic.get("field") or {}).get("display_name") or "").strip()
+    oa_subfield = str((primary_topic.get("subfield") or {}).get("display_name") or "").strip()
+    oa_topic = str(primary_topic.get("display_name") or "").strip()
 
     return {
         "openalex_id": str(work.get("id") or ""),
@@ -311,6 +318,9 @@ def _work_artifacts(work: dict[str, Any]) -> dict[str, Any]:
             or ""
         ),
         "abstract": _work_abstract(work)[:1200],
+        "oa_field": oa_field,
+        "oa_subfield": oa_subfield,
+        "oa_topic": oa_topic,
     }
 
 
@@ -342,30 +352,28 @@ def search_openalex_works(
     from_year: int | None = None,
 ) -> dict[str, Any]:
     """Search OpenAlex works and return review-ready candidates."""
+    from .sentinel_domains import sanitize_field_and_domain
+
     query = str(query or "").strip()
     if len(query) < 2:
         raise ValueError("Provide a research topic query of at least 2 characters.")
     limit = max(1, min(25, int(limit or 12)))
 
     field_meta: dict[str, Any] | None = None
-    if field:
-        field_meta = _resolve_field_meta(field)
+    try:
+        field_meta = _resolve_field_meta(field, fallback_text=query)
+    except Exception:
+        field_meta = None
 
-    # The query is used exactly as provided — the UI sends the field's own name
-    # (e.g. "Physics") or whatever topic the operator typed. No extra
-    # sub-science keywords are appended to the search string.
     search_text = query
     filters: list[str] = []
     if open_access_only:
         filters.append("is_oa:true")
     if OA_ENGLISH_ONLY:
-        # Server-side English filter — non-English works never reach the lineup.
         filters.append("language:en")
     if from_year:
         filters.append(f"from_publication_date:{from_year}-01-01")
     else:
-        # Owner directive (§22): recent scholarship leads the lineup — the
-        # default window is 2020 to current. Pass from_year to widen it.
         filters.append("from_publication_date:2020-01-01")
     if min_citations and min_citations > 0:
         filters.append(f"cited_by_count:>{int(min_citations)}")
@@ -373,9 +381,10 @@ def search_openalex_works(
     params = _params(
         {
             "search": search_text,
-            "per-page": limit,        "select": "id,doi,title,display_name,publication_year,cited_by_count,"
-        "open_access,best_oa_location,primary_location,authorships,abstract_inverted_index,language",
-    }
+            "per-page": min(25, max(limit, int(limit * 1.5))),
+            "select": "id,doi,title,display_name,publication_year,cited_by_count,"
+            "open_access,best_oa_location,primary_location,authorships,abstract_inverted_index,language,primary_topic",
+        }
     )
     if filters:
         params["filter"] = ",".join(filters)
@@ -389,31 +398,62 @@ def search_openalex_works(
     resp.raise_for_status()
     payload = resp.json()
 
+    target_slug = (field_meta or {}).get("field_slug", "")
+    target_domain = (field_meta or {}).get("domain_slug", "")
+    target_terms = set(
+        re.findall(
+            r"[a-z]{4,}",
+            f"{(field_meta or {}).get('field_name', '')} {(field_meta or {}).get('detail', '')}".lower(),
+        )
+    )
+
+    query_slug, query_domain = sanitize_field_and_domain("", fallback_text=query)
+
     candidates: list[dict[str, Any]] = []
     for work in payload.get("results") or []:
         if not isinstance(work, dict):
             continue
         if OA_ENGLISH_ONLY and not _is_english_work(work):
-            continue  # safety net if the server-side filter ever misses
+            continue
         artifact = _work_artifacts(work)
-        # The full record is kept so "load" can re-fetch metadata reliably.
+        # Skip title-only stubs that have neither a downloadable PDF nor a real abstract.
+        if not artifact.get("pdf_url") and len(str(artifact.get("abstract") or "").strip()) < 80:
+            continue
+        oa_topic_hint = f"{artifact.get('oa_field') or ''} {artifact.get('oa_subfield') or ''} {artifact.get('oa_topic') or ''}".strip()
+        work_text = f"{artifact.get('title') or ''} {artifact.get('abstract') or ''}"
+        inferred_slug, inferred_domain = sanitize_field_and_domain(oa_topic_hint, fallback_text=work_text)
+
+        # If the user's search query clearly targets a specific field (e.g. "Human Nervous System" -> neuroscience)
+        # and OpenAlex's own topic agrees, prefer that canonical field over a stale UI dropdown.
+        effective_target_slug = query_slug if (query_slug and query_slug == inferred_slug) else target_slug
+        effective_target_domain = query_domain if (query_slug and query_slug == inferred_slug) else target_domain
+
+        # Domain gate: if user requested a specific scientific field (e.g. physics),
+        # reject works that OpenAlex classifies into an unrelated domain (e.g. medicine
+        # or insurance) unless the title/abstract explicitly carries the target field's terms.
+        if effective_target_slug and inferred_domain and effective_target_domain and inferred_domain != effective_target_domain:
+            hay_lc = work_text.lower()
+            if not any(t in hay_lc for t in target_terms):
+                continue
+
+        resolved_slug = effective_target_slug or inferred_slug or target_slug or "physics"
+        resolved_domain = effective_target_domain or inferred_domain or target_domain or ""
         artifact["search_query"] = query
         artifact["source_type"] = "openalex"
-        artifact["scientific_field"] = (field_meta or {}).get("field_name", "")
-        artifact["field_slug"] = (field_meta or {}).get("field_slug", "")
+        artifact["scientific_field"] = resolved_slug
+        artifact["field_slug"] = resolved_slug
+        artifact["domain_slug"] = resolved_domain
         candidates.append(artifact)
+        if len(candidates) >= limit:
+            break
 
-    # Owner directive (§22): prioritized lineup — the most-cited works lead.
-    # The sort is stable, so within equal citation counts OpenAlex's own
-    # relevance ranking (query fit) is preserved. Candidates are already
-    # restricted to 2020-current by the server-side filter above.
     candidates.sort(key=lambda c: -int(c.get("cited_by_count") or 0))
 
     return {
         "ok": True,
         "query": query,
         "field": (field_meta or {}).get("field_name", field),
-        "field_slug": (field_meta or {}).get("field_slug", ""),
+        "field_slug": target_slug,
         "count": len(candidates),
         "candidates": candidates,
         "api_key_found": bool(load_openalex_api_key()),
@@ -468,27 +508,31 @@ def _download(url: str, deadline: float | None = None) -> tuple[str, bytes, str]
     return content_type, b"".join(chunks), str(resp.url or url)
 
 
-def _work_metadata_record(work: dict[str, Any]) -> str:
-    """Serialize a work as a readable JSON+text hybrid document for ingestion."""
+def _work_metadata_record(work: dict[str, Any], fallback_abstract: str = "") -> str:
+    """Serialize a work as clean scientific prose (never raw JSON metadata)."""
     artifact = _work_artifacts(work)
-    header = "\n".join(
-        [
-            f"Title: {artifact['title']}",
-            f"Authors: {artifact['authors'] or 'Unknown'}",
-            f"Year: {artifact['year'] or 'Unknown'}",
-            f"Source: {artifact['source_name'] or 'Unknown'}",
-            f"DOI: {artifact['doi'] or 'n/a'}",
-            f"OpenAlex ID: {artifact['openalex_id']}",
-            f"Cited by: {artifact['cited_by_count']}",
-            f"Open access: {'yes' if artifact['is_oa'] else 'no'}",
-            f"Landing page: {artifact['landing_page_url'] or 'n/a'}",
-            f"PDF: {artifact['pdf_url'] or 'n/a'}",
-            "",
-        ]
-    )
-    abstract = artifact.get("abstract") or "(no abstract available)"
-    body = json.dumps(work, ensure_ascii=False, indent=1)
-    return f"{header}Abstract:\n{abstract}\n\nOpenAlex record JSON:\n{body}"
+    concepts = [
+        str(c.get("display_name") or "").strip()
+        for c in (work.get("concepts") or work.get("topics") or [])
+        if isinstance(c, dict) and str(c.get("display_name") or "").strip()
+    ][:12]
+    header_lines = [
+        f"Title: {artifact['title'] or work.get('title') or 'Untitled'}",
+        f"Authors: {artifact['authors'] or work.get('authors') or 'Unknown'}",
+        f"Year: {artifact['year'] or work.get('year') or 'Unknown'}",
+        f"Source: {artifact['source_name'] or work.get('source_name') or 'Unknown'}",
+        f"DOI: {artifact['doi'] or work.get('doi') or 'n/a'}",
+        f"OpenAlex ID: {artifact['openalex_id'] or work.get('openalex_id') or ''}",
+        f"Cited by: {artifact['cited_by_count']}",
+        f"Open access: {'yes' if artifact['is_oa'] else 'no'}",
+        f"Landing page: {artifact['landing_page_url'] or work.get('landing_page_url') or 'n/a'}",
+        f"PDF: {artifact['pdf_url'] or work.get('pdf_url') or 'n/a'}",
+    ]
+    if concepts:
+        header_lines.append(f"Key Topics: {', '.join(concepts)}")
+    header = "\n".join(header_lines) + "\n\n"
+    abstract = str(artifact.get("abstract") or fallback_abstract or "").strip()
+    return f"{header}Abstract:\n{abstract}\n"
 
 
 def load_openalex_works_into_field(
@@ -511,6 +555,7 @@ def load_openalex_works_into_field(
     items: list[dict[str, Any]] = []
     total_bytes = 0
     work_records: dict[str, dict[str, Any]] = {}
+    per_file_metadata: dict[str, dict[str, Any]] = {}
 
     for index, work in enumerate(works, start=1):
         openalex_id = str(work.get("openalex_id") or "")
@@ -520,12 +565,7 @@ def load_openalex_works_into_field(
         load_progress.stage("download", f"Fetching work {index}/{len(works)}: {title[:60]}...")
         base = f"{slugify(title)[:60]}-{_safe_filename(openalex_id.split('/')[-1] or str(index))}"
         stored = False
-        load_started = time.monotonic()
-        # §39: per-attempt budget — previously all three attempts shared the
-        # whole 150s wall, so one stalling PDF host consumed it and the work
-        # died before the reliable fallbacks ever ran (the owner's 4–8
-        # reloads). Now each attempt gets its own slice and the always-
-        # reachable metadata record is almost never starved.
+        stored_path_for_work = ""
         per_attempt = max(30.0, _LOAD_WALL_BUDGET_SECONDS / 3.0)
 
         # Attempt 1: direct open-access PDF.
@@ -536,9 +576,10 @@ def load_openalex_works_into_field(
                 if _looks_like_pdf(blob):
                     pdf_path = target_root / f"{base}.pdf"
                     pdf_path.write_bytes(blob)
-                    stored_paths.append(str(pdf_path))
+                    stored_path_for_work = str(pdf_path)
+                    stored_paths.append(stored_path_for_work)
                     total_bytes += len(blob)
-                    items.append({"ok": True, "title": title, "kind": "pdf", "bytes": len(blob), "path": str(pdf_path)})
+                    items.append({"ok": True, "title": title, "kind": "pdf", "bytes": len(blob), "path": stored_path_for_work})
                     stored = True
             except Exception as ex:
                 items.append({"ok": False, "title": title, "note": f"PDF download failed ({str(ex)[:120]}); trying the landing page next."})
@@ -555,11 +596,6 @@ def load_openalex_works_into_field(
                     or blob[:512].lstrip().lower().startswith((b"<!doctype", b"<html"))
                     or b"<html" in blob[:2048].lower()
                 )
-                # §39: HTML quality gate — publisher landing pages are often
-                # JavaScript shells / cookie-walls that parse to menus and
-                # boilerplate. They used to be stored as "success", then
-                # digest to junk (or below minimum size -> failed load ->
-                # owner retries). Measure the real text BEFORE accepting.
                 html_text_len = 0
                 if is_html:
                     try:
@@ -571,17 +607,18 @@ def load_openalex_works_into_field(
                 if is_html and len(blob) > 2000 and html_text_len >= 1200:
                     html_path = target_root / f"{base}.html"
                     html_path.write_bytes(blob)
-                    stored_paths.append(str(html_path))
+                    stored_path_for_work = str(html_path)
+                    stored_paths.append(stored_path_for_work)
                     total_bytes += len(blob)
-                    items.append({"ok": True, "title": title, "kind": "html", "bytes": len(blob), "path": str(html_path)})
+                    items.append({"ok": True, "title": title, "kind": "html", "bytes": len(blob), "path": stored_path_for_work})
                     stored = True
                 elif is_html:
                     items.append({"ok": False, "title": title, "note": f"Landing page rejected (only {html_text_len} chars of real text — JS shell/menu wall); using the OpenAlex record instead."})
             except Exception as ex:
                 items.append({"ok": False, "title": title, "note": f"Landing page fetch failed ({str(ex)[:120]}); using the OpenAlex record instead."})
 
-        # Attempt 3: full OpenAlex record (abstract + metadata JSON) — always
-        # reachable and enough for the knowledge library on its own.
+        # Attempt 3: OpenAlex abstract record — ONLY if a real abstract exists!
+        # Never store a title-only stub with '(no abstract available)'.
         if not stored:
             try:
                 work_record: dict[str, Any]
@@ -595,15 +632,52 @@ def load_openalex_works_into_field(
                 else:
                     work_record = dict(work)
                     work_record.setdefault("title", title)
-                text_path = target_root / f"{base}.json.txt"
-                text_path.write_text(_work_metadata_record(work_record), encoding="utf-8")
-                stored_paths.append(str(text_path))
-                work_records[str(text_path)] = work_record
-                total_bytes += text_path.stat().st_size
-                items.append({"ok": True, "title": title, "kind": "metadata", "bytes": text_path.stat().st_size, "path": str(text_path)})
-                stored = True
+                rec_art = _work_artifacts(work_record)
+                fallback_abs = str(work.get("abstract") or work.get("description") or "").strip()
+                real_abs = str(rec_art.get("abstract") or fallback_abs).strip()
+                if len(real_abs) < 80:
+                    items.append(
+                        {
+                            "ok": False,
+                            "title": title,
+                            "error": "Publisher blocked PDF/HTML full text and OpenAlex has no abstract for this work — skipped so title-only stubs never enter the library.",
+                        }
+                    )
+                else:
+                    text_path = target_root / f"{base}.json.txt"
+                    text_path.write_text(_work_metadata_record(work_record, fallback_abstract=fallback_abs), encoding="utf-8")
+                    stored_path_for_work = str(text_path)
+                    stored_paths.append(stored_path_for_work)
+                    work_records[stored_path_for_work] = work_record
+                    total_bytes += text_path.stat().st_size
+                    items.append({"ok": True, "title": title, "kind": "metadata", "bytes": text_path.stat().st_size, "path": stored_path_for_work})
+                    stored = True
             except Exception as ex:
                 items.append({"ok": False, "title": title, "error": str(ex)})
+
+        if stored and stored_path_for_work:
+            rec_obj = work_records.get(stored_path_for_work) or work
+            art_meta = _work_artifacts(rec_obj) if "id" in rec_obj or "authorships" in rec_obj else {}
+            w_title = str(work.get("title") or art_meta.get("title") or title).strip()
+            w_authors = str(work.get("authors") or art_meta.get("authors") or "").strip()
+            w_year = str(work.get("year") or art_meta.get("year") or "").strip()
+            w_source = str(work.get("source_name") or art_meta.get("source_name") or "").strip()
+            w_doi = str(work.get("doi") or art_meta.get("doi") or "").strip()
+            w_url = str(
+                work.get("landing_page_url")
+                or (f"https://doi.org/{w_doi}" if w_doi else "")
+                or work.get("source_url")
+                or openalex_id
+            ).strip()
+            file_meta = {
+                "title": w_title,
+                "authors": w_authors or None,
+                "published_date": w_year or None,
+                "publisher": w_source or "OpenAlex",
+                "source_url": w_url or None,
+            }
+            per_file_metadata[stored_path_for_work] = file_meta
+            per_file_metadata[Path(stored_path_for_work).name] = file_meta
 
     if not stored_paths:
         return {
@@ -650,7 +724,11 @@ def load_openalex_works_into_field(
     load_progress.stage("digest", f"Stored {len(english_paths)} file(s) — digesting into the knowledge library...")
     result = ingest_files(
         english_paths,
-        metadata={**_field_metadata(resolved), "enforce_english": True},
+        metadata={
+            **_field_metadata(resolved),
+            "enforce_english": True,
+            "per_file_metadata": per_file_metadata,
+        },
         allow_embeddings=True,
     )
     # Owner directive: a failed digest must leave nothing behind — the

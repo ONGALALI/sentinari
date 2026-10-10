@@ -60,7 +60,12 @@ Extract:
 3. "patterns": notable insights the text supports. Each has "title",
    "statement" (1-3 sentences, self-contained), "pattern_type"
    (problem_solution | disease_treatment | cause_effect | cross_domain_bridge | general),
-   "fields_involved" (list of scientific field names), "confidence" (0.0-1.0),
+   "fields_involved" (list of 1-3 canonical Sentinel field slugs from: physics, chemistry,
+   astronomy-cosmology, earth-sciences, mathematics, biology, genetics-molecular-biology,
+   ecology-environmental-biology, neuroscience, psychology, sociology, anthropology,
+   economics, political-science, philosophy, computer-and-information-sciences,
+   engineering, materials-science, information-science, medicine, pharmacology,
+   public-health, environmental-science), "confidence" (0.0-1.0),
    "supporting_text" (the exact quote from the text that supports it).
 
 {crisis_line}
@@ -101,6 +106,8 @@ def queued_documents(limit: int = 10) -> list[dict[str, Any]]:
 
 
 def _document_chunks(document_id: int, limit: int = MAX_CHUNKS_PER_DOCUMENT) -> list[dict[str, Any]]:
+    from .sentinel_domains import sanitize_field_and_domain
+
     with library_connection("gemma") as conn:
         doc = conn.execute(
             "SELECT id, title, scientific_field, source_path, source_url FROM documents WHERE id = ?",
@@ -112,18 +119,30 @@ def _document_chunks(document_id: int, limit: int = MAX_CHUNKS_PER_DOCUMENT) -> 
             "SELECT id, chunk_index, content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT ?",
             (int(document_id), int(limit)),
         ).fetchall()
-    return [
-        {
-            "document_id": int(doc["id"]),
-            "title": str(doc["title"] or "Untitled"),
-            "field": str(doc["scientific_field"] or ""),
-            "source_url": str(doc["source_url"] or ""),
-            "chunk_id": int(c["id"]),
-            "chunk_index": int(c["chunk_index"]),
-            "text": str(c["content"] or "")[:MAX_CHARS_PER_CHUNK],
-        }
-        for c in chunks
-    ]
+    doc_title = str(doc["title"] or "Untitled")
+    canon_field, _ = sanitize_field_and_domain(str(doc["scientific_field"] or ""), fallback_text=doc_title)
+    out: list[dict[str, Any]] = []
+    for c in chunks:
+        raw_text = str(c["content"] or "")
+        if "OpenAlex record JSON:" in raw_text:
+            raw_text = raw_text.split("OpenAlex record JSON:", 1)[0].strip()
+        if not raw_text or "(no abstract available)" in raw_text:
+            continue
+        # Skip pure JSON metadata fragments from legacy OpenAlex stubs
+        if raw_text.lstrip().startswith(('{"', '{ "', '"institution_ids"', '"author_position"')) or '"institution_ids":' in raw_text:
+            continue
+        out.append(
+            {
+                "document_id": int(doc["id"]),
+                "title": doc_title,
+                "field": canon_field or str(doc["scientific_field"] or ""),
+                "source_url": str(doc["source_url"] or ""),
+                "chunk_id": int(c["id"]),
+                "chunk_index": int(c["chunk_index"]),
+                "text": raw_text[:MAX_CHARS_PER_CHUNK],
+            }
+        )
+    return out
 
 
 def extract_document(

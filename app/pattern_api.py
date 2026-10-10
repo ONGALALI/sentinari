@@ -61,31 +61,99 @@ def list_pattern_candidates(
 @router.get("/workspace")
 def pattern_workspace() -> dict[str, Any]:
     """Patterns grouped into per-field and cross-field combination containers."""
+    from .sentinel_domains import sanitize_field_and_domain, sanitize_pattern_fields
+
     ensure_pattern_store()
     patterns = list_patterns(status="", limit=300)
+
+    # Fetch evidence rows for all patterns in one query and enrich from documents table.
+    evidence_by_pattern: dict[int, list[dict[str, Any]]] = {}
+    ev_doc_ids: set[int] = set()
+    try:
+        with _store_connect() as sconn:
+            ev_rows = sconn.execute(
+                "SELECT pattern_id, document_id, document_title, field_slug, source_url FROM pattern_evidence ORDER BY id"
+            ).fetchall()
+        for er in ev_rows:
+            pid = int(er["pattern_id"] or 0)
+            did = int(er["document_id"] or 0)
+            if did > 0:
+                ev_doc_ids.add(did)
+            evidence_by_pattern.setdefault(pid, []).append(dict(er))
+    except Exception:
+        pass
+
+    docs_by_id: dict[int, dict[str, Any]] = {}
+    if ev_doc_ids:
+        try:
+            marks = ",".join("?" for _ in ev_doc_ids)
+            with _library_connection("gemma") as conn:
+                for dr in conn.execute(
+                    f"SELECT id, title, authors, published_date, source_url, scientific_field FROM documents WHERE id IN ({marks})",
+                    list(ev_doc_ids),
+                ).fetchall():
+                    docs_by_id[int(dr["id"])] = dict(dr)
+        except Exception:
+            pass
+
     groups: dict[str, dict[str, Any]] = {}
     for row in patterns:
-        try:
-            fields = _json.loads(str(row.get("fields_involved") or "[]"))
-        except Exception:
-            fields = []
-        fields = [str(f or "").strip() for f in fields if str(f or "").strip()]
-        if len(fields) >= 2:
-            key = " + ".join(sorted(f.lower() for f in fields))
-        elif len(fields) == 1:
-            key = fields[0].lower()
+        pid = int(row.get("id") or 0)
+        evs = evidence_by_pattern.get(pid, [])
+        first_ev_field = ""
+        sources: list[dict[str, Any]] = []
+        seen_src_keys: set[str] = set()
+        for ev in evs:
+            did = int(ev.get("document_id") or 0)
+            doc_info = docs_by_id.get(did) or {}
+            ev_field_raw = str(doc_info.get("scientific_field") or ev.get("field_slug") or "")
+            ev_field, _ = sanitize_field_and_domain(ev_field_raw, fallback_text=str(doc_info.get("title") or ev.get("document_title") or ""))
+            if ev_field and not first_ev_field:
+                first_ev_field = ev_field
+            src_title = str(doc_info.get("title") or ev.get("document_title") or "").strip()
+            src_url = str(doc_info.get("source_url") or ev.get("source_url") or "").strip()
+            dedupe_k = f"{did}:{src_title.lower()}"
+            if src_title and dedupe_k not in seen_src_keys:
+                seen_src_keys.add(dedupe_k)
+                sources.append(
+                    {
+                        "document_id": did if did in docs_by_id else 0,
+                        "title": src_title,
+                        "authors": str(doc_info.get("authors") or ""),
+                        "published_date": str(doc_info.get("published_date") or ""),
+                        "source_url": src_url,
+                        "field_slug": ev_field,
+                    }
+                )
+
+        fields = sanitize_pattern_fields(
+            row.get("fields_involved"),
+            fallback_field=first_ev_field,
+            fallback_text=f"{row.get('title') or ''} {row.get('statement') or ''}",
+        )
+        sorted_fields = sorted(fields)
+        if len(sorted_fields) >= 2:
+            key = " + ".join(sorted_fields)
+        elif len(sorted_fields) == 1:
+            key = sorted_fields[0]
         else:
             key = "unassigned"
         group = groups.setdefault(
             key,
-            {"container_key": key, "fields": fields, "patterns": [], "last_discovered": ""},
+            {"container_key": key, "fields": sorted_fields, "patterns": [], "last_discovered": "", "_ev_doc_ids": set()},
         )
-        group["patterns"].append(_pattern_public(row))
+        for s in sources:
+            if s.get("document_id"):
+                group["_ev_doc_ids"].add(int(s["document_id"]))
+        pub = _pattern_public(row)
+        pub["fields_involved"] = _json.dumps(sorted_fields, ensure_ascii=False)
+        pub["sources"] = sources
+        group["patterns"].append(pub)
         discovered = str(row.get("discovered_at") or "")
         if discovered > group["last_discovered"]:
             group["last_discovered"] = discovered
 
-    # Library document counts per scientific field -> per-container coverage.
+    # Library document counts per canonical scientific field -> per-container coverage.
     field_doc_counts: dict[str, int] = {}
     extracted_by_field: dict[str, set[int]] = {}
     try:
@@ -93,8 +161,11 @@ def pattern_workspace() -> dict[str, Any]:
             for r in conn.execute(
                 "SELECT COALESCE(scientific_field, '') AS f, COUNT(1) AS n FROM documents GROUP BY COALESCE(scientific_field, '')"
             ).fetchall():
-                norm_f = "-".join(str(r["f"] or "").strip().lower().split())
-                field_doc_counts[norm_f] = field_doc_counts.get(norm_f, 0) + int(r["n"])
+                raw_f = str(r["f"] or "").strip()
+                norm_f, _ = sanitize_field_and_domain(raw_f)
+                key_f = norm_f or "-".join(raw_f.lower().split())
+                if key_f:
+                    field_doc_counts[key_f] = field_doc_counts.get(key_f, 0) + int(r["n"])
         with _store_connect() as sconn:
             ok_doc_ids = [
                 int(r["document_id"])
@@ -109,17 +180,30 @@ def pattern_workspace() -> dict[str, Any]:
                     f"SELECT id, COALESCE(scientific_field, '') AS f FROM documents WHERE id IN ({marks})",
                     ok_doc_ids,
                 ).fetchall():
-                    norm_f = "-".join(str(r["f"] or "").strip().lower().split())
-                    extracted_by_field.setdefault(norm_f, set()).add(int(r["id"]))
+                    raw_f = str(r["f"] or "").strip()
+                    norm_f, _ = sanitize_field_and_domain(raw_f)
+                    key_f = norm_f or "-".join(raw_f.lower().split())
+                    if key_f:
+                        extracted_by_field.setdefault(key_f, set()).add(int(r["id"]))
     except Exception:
         pass
 
     containers: list[dict[str, Any]] = []
     for group in groups.values():
         fields = group["fields"]
-        primary = "-".join((fields[0] if fields else "unassigned").lower().split())
-        total_docs = field_doc_counts.get(primary, 0)
-        done_docs = len(extracted_by_field.get(primary, set()))
+        ev_dids = set(group.pop("_ev_doc_ids", set()))
+        total_docs = sum(field_doc_counts.get(f, 0) for f in fields) if fields else 0
+        done_docs_set: set[int] = set(ev_dids)
+        for f in fields:
+            done_docs_set.update(extracted_by_field.get(f, set()))
+        done_docs = len(done_docs_set)
+        if done_docs > total_docs:
+            total_docs = done_docs
+        cov_pct = (
+            max(0.1, round(100.0 * done_docs / total_docs, 1))
+            if (total_docs > 0 and done_docs > 0)
+            else 0.0
+        )
         containers.append(
             {
                 **group,
@@ -127,7 +211,7 @@ def pattern_workspace() -> dict[str, Any]:
                 "is_combination": len(fields) >= 2,
                 "library_docs": total_docs,
                 "analyzed_docs": done_docs,
-                "coverage_percent": round(100.0 * done_docs / total_docs, 1) if total_docs else 0.0,
+                "coverage_percent": cov_pct,
             }
         )
     containers.sort(key=lambda c: (-c["pattern_count"], c["container_key"]))
@@ -746,15 +830,24 @@ def pattern_report_endpoint(pattern_id: int, format: str = Query(default="html")
 
 
 def _container_key_for_pattern(pattern_id: int) -> str:
+    from .sentinel_domains import sanitize_pattern_fields
+
     pattern = get_pattern(pattern_id)
     if pattern is None:
         raise HTTPException(status_code=404, detail="Pattern not found.")
-    fields = []
-    try:
-        fields = [str(f) for f in _json.loads(str(pattern.get("fields_involved") or "[]"))]
-    except Exception:
-        fields = []
-    return "+".join(fields) if fields else "unassigned"
+    ev_field = ""
+    for ev in pattern.get("evidence") or []:
+        if isinstance(ev, dict) and ev.get("field_slug"):
+            ev_field = str(ev.get("field_slug") or "")
+            break
+    fields = sorted(
+        sanitize_pattern_fields(
+            pattern.get("fields_involved"),
+            fallback_field=ev_field,
+            fallback_text=f"{pattern.get('title') or ''} {pattern.get('statement') or ''}",
+        )
+    )
+    return " + ".join(fields) if fields else "unassigned"
 
 
 # ---------------------------------------------------------------------------

@@ -374,9 +374,21 @@ def propose_pattern(
 ) -> int:
     """Insert a candidate pattern (status='candidate') with its evidence."""
     ensure_pattern_store()
+    from .sentinel_domains import sanitize_field_and_domain, sanitize_pattern_fields
+
     title = str(title or "Untitled pattern").strip()[:220]
     statement = str(statement or "").strip()[:4000]
-    fields_involved = [str(f or "").strip() for f in (fields_involved or []) if str(f or "").strip()]
+    first_ev_field = ""
+    for item in evidence or []:
+        if isinstance(item, dict) and item.get("field_slug"):
+            first_ev_field = str(item.get("field_slug") or "")
+            break
+    sanitized_fields = sanitize_pattern_fields(
+        fields_involved or [],
+        fallback_field=first_ev_field,
+        fallback_text=f"{title} {statement}",
+    )
+    fields_involved = sanitized_fields or [str(f or "").strip() for f in (fields_involved or []) if str(f or "").strip()]
     confidence = max(0.0, min(1.0, float(confidence or 0.5)))
     with _connect() as conn:
         cur = conn.execute(
@@ -401,6 +413,9 @@ def propose_pattern(
         for item in evidence or []:
             if not isinstance(item, dict):
                 continue
+            ev_title = str(item.get("document_title") or "")[:300]
+            ev_field_raw = str(item.get("field_slug") or "")
+            ev_field_slug, _ = sanitize_field_and_domain(ev_field_raw, fallback_text=f"{ev_title} {title}")
             conn.execute(
                 """
                 INSERT INTO pattern_evidence
@@ -411,8 +426,8 @@ def propose_pattern(
                     pattern_id,
                     int(item.get("document_id") or 0) or None,
                     int(item.get("chunk_id") or 0) or None,
-                    str(item.get("document_title") or "")[:300],
-                    str(item.get("field_slug") or "")[:120],
+                    ev_title,
+                    (ev_field_slug or ev_field_raw)[:120],
                     str(item.get("chunk_text") or "")[:2000],
                     str(item.get("source_url") or "")[:500],
                 ),

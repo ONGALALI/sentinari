@@ -14,6 +14,7 @@ their proper room.
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import shutil
@@ -41,10 +42,11 @@ SENTINEL_DOMAINS: list[dict[str, Any]] = [
     {
         "slug": "foundations-of-reality",
         "name": "Foundations of Reality (Guardian of Matter & Energy)",
-        "description": "Explains the laws of physics, chemistry, astronomy, and earth sciences — the skeleton of the universe.",
+        "description": "Explains the laws of physics, chemistry, mathematics, astronomy, and earth sciences — the skeleton of the universe.",
         "fields": [
             {"name": "Physics", "detail": "quantum, relativity, thermodynamics, particle physics"},
             {"name": "Chemistry", "detail": "atomic, molecular, materials science"},
+            {"name": "Mathematics", "slug": "mathematics", "detail": "pure & applied mathematics, geometry, differential equations, statistics"},
             {"name": "Astronomy & Cosmology", "detail": "galaxies, universe structure, astrophysics"},
             {"name": "Earth Sciences", "detail": "geology, meteorology, oceanography"},
         ],
@@ -106,7 +108,7 @@ SENTINEL_ROOMS: list[dict[str, Any]] = [
     {"name": "Medicine & Health", "fields": ["Medicine", "Pharmacology", "Public Health"]},
     {"name": "Earth & Climate Sciences", "fields": ["Earth Sciences", "Environmental Science"]},
     {"name": "Computer Science, AI Engineering & Robotics", "fields": ["Computer Science & AI", "Information Science", "Engineering"]},
-    {"name": "Mathematics & Statistics", "fields": []},
+    {"name": "Mathematics & Statistics", "fields": ["Mathematics"]},
     {"name": "Neuroscience & Psychology", "fields": ["Neuroscience", "Psychology", "Philosophy"]},
     {"name": "Social Sciences", "fields": ["Sociology", "Anthropology"]},
     {"name": "Economics", "fields": ["Economics"]},
@@ -465,14 +467,253 @@ def get_sentinel_status(*, refresh_counts: bool = False) -> dict[str, Any]:
     }
 
 
+_FIELD_ALIASES: dict[str, str] = {
+    "quantum-physics": "physics",
+    "quantum-doctrine-rd": "physics",
+    "theoretical-physics": "physics",
+    "astrophysics": "astronomy-cosmology",
+    "astronomy": "astronomy-cosmology",
+    "cosmology": "astronomy-cosmology",
+    "astronomy-and-cosmology": "astronomy-cosmology",
+    "earth-science": "earth-sciences",
+    "geology": "earth-sciences",
+    "genetics": "genetics-molecular-biology",
+    "molecular-biology": "genetics-molecular-biology",
+    "genetics-and-molecular-biology": "genetics-molecular-biology",
+    "stem-cell-biology": "genetics-molecular-biology",
+    "computational-biology": "genetics-molecular-biology",
+    "biochemistry": "genetics-molecular-biology",
+    "ecology": "ecology-environmental-biology",
+    "environmental-biology": "ecology-environmental-biology",
+    "ecology-and-environmental-biology": "ecology-environmental-biology",
+    "developmental-biology": "biology",
+    "cell-biology": "biology",
+    "virology": "biology",
+    "microbiology": "biology",
+    "neurobiology": "neuroscience",
+    "neuropsychiatry": "neuroscience",
+    "neurology": "neuroscience",
+    "cognitive-neuroscience": "neuroscience",
+    "oncology": "medicine",
+    "immunology": "medicine",
+    "pathophysiology": "medicine",
+    "cardiology": "medicine",
+    "psychiatry": "medicine",
+    "clinical-pharmacology": "pharmacology",
+    "toxicology": "pharmacology",
+    "health-policy": "public-health",
+    "epidemiology": "public-health",
+    "bioengineering": "engineering",
+    "biomedical-engineering": "engineering",
+    "media-engineering": "engineering",
+    "epistemology": "philosophy",
+    "ethics": "philosophy",
+    "metaphysics": "philosophy",
+    "governance": "political-science",
+    "institutional-design": "political-science",
+    "public-policy": "political-science",
+    "organizational-theory": "sociology",
+    "social-work": "sociology",
+    "computer-science": "computer-and-information-sciences",
+    "computer-science-ai": "computer-and-information-sciences",
+    "computer-science-and-ai": "computer-and-information-sciences",
+    "artificial-intelligence": "computer-and-information-sciences",
+    "data-science": "information-science",
+    "material-science": "materials-science",
+    "finance": "economics",
+    "strategic-management": "economics",
+    "management": "economics",
+}
+
+_KEYWORD_FIELD_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("buckminsterfullerene", "fullerene", "c60", "c70", "molecule", "chemical", "catalys", "organic chemistry", "inorganic", "polymer", "stoichiometr"), "chemistry"),
+    (("newton", "gravity", "gravitation", "quantum", "relativity", "thermodynamic", "lagrangian", "hamiltonian", "boson", "fermion", "electrodynamic", "photon", "schrodinger"), "physics"),
+    (("galaxy", "cosmolog", "astrophys", "supernova", "exoplanet", "black hole", "stellar"), "astronomy-cosmology"),
+    (("geolog", "seismic", "tectonic", "meteorolog", "oceanograph", "stratigraph"), "earth-sciences"),
+    (("crispr", "genome", "dna", "rna", "proteom", "transcription", "allele", "ribosom", "stem cell"), "genetics-molecular-biology"),
+    (("neuron", "synap", "cortex", "brain", "nervous system", "hippocamp", "neuro", "assembloid", "thalamic", "striatal"), "neuroscience"),
+    (("biodivers", "ecosystem", "habitat", "food web", "trophic"), "ecology-environmental-biology"),
+    (("cell", "organism", "evolution", "mitochondr", "photosynthes", "enzyme", "virolog", "autophag", "lysosom"), "biology"),
+    (("pharmacokinet", "drug interaction", "dosage", "receptor agonist", "antagonist", "pharmacology", "polypharmacy"), "pharmacology"),
+    (("epidemiolog", "pandemic", "vaccination", "mortality rate", "public health", "surveillance", "health policy"), "public-health"),
+    (("clinical", "patient", "diagnosis", "syndrome", "oncolog", "cardiol", "surgery", "pathology", "jak inhibitor", "cancer", "tumour", "tumor", "adenoma", "osteosarcoma", "stroke", "immunotherap"), "medicine"),
+    (("pollution", "emissions", "climate change", "sustainability", "greenhouse"), "environmental-science"),
+    (("epistemolog", "metaphysic", "ethic", "ontology", "qualia", "phenomenolog", "free will"), "philosophy"),
+    (("cogniti", "behavior", "psycholog", "psychiatric", "mental health", "perception"), "psychology"),
+    (("sociolog", "social norm", "inequality", "demographic", "urbanization", "social work"), "sociology"),
+    (("anthropolog", "ethnograph", "archaeolog", "kinship"), "anthropology"),
+    (("macroeconom", "microeconom", "inflation", "gdp", "monetary", "fiscal", "insurance", "financial management", "market"), "economics"),
+    (("governance", "geopolit", "democracy", "treaty", "constitution", "parliament", "election", "institutional design"), "political-science"),
+    (("nanomaterial", "composite", "alloy", "crystal lattice", "perovskite", "semiconductor material"), "materials-science"),
+    (("circuit", "mechanical", "aerospace", "civil engineering", "robotics", "control system", "finite element", "bioengineering"), "engineering"),
+    (("algorithm", "compiler", "neural network", "machine learning", "kubernetes", "linux", "python", "database", "encryption", "software", "pure mathematics", "differential equation", "bayesian", "cluster algebra"), "computer-and-information-sciences"),
+)
+
+
+def _domain_for_field_slug(field_slug: str) -> str:
+    wanted = slugify(field_slug)
+    for domain in SENTINEL_DOMAINS:
+        d_slug = str(domain.get("slug") or "")
+        for item in domain.get("fields", []):
+            name = str(item.get("name") or "")
+            item_slug = str(item.get("slug") or "").strip() or slugify(name)
+            if item_slug == wanted or slugify(name) == wanted:
+                return d_slug
+    return ""
+
+
+def infer_field_from_text(text: str, default_field: str = "") -> str:
+    """Infer the canonical Sentinel field_slug from query/title/description text."""
+    hay = str(text or "").lower()
+    if not hay.strip():
+        return default_field
+    if any(k in hay for k in ("pure mathematics", "applied mathematics", "cluster algebra", "differential equation", "bayesian statistics", "mathematical practice")):
+        return "mathematics"
+    best_field = ""
+    best_hits = 0
+    for keywords, f_slug in _KEYWORD_FIELD_HINTS:
+        hits = sum(1 for kw in keywords if kw in hay)
+        if hits > best_hits:
+            best_hits = hits
+            best_field = f_slug
+    return best_field or default_field
+
+
+def sanitize_field_and_domain(
+    field: str | None = None,
+    fallback_text: str = "",
+    *,
+    domain: str | None = None,
+    title: str | None = None,
+    text: str | None = None,
+) -> tuple[str, str]:
+    """Sanitize any field/domain input into a canonical (field_slug, domain_slug) pair.
+
+    Handles exact slugs, human display names ('Earth Sciences'), legacy aliases
+    ('Quantum Physics'), detail strings, or empty fields (inferred from fallback_text).
+    """
+    combined_fallback = " ".join(
+        p for p in (fallback_text, str(title or "").strip(), str(text or "").strip()) if p
+    ).strip()
+    raw = str(field or "").strip()
+    raw_dom = str(domain or "").strip()
+    if raw:
+        try:
+            f_slug = resolve_field_loose(raw)
+            return f_slug, _domain_for_field_slug(f_slug)
+        except Exception:
+            pass
+        # Check if raw is actually a Sentinel domain slug/name
+        wanted = slugify(raw)
+        for dom in SENTINEL_DOMAINS:
+            d_slug = str(dom.get("slug") or "")
+            if wanted == d_slug or wanted == slugify(str(dom.get("name") or "")):
+                inferred = infer_field_from_text(combined_fallback)
+                if inferred and _domain_for_field_slug(inferred) == d_slug:
+                    return inferred, d_slug
+                first_item = (dom.get("fields") or [{}])[0]
+                first_slug = str(first_item.get("slug") or "").strip() or slugify(str(first_item.get("name") or ""))
+                return first_slug, d_slug
+    if raw_dom and not raw:
+        wanted_dom = slugify(raw_dom)
+        for dom in SENTINEL_DOMAINS:
+            d_slug = str(dom.get("slug") or "")
+            if wanted_dom == d_slug or wanted_dom == slugify(str(dom.get("name") or "")):
+                inferred = infer_field_from_text(combined_fallback)
+                if inferred and _domain_for_field_slug(inferred) == d_slug:
+                    return inferred, d_slug
+                first_item = (dom.get("fields") or [{}])[0]
+                first_slug = str(first_item.get("slug") or "").strip() or slugify(str(first_item.get("name") or ""))
+                return first_slug, d_slug
+    inferred = infer_field_from_text(f"{raw} {combined_fallback}")
+    if inferred:
+        return inferred, _domain_for_field_slug(inferred)
+    return "", ""
+
+
+
+def sanitize_pattern_fields(
+    fields_raw: Any,
+    *,
+    fallback_field: str = "",
+    fallback_text: str = "",
+) -> list[str]:
+    """Normalize any list or JSON array of field names into deduplicated canonical Sentinel field_slugs."""
+    items: list[str] = []
+    if isinstance(fields_raw, str):
+        raw_str = fields_raw.strip()
+        if raw_str.startswith("["):
+            try:
+                parsed = json.loads(raw_str)
+                if isinstance(parsed, list):
+                    items = [str(x or "").strip() for x in parsed if str(x or "").strip()]
+            except Exception:
+                items = [raw_str]
+        elif "+" in raw_str:
+            items = [p.strip() for p in raw_str.split("+") if p.strip()]
+        elif raw_str:
+            items = [raw_str]
+    elif isinstance(fields_raw, (list, tuple, set)):
+        items = [str(x or "").strip() for x in fields_raw if str(x or "").strip()]
+
+    canonical: list[str] = []
+    # Also remember if a raw item explicitly distinguishes two sub-specialties that map to
+    # e.g. neuroscience + medicine (like 'neuropsychiatry' -> neuroscience + medicine).
+    for item in items:
+        low = slugify(item)
+        if low == "neuropsychiatry":
+            for slug in ("neuroscience", "medicine"):
+                if slug not in canonical:
+                    canonical.append(slug)
+            continue
+        f_slug, _ = sanitize_field_and_domain(item)
+        if f_slug and f_slug not in canonical:
+            canonical.append(f_slug)
+
+    if not canonical and (fallback_field or fallback_text):
+        fb_slug, _ = sanitize_field_and_domain(fallback_field, fallback_text=fallback_text)
+        if fb_slug:
+            canonical.append(fb_slug)
+    return canonical
+
+
+def resolve_domain_or_field_filter(value: str | None) -> tuple[str | None, list[str]]:
+    """Resolve a filter string (domain slug/name, room name, or field slug/name)
+    into (domain_slug_or_None, list_of_canonical_field_slugs)."""
+    text = str(value or "").strip()
+    if not text:
+        return None, []
+    wanted = slugify(text)
+    # 1. Check if it matches one of the 5 Sentinel Domains
+    for domain in SENTINEL_DOMAINS:
+        d_slug = str(domain.get("slug") or "")
+        d_name_slug = slugify(str(domain.get("name") or ""))
+        if wanted == d_slug or wanted == d_name_slug or (len(wanted) >= 8 and d_slug.startswith(wanted)):
+            f_slugs = [
+                str(item.get("slug") or "").strip() or slugify(str(item.get("name") or ""))
+                for item in (domain.get("fields") or [])
+            ]
+            return d_slug, [s for s in f_slugs if s]
+    # 2. Check if it matches a Sentinel Room
+    for room in SENTINEL_ROOMS:
+        if wanted == slugify(str(room.get("name") or "")):
+            f_slugs = []
+            for fname in room.get("fields") or []:
+                try:
+                    f_slugs.append(resolve_field_loose(fname))
+                except Exception:
+                    pass
+            if f_slugs:
+                return None, f_slugs
+    # 3. Resolve as a single scientific field
+    try:
+        f_slug = resolve_field_loose(text)
+        return None, [f_slug]
+    except Exception:
+        return None, [wanted]
+
+
 def _resolve_field(field: str) -> dict[str, Any]:
-    # §82: the ensure pass opens a WRITE transaction on the 12.9 GB library.
-    # When another writer holds the lock, waiting for it here fails the whole
-    # load (§74j's "database is locked" — owner saw failed loads that had
-    # nothing to do with their dataset). The registry is static in STEADY
-    # STATE: try the ensure pass but, if the library is merely busy, resolve
-    # the field from the live database read-only and continue — the ensure
-    # pass retries at the next /sentinel/ensure or status probe.
     try:
         ensure_sentinel_database()
     except sqlite3.OperationalError as ensure_ex:
@@ -487,6 +728,7 @@ def _resolve_field(field: str) -> dict[str, Any]:
         except Exception:
             pass
     wanted = slugify(str(field or ""))
+    wanted = _FIELD_ALIASES.get(wanted, wanted)
     for domain in SENTINEL_DOMAINS:
         for item in domain.get("fields", []):
             name = str(item.get("name") or "")
@@ -504,16 +746,12 @@ def _resolve_field(field: str) -> dict[str, Any]:
 
 
 def resolve_field_loose(field: str) -> str:
-    """Resolve a field to its slug, tolerating human names and detail strings.
-
-    Older stored candidates may hold the field's detail line (e.g. "quantum,
-    relativity, thermodynamics, particle physics") instead of the slug — this
-    matches those back to the owning field instead of failing.
-    """
+    """Resolve a field to its slug, tolerating human names, aliases, and detail strings."""
     text = str(field or "").strip()
     if not text:
         raise ValueError("No scientific field provided.")
     wanted = slugify(text)
+    wanted = _FIELD_ALIASES.get(wanted, wanted)
     for domain in SENTINEL_DOMAINS:
         for item in domain.get("fields", []):
             name = str(item.get("name") or "")
@@ -523,6 +761,9 @@ def resolve_field_loose(field: str) -> str:
             detail = str(item.get("detail") or "").strip()
             if detail and (detail.lower() == text.lower() or slugify(detail) == wanted):
                 return item_slug
+    inferred = infer_field_from_text(text)
+    if inferred:
+        return inferred
     raise ValueError(f"Unknown Sentinel scientific field: {field!r}")
 
 

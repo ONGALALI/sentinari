@@ -317,12 +317,15 @@ def list_candidates(
     found — not just the rows on this page.
     """
     _ensure_schema()
-    field = scientific_field.strip().lower().replace(" ", "-")
+    from .sentinel_domains import resolve_domain_or_field_filter
+
+    _, field_slugs = resolve_domain_or_field_filter(scientific_field)
     where = "status = ?"
     args: list[Any] = [status.strip() or "pending"]
-    if field:
-        where += " AND REPLACE(LOWER(scientific_field), ' ', '-') = ?"
-        args.append(field)
+    if field_slugs:
+        placeholders = ",".join("?" for _ in field_slugs)
+        where += f" AND REPLACE(LOWER(scientific_field), ' ', '-') IN ({placeholders})"
+        args.extend(field_slugs)
     with get_connection() as conn:
         total = int(conn.execute(f"SELECT COUNT(1) AS n FROM skill_review_candidates WHERE {where}", args).fetchone()["n"])
         pages = max(1, (total + page_size - 1) // page_size)
@@ -381,29 +384,33 @@ def clear_candidates(
     """Remove review-lane candidates so a new science can be searched cleanly.
 
     Deletes pending / approved / rejected / tested candidates — optionally only
-    those of one scientific field. LOADED datasets are never touched: they are
-    permanently listed in their field's container.
+    those of one scientific field or domain. LOADED datasets are never touched:
+    they are permanently listed in their field's container.
     """
     _ensure_schema()
-    field = scientific_field.strip().lower().replace(" ", "-")
+    from .sentinel_domains import resolve_domain_or_field_filter
+
+    _, field_slugs = resolve_domain_or_field_filter(scientific_field)
+    field = field_slugs[0] if len(field_slugs) == 1 else scientific_field.strip().lower().replace(" ", "-")
     with get_connection() as conn:
-        if field:
+        if field_slugs:
+            placeholders = ",".join("?" for _ in field_slugs)
             counts = conn.execute(
-                """
+                f"""
                 SELECT status, COUNT(1) AS n FROM skill_review_candidates
-                WHERE REPLACE(LOWER(scientific_field), ' ', '-') = ?
+                WHERE REPLACE(LOWER(scientific_field), ' ', '-') IN ({placeholders})
                   AND status IN ('pending', 'approve', 'reject', 'test')
                 GROUP BY status
                 """,
-                (field,),
+                tuple(field_slugs),
             ).fetchall()
             cur = conn.execute(
-                """
+                f"""
                 DELETE FROM skill_review_candidates
-                WHERE REPLACE(LOWER(scientific_field), ' ', '-') = ?
+                WHERE REPLACE(LOWER(scientific_field), ' ', '-') IN ({placeholders})
                   AND status IN ('pending', 'approve', 'reject', 'test')
                 """,
-                (field,),
+                tuple(field_slugs),
             )
         else:
             counts = conn.execute(
@@ -645,6 +652,12 @@ def download_document(document_id: int):
 @router.post("/discover")
 def discover_candidates(payload: DiscoveryRequest) -> dict[str, Any]:
     _ensure_schema()
+    from .sentinel_domains import sanitize_field_and_domain
+
+    canon_field, canon_domain = sanitize_field_and_domain(
+        payload.scientific_field, fallback_text=payload.query
+    )
+    field_to_store = canon_field or payload.scientific_field.strip()
     headers = {"User-Agent": "SMI-Skill-Review/1.0"}
     candidates: list[dict[str, Any]] = []
 
@@ -665,7 +678,8 @@ def discover_candidates(payload: DiscoveryRequest) -> dict[str, Any]:
                 "source_url": f"https://huggingface.co/datasets/{item['id']}",
                 "title": str(item["id"]),
                 "description": str(item.get("description") or "")[:1000],
-                "scientific_field": payload.scientific_field.strip(),
+                "scientific_field": field_to_store,
+                "domain_slug": canon_domain,
                 "target_persona": payload.target_persona,
                 "license": "",
             }
@@ -689,7 +703,8 @@ def discover_candidates(payload: DiscoveryRequest) -> dict[str, Any]:
                 "source_url": str(item["html_url"]),
                 "title": str(item.get("full_name") or item.get("name") or "Repository"),
                 "description": str(item.get("description") or "")[:1000],
-                "scientific_field": payload.scientific_field.strip(),
+                "scientific_field": field_to_store,
+                "domain_slug": canon_domain,
                 "target_persona": payload.target_persona,
                 "license": str(license_data.get("spdx_id") or "") if isinstance(license_data, dict) else "",
             }
@@ -843,9 +858,12 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
     are returned for Approve / Reject / Test / Load / Preview / Download.
     """
     _ensure_schema()
+    from .sentinel_domains import sanitize_field_and_domain
+
     headers = {"User-Agent": "SMI-Skill-Review/1.0"}
     query = payload.query.strip()
-    field_text = payload.scientific_field.strip()
+    canon_field, canon_domain = sanitize_field_and_domain(payload.scientific_field, fallback_text=query)
+    field_text = canon_field or payload.scientific_field.strip()
    
     def _github_search() -> list[dict[str, Any]]:
         try:
@@ -1074,6 +1092,15 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             if identity and identity in _known_rejected:
                 duplicate_count += 1
                 continue
+            item_field, item_domain = sanitize_field_and_domain(
+                str(item.get("field_slug") or item.get("scientific_field") or field_text),
+                fallback_text=f"{query} {item.get('title') or ''} {item.get('description') or item.get('abstract') or ''}",
+            )
+            eff_field = item_field or field_text or "physics"
+            item["scientific_field"] = eff_field
+            item["field_slug"] = eff_field
+            if item_domain:
+                item["domain_slug"] = item_domain
             existing = conn.execute(
                 "SELECT id, status FROM skill_review_candidates WHERE identity_key = ?",
                 (identity,),
@@ -1087,7 +1114,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         "UPDATE skill_review_candidates SET description = ?, scientific_field = ?, license = ?, metadata_json = ? WHERE id = ?",
                         (
                             str(item.get("description") or item.get("abstract") or "")[:1000],
-                            field_text,
+                            eff_field,
                             str(item.get("license") or ""),
                             json.dumps(item, ensure_ascii=True)[:6000],
                             int(existing["id"]),
@@ -1113,7 +1140,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         str(item.get("source_url") or ""),
                         str(item.get("title") or "Untitled candidate"),
                         str(item.get("description") or item.get("abstract") or "")[:1000],
-                        field_text,
+                        eff_field,
                         "gemma",
                         str(item.get("license") or ""),
                         json.dumps(item, ensure_ascii=True)[:6000],
@@ -1238,10 +1265,12 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
 def save_candidates(payload: dict[str, Any]) -> dict[str, Any]:
     """Store review-picked OpenAlex works (or HF/GitHub datasets) as candidates."""
     _ensure_schema()
+    from .sentinel_domains import sanitize_field_and_domain
+
     items = payload.get("candidates")
     if not isinstance(items, list) or not items:
         raise HTTPException(status_code=400, detail="Provide a candidates list to store.")
-    scientific_field = str(payload.get("scientific_field") or "").strip()
+    raw_field = str(payload.get("scientific_field") or "").strip()
     saved = 0
     duplicates = 0
     with get_connection() as conn:
@@ -1252,6 +1281,16 @@ def save_candidates(payload: dict[str, Any]) -> dict[str, Any]:
             if not source_url:
                 continue
             title = str(item.get("title") or "Untitled candidate")
+            desc = str(item.get("abstract") or item.get("description") or "")[:1000]
+            canon_field, canon_domain = sanitize_field_and_domain(
+                str(item.get("field_slug") or item.get("scientific_field") or raw_field),
+                fallback_text=f"{title} {desc}",
+            )
+            eff_field = canon_field or raw_field or "physics"
+            item["scientific_field"] = eff_field
+            item["field_slug"] = eff_field
+            if canon_domain:
+                item["domain_slug"] = canon_domain
             identity = _source_identity(
                 str(item.get("source_type") or "openalex"),
                 source_url,
@@ -1284,8 +1323,8 @@ def save_candidates(payload: dict[str, Any]) -> dict[str, Any]:
                         str(item.get("source_type") or "openalex"),
                         source_url,
                         title,
-                        str(item.get("abstract") or item.get("description") or "")[:1000],
-                        scientific_field,
+                        desc,
+                        eff_field,
                         str(item.get("license") or ""),
                         json.dumps(item, ensure_ascii=True)[:4000],
                         identity,
@@ -1387,20 +1426,27 @@ def _ingest_candidate_worker(candidate_id: int, job_id: str) -> None:
 
 def _resolve_target_field(candidate_id: int, candidate: dict[str, Any], metadata: dict[str, Any]) -> tuple[str, str]:
     """Resolve the target field, healing old rows that stored the field's
-    detail string (e.g. "quantum, relativity, thermodynamics, particle
-    physics") instead of the slug — that mismatch caused the historic
-    "Unknown Sentinel scientific field" error."""
-    from .sentinel_domains import resolve_field_loose, slugify
+    detail string, display name, or empty string instead of the canonical slug."""
+    from .sentinel_domains import sanitize_field_and_domain
 
-    field_text = str(candidate.get("scientific_field") or "").strip()
-    try:
-        field_slug = str(metadata.get("field_slug") or "").strip() or resolve_field_loose(field_text)
-    except ValueError:
-        field_slug = slugify(field_text)
+    field_text = str(candidate.get("scientific_field") or metadata.get("field_slug") or metadata.get("scientific_field") or "").strip()
+    fallback_text = " ".join(
+        str(x or "")
+        for x in (
+            metadata.get("search_query"),
+            metadata.get("query"),
+            metadata.get("oa_field"),
+            metadata.get("oa_subfield"),
+            metadata.get("oa_topic"),
+            candidate.get("title"),
+            candidate.get("description"),
+        )
+    )
+    field_slug, _ = sanitize_field_and_domain(field_text, fallback_text=fallback_text)
     field = field_slug or field_text
     if not field:
         raise HTTPException(status_code=400, detail="Candidate has no scientific field set.")
-    if field_slug and field_text and field_slug != field_text:
+    if field_slug and field_slug != str(candidate.get("scientific_field") or "").strip():
         try:
             with get_connection() as heal_conn:
                 heal_conn.execute(

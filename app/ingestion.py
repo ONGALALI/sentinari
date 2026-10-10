@@ -345,6 +345,19 @@ def _upsert_document_with_chunks(
 
     extra_metadata_json = _json_dumps(metadata.get("extra_metadata") or {})
     priority = int(metadata.get("priority") or 0)
+    try:
+        from .sentinel_domains import sanitize_field_and_domain
+
+        canon_field, canon_domain = sanitize_field_and_domain(
+            metadata.get("scientific_field") or metadata.get("domain"),
+            fallback_text=f"{title} {text[:800]}",
+        )
+        if canon_field:
+            metadata["scientific_field"] = canon_field
+        if canon_domain:
+            metadata["domain"] = canon_domain
+    except Exception:
+        pass
 
     if document_id is not None:
         reset_document_chunks(conn, document_id)
@@ -405,11 +418,17 @@ def _upsert_document_with_chunks(
     _record_document_edges(conn, document_id, title, metadata)
 
     if hasattr(conn, "_conn"):
-        # Cloud SQL PostgreSQL fast batch insert (chunk_fts is SQLite FTS5 only).
+        # Cloud SQL PostgreSQL fast batch insert with pgvector column.
         chunk_rows = []
         for idx, raw_chunk in enumerate(chunks):
             clean_chunk = _sanitize_text(raw_chunk)
             embedding = embeddings[idx]
+            emb_json = json.dumps(embedding, ensure_ascii=True) if embedding else None
+            vec_lit = (
+                "[" + ",".join(f"{float(v):.6f}" for v in embedding) + "]"
+                if isinstance(embedding, list) and len(embedding) == 768
+                else None
+            )
             chunk_rows.append(
                 (
                     document_id,
@@ -417,15 +436,16 @@ def _upsert_document_with_chunks(
                     clean_chunk,
                     _token_estimate(clean_chunk),
                     _json_dumps({"source_id": source_id}),
-                    json.dumps(embedding, ensure_ascii=True) if embedding else None,
+                    emb_json,
+                    vec_lit,
                     chunk_hashes[idx] if idx < len(chunk_hashes) else "",
                 )
             )
         if chunk_rows:
             conn.executemany(
                 """
-                INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json, chunk_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json, embedding, chunk_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?::vector, ?);
                 """,
                 chunk_rows,
             )
@@ -591,7 +611,16 @@ def ingest_files(
         and not is_ollama_runtime_probe_disabled()
         and ollama.is_available()
     )
-    client = ollama if use_embeddings else None
+    client: Any = ollama if use_embeddings else None
+    if client is None and bool(allow_embeddings):
+        try:
+            from .llm_gateway import get_gateway
+
+            gw = get_gateway()
+            if gw.describe().get("available"):
+                client = gw
+        except Exception:
+            client = None
     strip_noise = bool(get_settings().get("ingestion", {}).get("strip_noise", True))
     
     # --- TRACKER INITIALISATION ---
@@ -712,6 +741,13 @@ def _ingest_files_locked(
 
                     archive_path = None if bool(metadata.get("skip_archive")) else _archive_file(path, checksum)
                     taxonomy_meta = infer_metadata_from_taxonomy_path(conn, path)
+                    per_file_map = metadata.get("per_file_metadata") if isinstance(metadata.get("per_file_metadata"), dict) else {}
+                    per_file = (
+                        per_file_map.get(str(path))
+                        or per_file_map.get(str(path.resolve()))
+                        or per_file_map.get(path.name)
+                        or {}
+                    )
                     item_meta = _merge_metadata(
                         _merge_metadata(dict(metadata), taxonomy_meta),
                         {
@@ -722,15 +758,18 @@ def _ingest_files_locked(
                             "extra_metadata": parsed.get("extra_metadata"),
                         },
                     )
+                    if isinstance(per_file, dict) and per_file:
+                        item_meta = _merge_metadata(item_meta, per_file)
                     item_meta.setdefault("title", path.stem)
                     pdf_engine = _pdf_engine_from_metadata(item_meta)
+                    doc_source_url = str(item_meta.get("source_url") or "").strip() or None
 
                     result = _upsert_document_with_chunks(
                         conn,
                         title=str(item_meta.get("title") or path.stem),
                         source_type=source_type,
                         source_path=str(path.resolve()),
-                        source_url=None,
+                        source_url=doc_source_url,
                         checksum=checksum,
                         archive_path=archive_path,
                         text=text,
