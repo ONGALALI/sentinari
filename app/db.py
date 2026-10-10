@@ -148,6 +148,7 @@ class PostgresConnectionWrapper:
         is_insert = clean_sql.strip().upper().startswith("INSERT INTO")
         if is_insert and "RETURNING" not in clean_sql.upper():
             try:
+                cur.execute("SAVEPOINT _agy_ret_id;")
                 insert_sql = clean_sql.rstrip(";") + " RETURNING id;"
                 if params is not None:
                     cur.execute(insert_sql, params)
@@ -156,9 +157,14 @@ class PostgresConnectionWrapper:
                 row = cur.fetchone()
                 if row:
                     lastrowid = row[0]
+                cur.execute("RELEASE SAVEPOINT _agy_ret_id;")
                 return PostgresCursorWrapper(cur, lastrowid=lastrowid)
             except Exception:
-                self._conn.rollback()
+                try:
+                    cur.execute("ROLLBACK TO SAVEPOINT _agy_ret_id;")
+                    cur.execute("RELEASE SAVEPOINT _agy_ret_id;")
+                except Exception:
+                    self._conn.rollback()
                 cur = self._conn.cursor(cursor_factory=DictCursor)
 
         try:
@@ -184,7 +190,15 @@ class PostgresConnectionWrapper:
         if not clean_sql:
             return DummyCursor()
         cur = self._conn.cursor(cursor_factory=DictCursor)
-        cur.executemany(clean_sql, list(seq_of_params))
+        params_list = list(seq_of_params)
+        if not params_list:
+            return PostgresCursorWrapper(cur)
+        try:
+            from psycopg2.extras import execute_batch
+
+            execute_batch(cur, clean_sql, params_list, page_size=200)
+        except Exception:
+            cur.executemany(clean_sql, params_list)
         return PostgresCursorWrapper(cur)
 
     def commit(self) -> None:
@@ -826,6 +840,33 @@ def initialize_database() -> None:
             """
         )
         conn.commit()
+        if isinstance(conn, PostgresConnectionWrapper):
+            _sync_postgres_sequences(conn)
+
+
+def _sync_postgres_sequences(conn: PostgresConnectionWrapper) -> None:
+    """Ensure PostgreSQL SERIAL sequences are at least MAX(id) + 1 after bulk migrations."""
+    for tbl in (
+        "documents",
+        "chunks",
+        "ingest_events",
+        "skill_review_candidates",
+        "chat_messages",
+        "smi_tasks",
+        "smi_profile_snapshots",
+        "qualia_history",
+        "taxonomy_nodes",
+        "unsupervised_runs",
+        "unsupervised_clusters",
+        "unsupervised_cluster_members",
+    ):
+        try:
+            conn.execute(
+                f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 0) + 1, false);"
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def reset_document_chunks(conn: sqlite3.Connection, document_id: int) -> None:

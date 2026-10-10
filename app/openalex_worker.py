@@ -669,7 +669,7 @@ def load_openalex_works_into_field(
         "field_slug": resolved["field_slug"],
         "downloaded": len(stored_paths),
         "ingested": ingested,
-        "failed": int(result.get("failed") or 0) + sum(1 for item in items if not item.get("ok")),
+        "failed": int(result.get("failed") or 0) + max(0, len(works) - len(english_paths)),
         "items": items + (result.get("items") or []),
         "status": get_sentinel_status(refresh_counts=False),
     }

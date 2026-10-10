@@ -186,16 +186,37 @@ class LoadQueue:
                 finally:
                     if _li_was_on:
                         _li_set("learning_enabled", "on")
-                load_progress.finish_job(job_id, result)
-                with self._lock:
-                    entry["state"] = "done"
-                    entry["finished_at"] = time.time()
-                    entry["summary"] = {
-                        "ingested": int(result.get("ingested") or 0),
-                        "failed": int(result.get("failed") or 0),
-                        "document_id": result.get("document_id"),
-                        "candidate_status": result.get("candidate_status"),
-                    }
+                ingested_count = int(result.get("ingested") or 0)
+                failed_count = int(result.get("failed") or 0)
+                if ingested_count <= 0:
+                    err_notes = [
+                        str(it.get("error") or it.get("note") or "")
+                        for it in (result.get("items") or [])
+                        if isinstance(it, dict) and not it.get("ok") and (it.get("error") or it.get("note"))
+                    ]
+                    err_msg = err_notes[-1] if err_notes else f"Ingested 0 documents ({failed_count or 1} failed)."
+                    load_progress.error_job(job_id, err_msg)
+                    with self._lock:
+                        entry["state"] = "error"
+                        entry["finished_at"] = time.time()
+                        entry["error"] = err_msg[:500]
+                        entry["summary"] = {
+                            "ingested": 0,
+                            "failed": failed_count or 1,
+                            "document_id": None,
+                            "candidate_status": result.get("candidate_status") or "failed",
+                        }
+                else:
+                    load_progress.finish_job(job_id, result)
+                    with self._lock:
+                        entry["state"] = "done"
+                        entry["finished_at"] = time.time()
+                        entry["summary"] = {
+                            "ingested": ingested_count,
+                            "failed": failed_count,
+                            "document_id": result.get("document_id"),
+                            "candidate_status": result.get("candidate_status"),
+                        }
             except load_progress.LoadCancelled as ex:
                 if job_id:
                     load_progress.error_job(job_id, str(ex) or "Cancelled by owner.")

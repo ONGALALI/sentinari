@@ -275,31 +275,32 @@ def _upsert_document_with_chunks(
     def _chunk_hash(chunk: str) -> str:
         return hashlib.sha256(chunk.encode("utf-8", errors="replace")).hexdigest()
 
+    chunk_hashes: list[str] = [_chunk_hash(chunk) for chunk in chunks]
     known_chunk_hashes: dict[str, str] = {}
-    try:
-        for row in conn.execute(
-            "SELECT chunk_hash, embedding_json FROM chunks WHERE chunk_hash != '';"
-        ).fetchall():
-            emb = None
-            if hasattr(row, "get"):
-                emb = row.get("embedding_json") or row.get("embedding")
-            else:
-                try:
-                    emb = row["embedding_json"]
-                except Exception:
+    if chunk_hashes:
+        try:
+            unique_hashes = list(set(chunk_hashes))
+            for i in range(0, len(unique_hashes), 200):
+                batch_hashes = unique_hashes[i : i + 200]
+                placeholders = ",".join("?" for _ in batch_hashes)
+                for row in conn.execute(
+                    f"SELECT chunk_hash, embedding_json FROM chunks WHERE chunk_hash IN ({placeholders});",
+                    batch_hashes,
+                ).fetchall():
                     emb = None
-            if emb:
-                known_chunk_hashes[str(row["chunk_hash"])] = str(emb)
-    except Exception:
-        known_chunk_hashes = {}  # pre-migration database; gate degrades to off
+                    if hasattr(row, "get"):
+                        emb = row.get("embedding_json") or row.get("embedding")
+                    else:
+                        try:
+                            emb = row["embedding_json"]
+                        except Exception:
+                            emb = None
+                    if emb:
+                        known_chunk_hashes[str(row["chunk_hash"])] = str(emb)
+        except Exception:
+            known_chunk_hashes = {}  # pre-migration database; gate degrades to off
 
-    chunk_hashes: list[str] = []
-    dedup_skipped = 0
-    for chunk in chunks:
-        digest = _chunk_hash(chunk)
-        chunk_hashes.append(digest)
-        if digest in known_chunk_hashes:
-            dedup_skipped += 1
+    dedup_skipped = sum(1 for digest in chunk_hashes if digest in known_chunk_hashes)
     if dedup_skipped:
         load_progress.emit(
             message=f"Chunk-hash gate: {dedup_skipped}/{len(chunks)} duplicate section(s) skip vectorization."
@@ -403,29 +404,55 @@ def _upsert_document_with_chunks(
 
     _record_document_edges(conn, document_id, title, metadata)
 
-    for idx, chunk in enumerate(chunks):
-        chunk = _sanitize_text(chunk)
-        embedding = embeddings[idx]
-        cur = conn.execute(
-            """
-            INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json, chunk_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?);
-            """,
-            (
-                document_id,
-                idx,
-                chunk,
-                _token_estimate(chunk),
-                _json_dumps({"source_id": source_id}),
-                json.dumps(embedding, ensure_ascii=True) if embedding else None,
-                chunk_hashes[idx] if idx < len(chunk_hashes) else "",
-            ),
-        )
-        chunk_id = int(cur.lastrowid)
-        conn.execute(
-            "INSERT INTO chunk_fts (rowid, content, document_id) VALUES (?, ?, ?);",
-            (chunk_id, chunk, document_id),
-        )
+    if hasattr(conn, "_conn"):
+        # Cloud SQL PostgreSQL fast batch insert (chunk_fts is SQLite FTS5 only).
+        chunk_rows = []
+        for idx, raw_chunk in enumerate(chunks):
+            clean_chunk = _sanitize_text(raw_chunk)
+            embedding = embeddings[idx]
+            chunk_rows.append(
+                (
+                    document_id,
+                    idx,
+                    clean_chunk,
+                    _token_estimate(clean_chunk),
+                    _json_dumps({"source_id": source_id}),
+                    json.dumps(embedding, ensure_ascii=True) if embedding else None,
+                    chunk_hashes[idx] if idx < len(chunk_hashes) else "",
+                )
+            )
+        if chunk_rows:
+            conn.executemany(
+                """
+                INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json, chunk_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                chunk_rows,
+            )
+    else:
+        for idx, chunk in enumerate(chunks):
+            chunk = _sanitize_text(chunk)
+            embedding = embeddings[idx]
+            cur = conn.execute(
+                """
+                INSERT INTO chunks (document_id, chunk_index, content, token_estimate, metadata_json, embedding_json, chunk_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    document_id,
+                    idx,
+                    chunk,
+                    _token_estimate(chunk),
+                    _json_dumps({"source_id": source_id}),
+                    json.dumps(embedding, ensure_ascii=True) if embedding else None,
+                    chunk_hashes[idx] if idx < len(chunk_hashes) else "",
+                ),
+            )
+            chunk_id = int(cur.lastrowid)
+            conn.execute(
+                "INSERT INTO chunk_fts (rowid, content, document_id) VALUES (?, ?, ?);",
+                (chunk_id, chunk, document_id),
+            )
 
     return {
         "document_id": document_id,

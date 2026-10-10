@@ -2617,6 +2617,9 @@
             if (job.state === 'error') throw new Error(job.error || job.message || 'Load failed.');
           }
         }
+        if (Number(data.ingested ?? 0) <= 0) {
+          throw new Error(`Ingested: 0 document(s), ${data.failed ?? 1} failed.`);
+        }
         showProgress(100, `Ingested: ${data.ingested ?? 0} document(s), ${data.failed ?? 0} failed.`, 'done');
         setButtons(true, true);
         if (statusEl) {
