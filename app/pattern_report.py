@@ -74,10 +74,10 @@ def _container_sources(fields: list[str]) -> list[dict[str, Any]]:
         with library_connection("gemma") as conn:
             rows = conn.execute(
                 f"""
-                SELECT source_type, IFNULL(module, '') AS module, IFNULL(topic, '') AS topic,
-                       IFNULL(source_url, '') AS url, COUNT(1) AS files
+                SELECT source_type, COALESCE(module, '') AS module, COALESCE(topic, '') AS topic,
+                       COALESCE(source_url, '') AS url, COUNT(1) AS files
                 FROM documents
-                WHERE LOWER(IFNULL(scientific_field, '')) IN ({marks})
+                WHERE LOWER(COALESCE(scientific_field, '')) IN ({marks})
                 GROUP BY source_type, module, topic, source_url
                 ORDER BY files DESC
                 LIMIT 40

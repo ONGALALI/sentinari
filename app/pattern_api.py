@@ -91,30 +91,33 @@ def pattern_workspace() -> dict[str, Any]:
     try:
         with _library_connection("gemma") as conn:
             for r in conn.execute(
-                "SELECT IFNULL(scientific_field, '') AS f, COUNT(1) AS n FROM documents GROUP BY f"
-            ):
-                field_doc_counts[str(r["f"] or "").strip().lower()] = int(r["n"])
-        ok_doc_ids = [
-            int(r["document_id"])
-            for r in _store_connect().execute(
-                "SELECT DISTINCT document_id FROM pattern_extraction_log WHERE status = 'ok' AND document_id IS NOT NULL"
-            )
-        ]
+                "SELECT COALESCE(scientific_field, '') AS f, COUNT(1) AS n FROM documents GROUP BY COALESCE(scientific_field, '')"
+            ).fetchall():
+                norm_f = "-".join(str(r["f"] or "").strip().lower().split())
+                field_doc_counts[norm_f] = field_doc_counts.get(norm_f, 0) + int(r["n"])
+        with _store_connect() as sconn:
+            ok_doc_ids = [
+                int(r["document_id"])
+                for r in sconn.execute(
+                    "SELECT DISTINCT document_id FROM pattern_extraction_log WHERE status = 'ok' AND document_id IS NOT NULL"
+                ).fetchall()
+            ]
         if ok_doc_ids:
             marks = ",".join("?" for _ in ok_doc_ids)
             with _library_connection("gemma") as conn:
                 for r in conn.execute(
-                    f"SELECT id, IFNULL(scientific_field, '') AS f FROM documents WHERE id IN ({marks})",
+                    f"SELECT id, COALESCE(scientific_field, '') AS f FROM documents WHERE id IN ({marks})",
                     ok_doc_ids,
-                ):
-                    extracted_by_field.setdefault(str(r["f"] or "").strip().lower(), set()).add(int(r["id"]))
+                ).fetchall():
+                    norm_f = "-".join(str(r["f"] or "").strip().lower().split())
+                    extracted_by_field.setdefault(norm_f, set()).add(int(r["id"]))
     except Exception:
         pass
 
     containers: list[dict[str, Any]] = []
     for group in groups.values():
         fields = group["fields"]
-        primary = (fields[0] if fields else "unassigned").lower()
+        primary = "-".join((fields[0] if fields else "unassigned").lower().split())
         total_docs = field_doc_counts.get(primary, 0)
         done_docs = len(extracted_by_field.get(primary, set()))
         containers.append(
@@ -272,54 +275,144 @@ def _utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chunks: int) -> dict[str, Any]:
-    started = _utc()
+_FIELD_ALIASES: dict[str, list[str]] = {
+    "health": ["medicine", "public-health", "pharmacology", "neuroscience", "biology", "genetics-molecular-biology"],
+    "medicine": ["medicine", "public-health", "pharmacology"],
+    "medical": ["medicine", "public-health", "pharmacology"],
+    "biology": ["biology", "genetics-molecular-biology", "ecology-environmental-biology", "neuroscience"],
+    "physics": ["physics", "quantum-physics", "astronomy-cosmology"],
+    "computer-science": ["computer-and-information-sciences", "information-science"],
+    "ai": ["computer-and-information-sciences", "information-science"],
+    "artificial-intelligence": ["computer-and-information-sciences", "information-science"],
+    "cs": ["computer-and-information-sciences", "information-science"],
+    "social-sciences": ["economics", "political-science", "sociology", "psychology", "anthropology"],
+    "society": ["economics", "political-science", "sociology", "psychology", "anthropology"],
+}
 
-    # §74l — owner's crisis & threat lexicon ranks which documents the
-    # scanner sees. Newest-first was blind; now up to 60 of the field's
-    # documents are triaged against pattern_discovery/key_words_tags.md
-    # (crises, threats, unsolved science) and the highest-scoring ones are
-    # scanned first — the hunt starts where the danger words live.
+
+def _expand_field_aliases(field_slug: str) -> list[str]:
+    clean = "-".join(str(field_slug or "").strip().lower().replace("_", "-").split())
+    if not clean or clean in {"all", "*", "every", "all-fields"}:
+        return []
+    aliases = list(_FIELD_ALIASES.get(clean, []))
+    for variant in (clean, clean.replace("-", " ")):
+        if variant and variant not in aliases:
+            aliases.append(variant)
+    return aliases
+
+
+def _batch_triage_documents(
+    conn: Any,
+    pool_rows: list[Any],
+    rep: Any,
+    *,
+    topic_terms: list[str] | None = None,
+) -> list[tuple[float, int, str, dict[str, Any], list[int]]]:
+    """Fetch first 8 chunks for up to 60 documents in ONE query and rank via §74l crisis lexicon (+ optional topic terms)."""
     from .pattern_lexicon import scan_document_text
 
-    _load_progress.stage("download", f"Ranking {field_slug}'s documents by crisis & threat signal (§74l lexicon)...")
-    with _library_connection("gemma") as conn:
-        pool_rows = conn.execute(
-            "SELECT id, title FROM documents WHERE IFNULL(scientific_field, '') = ? ORDER BY id DESC LIMIT 60",
-            (field_slug,),
-        ).fetchall()
-        triaged: list[tuple[float, int, str, dict[str, Any]]] = []
-        for row in pool_rows:
-            if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
-                return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": 0}
-            chunk_rows = conn.execute(
-                "SELECT content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT 8",
-                (int(row["id"]),),
+    if not pool_rows:
+        return []
+    pool_ids = [int(r["id"]) for r in pool_rows]
+    marks = ",".join("?" for _ in pool_ids)
+    chunk_rows = conn.execute(
+        f"""
+        SELECT id, document_id, chunk_index, content
+        FROM chunks
+        WHERE document_id IN ({marks}) AND chunk_index < 8
+        ORDER BY document_id, chunk_index
+        """,
+        pool_ids,
+    ).fetchall()
+    chunks_by_doc: dict[int, list[tuple[int, str]]] = {}
+    for cr in chunk_rows:
+        chunks_by_doc.setdefault(int(cr["document_id"]), []).append(
+            (int(cr["id"]), str(cr["content"] or ""))
+        )
+
+    clean_terms = [t.strip().lower() for t in (topic_terms or []) if len(t.strip()) >= 3]
+    triaged: list[tuple[float, int, str, dict[str, Any], list[int]]] = []
+    for row in pool_rows:
+        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+            return []
+        doc_id = int(row["id"])
+        title = str(row["title"] or "")
+        doc_chunks = chunks_by_doc.get(doc_id) or []
+        text = " ".join(c_text for _, c_text in doc_chunks)
+        triage = scan_document_text(f"{title}\n{text}")
+        score = float(triage.get("score") or 0.0)
+        matched_chunk_ids: list[int] = []
+        if clean_terms:
+            title_low = title.lower()
+            for term in clean_terms:
+                if term in title_low:
+                    score += 20.0
+            for cid, c_text in doc_chunks:
+                c_low = c_text.lower()
+                hits = sum(1 for term in clean_terms if term in c_low)
+                if hits > 0:
+                    score += 10.0 * hits
+                    matched_chunk_ids.append(cid)
+        triaged.append((round(score, 1), doc_id, title, triage, matched_chunk_ids))
+    triaged.sort(key=lambda item: (-item[0], -item[1]))
+    return triaged
+
+
+def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chunks: int) -> dict[str, Any]:
+    started = _utc()
+    is_all = not field_slug or field_slug in {"all", "*", "all-fields"}
+    label_field = "all fields" if is_all else field_slug
+    aliases = _expand_field_aliases(field_slug)
+
+    _load_progress.stage("download", f"Ranking {label_field} documents by crisis & threat signal (§74l lexicon)...")
+    with _store_connect() as sconn:
+        done_ids = {
+            int(r["document_id"])
+            for r in sconn.execute(
+                "SELECT DISTINCT document_id FROM pattern_extraction_log WHERE status = 'ok' AND document_id IS NOT NULL"
             ).fetchall()
-            text = " ".join(str(r["content"] or "") for r in chunk_rows)
-            triage = scan_document_text(text)
-            triaged.append((float(triage.get("score") or 0.0), int(row["id"]), str(row["title"] or ""), triage))
-    triaged.sort(key=lambda item: -item[0])
+        }
+
+    with _library_connection("gemma") as conn:
+        if is_all or not aliases:
+            raw_rows = conn.execute(
+                "SELECT id, title FROM documents ORDER BY id DESC LIMIT 180"
+            ).fetchall()
+        else:
+            marks = ",".join("?" for _ in aliases)
+            like_clauses = " OR ".join("LOWER(COALESCE(scientific_field, '')) LIKE ?" for _ in aliases)
+            params = [*aliases, *[f"%{a}%" for a in aliases]]
+            raw_rows = conn.execute(
+                f"""
+                SELECT id, title FROM documents
+                WHERE LOWER(COALESCE(scientific_field, '')) IN ({marks})
+                   OR ({like_clauses})
+                ORDER BY id DESC LIMIT 180
+                """,
+                params,
+            ).fetchall()
+        unanalyzed = [r for r in raw_rows if int(r["id"]) not in done_ids]
+        pool_rows = (unanalyzed if len(unanalyzed) >= max_documents else raw_rows)[:60]
+        triaged = _batch_triage_documents(conn, pool_rows, rep)
+        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+            return {"ok": True, "cancelled": True, "field": label_field, "analyzed": 0}
+
     picked = triaged[: max(1, min(12, int(max_documents)))]
     doc_ids = [item[1] for item in picked]
     titles = {item[1]: item[2] for item in picked}
     if not doc_ids:
-        return {"ok": False, "reason": "no-documents", "field": field_slug}
+        return {"ok": False, "reason": "no-documents", "field": label_field}
     crisis_picked = sum(1 for item in picked if item[0] >= 5.0)
     top_scores = [
         {"document_id": item[1], "title": item[2][:80], "score": item[0], "matched_terms": int((item[3] or {}).get("matched_terms") or 0)}
         for item in picked[:5]
     ]
 
-    # §74l pre-flight: ranking always runs — it is pure local signal work.
-    # Extraction is engine work; when the engine is dark (strict Enigma
-    # doctrine) we refuse here, dignified, instead of failing document by
-    # document. The lexicon ranking report still stands for the owner.
     gateway_desc = get_gateway().describe()
     if not gateway_desc.get("available"):
         return {
             "ok": True,
-            "field": field_slug,
+            "field": label_field,
             "engine_dark": True,
             "reason": "engine-unavailable",
             "message": "No LLM engine is configured, so extraction is held. The crisis lexicon still ranked the field's documents (§74l).",
@@ -335,7 +428,7 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
             "started_at": started,
         }
 
-    _load_progress.stage("download", f"Scanning {len(doc_ids)} document(s) in {field_slug}...")
+    _load_progress.stage("download", f"Scanning {len(doc_ids)} document(s) in {label_field}...")
     proposed_ids: list[int] = []
     errors: list[str] = []
     with _store_connect() as conn:
@@ -344,11 +437,11 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
         title = str(titles.get(doc_id) or doc_id)
         rep.report((index - 1) / len(doc_ids), f"Extracting patterns from \"{title[:60]}\" ({index}/{len(doc_ids)})...")
         if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
-            return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": index - 1}
+            return {"ok": True, "cancelled": True, "field": label_field, "analyzed": index - 1}
         try:
             result = extract_document(doc_id, max_chunks=max_chunks)
             if str(result.get("reason") or "") == "paused":
-                return {"ok": True, "cancelled": True, "field": field_slug, "analyzed": index - 1}
+                return {"ok": True, "cancelled": True, "field": label_field, "analyzed": index - 1}
             if not result.get("ok") and result.get("reason"):
                 errors.append(f"doc {doc_id}: {result.get('reason')}")
         except Exception as ex:
@@ -381,12 +474,11 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
 
     return {
         "ok": True,
-        "field": field_slug,
+        "field": label_field,
         "documents_scanned": len(doc_ids),
         "patterns_proposed": len(proposed_ids),
         "pattern_ids": proposed_ids,
         "benefits_generated": benefits_ok,
-        # §74l: how the crisis lexicon steered this scan.
         "crisis_lexicon": {
             "high_priority_documents": crisis_picked,
             "pool_triaged": len(triaged),
@@ -412,27 +504,37 @@ def _discover_field_worker(field_slug: str, job_id: str, max_documents: int, max
         _ACTIVE_DISCOVERY.pop(field_slug, None)
 
 
+@router.post("/discover/all")
+def discover_all_field_patterns(
+    max_documents: int = Query(default=6, ge=1, le=12),
+    max_chunks: int = Query(default=4, ge=1, le=10),
+) -> dict[str, Any]:
+    """Start live pattern discovery across all scientific fields."""
+    return discover_field_patterns("all", max_documents=max_documents, max_chunks=max_chunks)
+
+
 @router.post("/discover/field/{field_slug}")
 def discover_field_patterns(
     field_slug: str,
     max_documents: int = Query(default=6, ge=1, le=12),
     max_chunks: int = Query(default=4, ge=1, le=10),
 ) -> dict[str, Any]:
-    """Start live pattern discovery for one scientific field (background job)."""
+    """Start live pattern discovery for one scientific field or 'all' (background job)."""
     ensure_pattern_store()
     if not get_pattern_recognition_enabled():
         raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
-    field = str(field_slug or "").strip().lower()
-    if not field or field == "unassigned":
-        raise HTTPException(status_code=400, detail="Provide a valid scientific field.")
+    field = str(field_slug or "all").strip().lower()
+    if field == "unassigned":
+        field = "all"
     if not _DISCOVERY_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="A pattern discovery is already running - wait for it to finish.")
     try:
+        label_field = "all fields" if field in {"all", "*"} else field
         job_id, _rep = _load_progress.start_job(
-            label=f"Pattern discovery: {field}",
+            label=f"Pattern discovery: {label_field}",
             field=field,
             source_type="pattern-discovery",
-            title=f"New pattern recognition in {field}",
+            title=f"New pattern recognition in {label_field}",
         )
         worker = _threading.Thread(
             target=_discover_field_worker,
@@ -659,8 +761,13 @@ def _container_key_for_pattern(pattern_id: int) -> str:
 # Future requests: R&D paper launcher + manual (user-requested) discovery
 # ---------------------------------------------------------------------------
 
-from .pattern_store import list_future_requests as _list_future_requests
-from .pattern_store import record_future_request as _record_future_request
+import re as _re
+from .pattern_store import (
+    get_future_request as _get_future_request,
+    list_future_requests as _list_future_requests,
+    record_future_request as _record_future_request,
+    update_future_request as _update_future_request,
+)
 
 
 class FutureRequestPayload(BaseModel):
@@ -668,6 +775,298 @@ class FutureRequestPayload(BaseModel):
     topic: str = Field(default="", max_length=300)
     fields: list[str] = Field(default_factory=list)
     note: str = Field(default="", max_length=2000)
+
+
+_STOPWORDS = {
+    "the", "and", "for", "with", "that", "this", "from", "into", "between",
+    "patterns", "pattern", "linking", "about", "find", "search", "look", "how",
+}
+
+
+def _topic_search_terms(topic: str, note: str = "") -> list[str]:
+    combined = f"{topic} {note}".lower()
+    words = [w for w in _re.findall(r"[a-z0-9'\-]{3,}", combined) if w not in _STOPWORDS]
+    out: list[str] = []
+    if len(topic.strip()) >= 4:
+        out.append(topic.strip().lower())
+    for w in words:
+        if w not in out:
+            out.append(w)
+    return out[:10]
+
+
+def _discover_manual_impl(
+    request_id: int,
+    topic: str,
+    fields: list[str],
+    note: str,
+    rep: Any,
+    max_documents: int = 6,
+    max_chunks: int = 4,
+) -> dict[str, Any]:
+    started = _utc()
+    _update_future_request(request_id, status="running")
+    terms = _topic_search_terms(topic, note)
+    field_aliases: list[str] = []
+    for f in fields:
+        for alias in _expand_field_aliases(f):
+            if alias not in field_aliases:
+                field_aliases.append(alias)
+
+    label = topic.strip() or (fields[0] if fields else "manual request")
+    _load_progress.stage("download", f"Searching knowledge library for \"{label}\" + crisis lexicon (§74l)...")
+
+    with _library_connection("gemma") as conn:
+        candidate_docs: dict[int, Any] = {}
+        # 1. Search documents by title / topic / module / scientific_field + optional field filter
+        if terms:
+            term_likes = " OR ".join(
+                "(LOWER(COALESCE(title, '')) LIKE ? OR LOWER(COALESCE(topic, '')) LIKE ? OR LOWER(COALESCE(scientific_field, '')) LIKE ?)"
+                for _ in terms[:6]
+            )
+            t_params: list[Any] = []
+            for t in terms[:6]:
+                like_val = f"%{t}%"
+                t_params.extend([like_val, like_val, like_val])
+            if field_aliases:
+                f_marks = ",".join("?" for _ in field_aliases)
+                f_likes = " OR ".join("LOWER(COALESCE(scientific_field, '')) LIKE ?" for _ in field_aliases)
+                sql = (
+                    f"SELECT id, title FROM documents WHERE ({term_likes}) "
+                    f"AND (LOWER(COALESCE(scientific_field, '')) IN ({f_marks}) OR ({f_likes})) "
+                    f"ORDER BY id DESC LIMIT 60"
+                )
+                rows = conn.execute(sql, [*t_params, *field_aliases, *[f"%{a}%" for a in field_aliases]]).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT id, title FROM documents WHERE ({term_likes}) ORDER BY id DESC LIMIT 60",
+                    t_params,
+                ).fetchall()
+            for r in rows:
+                candidate_docs[int(r["id"])] = r
+
+        # 2. Search chunks for the requested topic terms if we need more candidates
+        if len(candidate_docs) < 30 and terms:
+            c_likes = " OR ".join("LOWER(content) LIKE ?" for _ in terms[:4])
+            c_params = [f"%{t}%" for t in terms[:4]]
+            c_rows = conn.execute(
+                f"""
+                SELECT DISTINCT d.id, d.title
+                FROM chunks c
+                JOIN documents d ON d.id = c.document_id
+                WHERE ({c_likes})
+                ORDER BY d.id DESC
+                LIMIT 60
+                """,
+                c_params,
+            ).fetchall()
+            for r in c_rows:
+                candidate_docs.setdefault(int(r["id"]), r)
+
+        # 3. Fallback to field documents if topic was broad (e.g. "medicine" in field "health")
+        if len(candidate_docs) < max_documents and field_aliases:
+            f_marks = ",".join("?" for _ in field_aliases)
+            f_likes = " OR ".join("LOWER(COALESCE(scientific_field, '')) LIKE ?" for _ in field_aliases)
+            f_rows = conn.execute(
+                f"""
+                SELECT id, title FROM documents
+                WHERE LOWER(COALESCE(scientific_field, '')) IN ({f_marks}) OR ({f_likes})
+                ORDER BY id DESC LIMIT 60
+                """,
+                [*field_aliases, *[f"%{a}%" for a in field_aliases]],
+            ).fetchall()
+            for r in f_rows:
+                candidate_docs.setdefault(int(r["id"]), r)
+
+        # 4. Final fallback to newest library documents
+        if not candidate_docs:
+            for r in conn.execute("SELECT id, title FROM documents ORDER BY id DESC LIMIT 60").fetchall():
+                candidate_docs[int(r["id"])] = r
+
+        pool_rows = list(candidate_docs.values())[:60]
+        triaged = _batch_triage_documents(conn, pool_rows, rep, topic_terms=terms)
+        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+            _update_future_request(request_id, status="cancelled")
+            return {"ok": True, "cancelled": True, "topic": topic, "analyzed": 0}
+
+    picked = triaged[: max(1, min(12, int(max_documents)))]
+    doc_ids = [item[1] for item in picked]
+    titles = {item[1]: item[2] for item in picked}
+    pref_chunks = {item[1]: item[4] for item in picked}
+    if not doc_ids:
+        _update_future_request(request_id, status="no matching documents")
+        return {"ok": False, "reason": "no-documents", "topic": topic}
+
+    crisis_picked = sum(1 for item in picked if item[0] >= 5.0)
+    top_scores = [
+        {"document_id": item[1], "title": item[2][:80], "score": item[0], "matched_terms": int((item[3] or {}).get("matched_terms") or 0)}
+        for item in picked[:5]
+    ]
+
+    gateway_desc = get_gateway().describe()
+    if not gateway_desc.get("available"):
+        _update_future_request(request_id, status="held (engine dark)")
+        return {
+            "ok": True,
+            "topic": topic,
+            "engine_dark": True,
+            "reason": "engine-unavailable",
+            "message": "No LLM engine is configured, so extraction is held. Topic & crisis ranking completed.",
+            "documents_scanned": 0,
+            "patterns_proposed": 0,
+            "pattern_ids": [],
+            "benefits_generated": 0,
+            "crisis_lexicon": {
+                "high_priority_documents": crisis_picked,
+                "pool_triaged": len(triaged),
+                "top_scores": top_scores,
+            },
+            "started_at": started,
+        }
+
+    _load_progress.stage("download", f"Extracting patterns for \"{label}\" across {len(doc_ids)} document(s)...")
+    errors: list[str] = []
+    with _store_connect() as conn:
+        max_known_id = int(conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM patterns").fetchone()["m"])
+
+    for index, doc_id in enumerate(doc_ids, start=1):
+        title = str(titles.get(doc_id) or doc_id)
+        rep.report((index - 1) / len(doc_ids), f"Targeted extraction on \"{title[:55]}\" ({index}/{len(doc_ids)})...")
+        if _load_progress.is_cancel_requested(getattr(rep, "job_id", "")):
+            _update_future_request(request_id, status="cancelled")
+            return {"ok": True, "cancelled": True, "topic": topic, "analyzed": index - 1}
+        try:
+            result = extract_document(
+                doc_id,
+                max_chunks=max_chunks,
+                focus_topic=topic,
+                focus_note=note,
+                preferred_chunk_ids=pref_chunks.get(doc_id) or None,
+            )
+            if str(result.get("reason") or "") == "paused":
+                _update_future_request(request_id, status="paused")
+                return {"ok": True, "cancelled": True, "topic": topic, "analyzed": index - 1}
+            if not result.get("ok") and result.get("reason"):
+                errors.append(f"doc {doc_id}: {result.get('reason')}")
+        except Exception as ex:
+            errors.append(f"doc id={doc_id}: {str(ex)[:120]}")
+
+    # Also run a targeted cross-domain synthesis pass for this topic
+    try:
+        rep.report(0.85, f"Synthesizing cross-domain patterns for \"{label[:50]}\"...")
+        synthesize_cross_domain(max_pairs=3, focus_topic=topic)
+    except Exception:
+        pass
+
+    with _store_connect() as conn:
+        new_rows = conn.execute(
+            "SELECT id FROM patterns WHERE id > ? ORDER BY id", (max_known_id,)
+        ).fetchall()
+    proposed_ids = [int(r["id"]) for r in new_rows]
+
+    _load_progress.stage("embed", "Analyzing potential benefits of newly discovered patterns...")
+    benefits_ok = 0
+    newest = list(reversed(proposed_ids))[:5]
+    for offset, pattern_id in enumerate(newest):
+        rep.report(offset / max(1, len(newest)), f"Analyzing benefits of pattern {pattern_id}...")
+        try:
+            pattern = get_pattern(pattern_id)
+            if pattern and not str(pattern.get("benefits") or "").strip():
+                benefits = _generate_benefits(pattern)
+                with _store_connect() as conn:
+                    conn.execute(
+                        "UPDATE patterns SET benefits = ?, benefits_generated_at = datetime('now') WHERE id = ?",
+                        (benefits, int(pattern_id)),
+                    )
+                    conn.commit()
+                benefits_ok += 1
+        except Exception:
+            continue
+
+    status_str = f"completed ({len(proposed_ids)} pattern{'s' if len(proposed_ids) != 1 else ''})"
+    _update_future_request(
+        request_id,
+        status=status_str,
+        pattern_id=proposed_ids[0] if proposed_ids else None,
+    )
+    return {
+        "ok": True,
+        "request_id": request_id,
+        "topic": topic,
+        "fields": fields,
+        "documents_scanned": len(doc_ids),
+        "patterns_proposed": len(proposed_ids),
+        "pattern_ids": proposed_ids,
+        "benefits_generated": benefits_ok,
+        "crisis_lexicon": {
+            "high_priority_documents": crisis_picked,
+            "pool_triaged": len(triaged),
+            "top_scores": top_scores,
+        },
+        "errors": errors[:6],
+        "started_at": started,
+    }
+
+
+def _discover_manual_worker(
+    request_id: int,
+    topic: str,
+    fields: list[str],
+    note: str,
+    key: str,
+    job_id: str,
+    max_documents: int,
+    max_chunks: int,
+) -> None:
+    rep = _load_progress.job_reporter(job_id)
+    try:
+        with _load_progress.bind(rep):
+            result = _discover_manual_impl(
+                request_id, topic, fields, note, rep, max_documents=max_documents, max_chunks=max_chunks
+            )
+        if result.get("cancelled"):
+            _load_progress.finish_job(job_id, {**result, "message": "Manual pattern discovery paused by owner."})
+        else:
+            _load_progress.finish_job(job_id, result)
+    except Exception as ex:
+        _update_future_request(request_id, status="error")
+        _load_progress.error_job(job_id, str(ex) or ex.__class__.__name__)
+    finally:
+        _ACTIVE_DISCOVERY.pop(key, None)
+
+
+def _launch_manual_discovery_job(
+    request_row: dict[str, Any],
+    *,
+    max_documents: int = 5,
+    max_chunks: int = 3,
+) -> str:
+    req_id = int(request_row["id"])
+    topic = str(request_row.get("topic") or "").strip()
+    note = str(request_row.get("note") or "").strip()
+    try:
+        raw_fields = request_row.get("fields")
+        fields = list(raw_fields) if isinstance(raw_fields, list) else _json.loads(str(raw_fields or "[]"))
+    except Exception:
+        fields = []
+    fields = [str(f).strip() for f in fields if str(f).strip()]
+    key = fields[0].lower() if fields else f"manual-{req_id}"
+    label = topic or (fields[0] if fields else f"request #{req_id}")
+    job_id, _rep = _load_progress.start_job(
+        label=f"Manual pattern discovery: {label[:50]}",
+        field=key,
+        source_type="manual-pattern-discovery",
+        title=f"User-requested pattern discovery: {label[:60]}",
+    )
+    worker = _threading.Thread(
+        target=_discover_manual_worker,
+        args=(req_id, topic, fields, note, key, job_id, max_documents, max_chunks),
+        name=f"manual-pattern-discovery-{job_id}",
+        daemon=True,
+    )
+    _ACTIVE_DISCOVERY[key] = job_id
+    worker.start()
+    return job_id
 
 
 @router.post("/future-requests/rd-paper")
@@ -696,13 +1095,50 @@ def request_rd_paper_endpoint(payload: FutureRequestPayload) -> dict[str, Any]:
 
 @router.post("/future-requests/manual-discovery")
 def request_manual_discovery_endpoint(payload: FutureRequestPayload) -> dict[str, Any]:
-    """Log a manual (user-requested) pattern discovery request as future work."""
+    """Record AND actively execute a user-requested pattern discovery job."""
     if not payload.topic and not payload.note:
         raise HTTPException(status_code=422, detail="Describe the pattern you want Sentinel to look for.")
+    ensure_pattern_store()
+    if not get_pattern_recognition_enabled():
+        row = _record_future_request(
+            "manual_discovery",
+            topic=payload.topic,
+            fields=payload.fields,
+            note=payload.note,
+            status="queued (paused)",
+        )
+        return {"ok": True, "request": row, "job_id": "", "message": PAUSED_MESSAGE}
     row = _record_future_request(
         "manual_discovery",
         topic=payload.topic,
         fields=payload.fields,
         note=payload.note,
+        status="running",
     )
-    return {"ok": True, "request": row, "message": "Manual discovery request logged as future work."}
+    job_id = _launch_manual_discovery_job(row)
+    return {
+        "ok": True,
+        "request": row,
+        "job_id": job_id,
+        "async": True,
+        "message": f"Manual pattern discovery started for \"{payload.topic or payload.note}\".",
+    }
+
+
+@router.post("/future-requests/{request_id}/run")
+def run_manual_discovery_request_endpoint(request_id: int) -> dict[str, Any]:
+    """Execute or re-run a logged manual discovery request."""
+    ensure_pattern_store()
+    if not get_pattern_recognition_enabled():
+        raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
+    row = _get_future_request(int(request_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Request {request_id} not found.")
+    job_id = _launch_manual_discovery_job(row)
+    return {
+        "ok": True,
+        "request": row,
+        "job_id": job_id,
+        "async": True,
+        "message": f"Running manual pattern discovery for \"{row.get('topic') or row.get('note')}\".",
+    }

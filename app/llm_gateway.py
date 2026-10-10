@@ -578,6 +578,9 @@ class VertexAIProvider:
         if not candidates:
             raise LLMGatewayError(f"Vertex AI: empty response from {self.chat_model}")
         parts = (candidates[0].get("content") or {}).get("parts") or []
+        non_thought = [str(p.get("text") or "") for p in parts if not p.get("thought") and p.get("text")]
+        if non_thought:
+            return " ".join(non_thought).strip()
         return " ".join(str(p.get("text") or "") for p in parts).strip()
 
     def embed(self, text: str) -> list[float] | None:

@@ -128,8 +128,33 @@ class PostgresConnectionWrapper:
             )
         s = re.sub(r"\bINTEGER PRIMARY KEY AUTOINCREMENT\b", "SERIAL PRIMARY KEY", s, flags=re.IGNORECASE)
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
-        s = re.sub(r"\bCASE\s+WHEN\b(.*?)\bdatetime\('now'\)(.*?)\bEND\b", r"CASE WHEN\1CURRENT_TIMESTAMP::text\2END", s, flags=re.IGNORECASE | re.DOTALL)
-        s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", s)
+        s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP::text", s, flags=re.IGNORECASE)
+        s = re.sub(r"\bIFNULL\s*\(", "COALESCE(", s, flags=re.IGNORECASE)
+        s = re.sub(
+            r"\bGROUP_CONCAT\s*\(\s*DISTINCT\s+([^)]+)\)",
+            r"STRING_AGG(DISTINCT (\1)::text, ',')",
+            s,
+            flags=re.IGNORECASE,
+        )
+        s = re.sub(
+            r"\bGROUP_CONCAT\s*\(\s*([^,)]+)\s*\)",
+            r"STRING_AGG((\1)::text, ',')",
+            s,
+            flags=re.IGNORECASE,
+        )
+        s = re.sub(
+            r"\bMAX\s*\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*\)",
+            r"GREATEST(\1, \2)",
+            s,
+            flags=re.IGNORECASE,
+        )
+        s = re.sub(
+            r"\bMIN\s*\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*\)",
+            r"LEAST(\1, \2)",
+            s,
+            flags=re.IGNORECASE,
+        )
+        s = re.sub(r"\blast_insert_rowid\s*\(\s*\)", "LASTVAL()", s, flags=re.IGNORECASE)
         s = re.sub(r"\bembedding_json\b", "embedding", s)
         if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
             s = re.sub(r"\bADD\s+COLUMN\b", "ADD COLUMN IF NOT EXISTS", s, flags=re.IGNORECASE)
@@ -220,10 +245,13 @@ class PostgresConnectionWrapper:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if exc_type:
-            self.rollback()
-        else:
-            self.commit()
+        try:
+            if exc_type:
+                self.rollback()
+            else:
+                self.commit()
+        finally:
+            self.close()
 
 
 def _ensure_library_files() -> None:
@@ -859,6 +887,13 @@ def _sync_postgres_sequences(conn: PostgresConnectionWrapper) -> None:
         "unsupervised_runs",
         "unsupervised_clusters",
         "unsupervised_cluster_members",
+        "pattern_entities",
+        "pattern_relations",
+        "patterns",
+        "pattern_evidence",
+        "pattern_templates",
+        "pattern_extraction_log",
+        "future_requests",
     ):
         try:
             conn.execute(

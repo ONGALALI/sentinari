@@ -61,18 +61,23 @@ _FAMILY_TERMS = {
     ),
     "terminal_medical": _terms_for(
         "terminal_medical",
-        "alzheimer's disease", "amyotrophic lateral sclerosis", "creutzfeldt-jakob disease",
-        "cystic fibrosis", "fatal familial insomnia", "fibrodysplasia ossificans progressiva",
-        "huntington's disease", "inoperable", "metastatic cancer", "niemann-pick disease",
-        "progeria", "rabies", "sanfilippo syndrome", "spinal muscular atrophy",
-        "tay-sachs disease", "batten disease", "canavan disease", "krabbe disease",
-        "kuru", "muscular dystrophy", "terminal", "fatal", "cureless", "immedicable",
-        "irrecoverable", "irremediable", "irreparable", "incurable", "remediless",
-        "uncorrectable", "unrecoverable", "mortal", "deathly",
+        "alzheimer's disease", "amyotrophic lateral sclerosis", "als", "creutzfeldt-jakob disease",
+        "cjd", "chronic obstructive pulmonary disease", "copd", "cystic fibrosis",
+        "diabetes", "fatal familial insomnia", "ffi", "fibrodysplasia ossificans progressiva",
+        "fop", "hiv", "aids", "huntington's disease", "inflammatory bowel disease",
+        "crohn's disease", "ulcerative colitis", "inoperable", "metastatic cancer",
+        "metastatic cancers", "glioblastoma", "pancreatic adenocarcinoma", "multiple sclerosis",
+        "niemann-pick disease", "parkinson's disease", "progeria", "rabies",
+        "rheumatoid arthritis", "sanfilippo syndrome", "mps iii", "spinal muscular atrophy",
+        "sma", "tay-sachs disease", "batten disease", "canavan disease", "krabbe disease",
+        "kuru", "muscular dystrophy", "duchenne muscular dystrophy", "terminal", "fatal",
+        "cureless", "immedicable", "irrecoverable", "irremediable", "irreparable",
+        "incurable", "remediless", "uncorrectable", "unrecoverable", "mortal", "deathly",
     ),
     "existential_threat": _terms_for(
         "existential_threat",
-        "marburg virus", "avian influenza", "h5n1", "inhalation anthrax",
+        "marburg virus", "avian influenza", "highly pathogenic avian influenza",
+        "h5n1", "h5n1 bird flu", "bird flu", "inhalation anthrax",
         "engineered pandemics", "biotechnology risk", "nuclear proliferation",
         "atomic weapons", "climate change", "global warming", "biodiversity loss",
         "ecosystem collapse", "resource depletion", "habitat destruction",
@@ -98,7 +103,7 @@ _FAMILY_TERMS = {
         "extermination", "purge", "theft", "fraud", "fake", "dishonesty", "fugitive",
         "gangs", "violence", "rape", "domestic violence", "child abuse", "drug abuse",
         "bullying", "victimizing", "race hatred", "persecution", "despotism",
-        "tyranny", "nepotism", "oppressed", "human rights abuses", "labor exploitation",
+        "tyyranny", "tyranny", "nepotism", "oppressed", "human rights abuses", "labor exploitation",
         "tax evasion",
     ),
     "societal_crisis": _terms_for(
@@ -133,6 +138,7 @@ _TYPO_FIXES = {
     "fugutive": "fugitive",
     "incomptence": "incompetence",
     "vicitimizing": "victimizing",
+    "tyyranny": "tyranny",
 }
 
 _cache: dict[str, Any] = {}
@@ -140,8 +146,34 @@ _cache: dict[str, Any] = {}
 
 def _normalize(term: str) -> str:
     term = str(term or "").strip().lower()
+    term = re.sub(r"[^a-z0-9'\- ]+", " ", term)
+    term = re.sub(r"\s+", " ", term).strip()
     term = _TYPO_FIXES.get(term, term)
-    return re.sub(r"\s+", " ", term)
+    return term
+
+
+def _extract_line_terms(line: str) -> list[str]:
+    """Extract clean searchable terms from a line in key_words_tags.md,
+    stripping parenthetical qualifiers while preserving acronyms/sub-diseases."""
+    out: list[str] = []
+    # Strip parentheticals to get the main phrase(s)
+    base_line = re.sub(r"\([^)]*\)", "", line)
+    for part in re.split(r"[;,/]", base_line):
+        t = _normalize(part)
+        if t and len(t) >= 2:
+            out.append(t)
+    # Also inspect parentheticals for acronyms or named conditions
+    for paren in re.findall(r"\(([^)]+)\)", line):
+        cleaned = re.sub(r"^(?:e\.g\.|i\.e\.|specifically)\b[\s,:]*", "", paren, flags=re.IGNORECASE)
+        lower_c = cleaned.lower()
+        if any(skip in lower_c for skip in ("once symptoms", "advanced stage", "without early", "type 1", "types a")):
+            continue
+        for sub in re.split(r"[;,]|\band\b", cleaned, flags=re.IGNORECASE):
+            sub = re.sub(r"^stage\s+[ivx]+\s+", "", sub.strip(), flags=re.IGNORECASE)
+            t = _normalize(sub)
+            if t and len(t) >= 3:
+                out.append(t)
+    return out
 
 
 def load_lexicon(*, force: bool = False) -> dict[str, Any]:
@@ -160,7 +192,9 @@ def load_lexicon(*, force: bool = False) -> dict[str, Any]:
     terms: dict[str, str] = {}
     for family, family_terms in _FAMILY_TERMS.items():
         for term in family_terms:
-            terms[_normalize(term)] = family
+            norm = _normalize(term)
+            if norm:
+                terms[norm] = family
 
     file_terms: list[str] = []
     path = get_project_root() / _LEXICON_REL_PATH
@@ -173,10 +207,8 @@ def load_lexicon(*, force: bool = False) -> dict[str, Any]:
             line = line.strip().lstrip("•").lstrip("-").strip()
             if not line or line.startswith("#"):
                 continue
-            for part in re.split(r"[;,]", line):
-                t = _normalize(part)
-                if t:
-                    file_terms.append(t)
+            for t in _extract_line_terms(line):
+                file_terms.append(t)
         # Extend with any owner additions not yet curated: nearest family by
         # a light keyword probe, else the safest meaningful default.
         for t in file_terms:
@@ -186,9 +218,17 @@ def load_lexicon(*, force: bool = False) -> dict[str, Any]:
     else:
         text = ""
 
+    # Pre-compile a single combined word-boundary regex for fast O(N) scanning
+    sorted_terms = sorted(terms.keys(), key=len, reverse=True)
+    alt = "|".join(re.escape(t).replace(r"\ ", r"[ \-]+") for t in sorted_terms if t)
+    compiled = re.compile(rf"(?<![a-z0-9])(?:{alt})(?![a-z0-9])") if alt else None
+    canon_map = {re.sub(r"[\s\-]+", " ", t): (t, fam) for t, fam in terms.items()}
+
     _cache = {
         "terms": terms,
         "weights": weights,
+        "compiled": compiled,
+        "canon_map": canon_map,
         "raw_count": len(file_terms),
         "file_count": len(set(file_terms)),
         "curated_count": sum(len(v) for v in _FAMILY_TERMS.values()),
@@ -203,7 +243,7 @@ def _guess_family(term: str) -> str:
     probes = (
         ("existential_threat", ("pandemic", "nuclear", "climate", "collapse", "scarcity", "crisis", "war")),
         ("catastrophe", ("catastroph", "disaster", "massacre", "genocide", "weapon", "deadly", "fatal")),
-        ("terminal_medical", ("disease", "cancer", "syndrome", "incurable", "virus", "terminal")),
+        ("terminal_medical", ("disease", "cancer", "syndrome", "incurable", "virus", "terminal", "sclerosis", "dystrophy", "atrophy", "colitis", "arthritis", "diabetes", "influenza")),
         ("outbreak_violence", ("violence", "crime", "attack", "terror", "abuse", "war")),
         ("societal_crisis", ("poverty", "homeless", "famine", "unemploy", "jobless", "debt")),
         ("mental_health", ("depress", "psych", "mania", "addict")),
@@ -236,6 +276,15 @@ def _match_terms(text: str) -> dict[str, str]:
     lowered = f" {str(text or '').lower()} "
     lowered = re.sub(r"[^a-z0-9'\- ]+", " ", lowered)
     hits: dict[str, str] = {}
+    compiled = data.get("compiled")
+    canon_map = data.get("canon_map") or {}
+    if compiled is not None:
+        for m in compiled.finditer(lowered):
+            key = re.sub(r"[\s\-]+", " ", m.group(0).strip())
+            entry = canon_map.get(key)
+            if entry is not None:
+                hits[entry[0]] = entry[1]
+        return hits
     for term, family in data["terms"].items():
         pattern = r"(?<![a-z0-9])" + re.escape(term).replace(r"\ ", r"[ \-]+") + r"(?![a-z0-9])"
         if re.search(pattern, lowered):

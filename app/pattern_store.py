@@ -83,7 +83,26 @@ def _db_path() -> Path:
     return get_project_root() / "data" / "patterns.db"
 
 
-def _connect() -> sqlite3.Connection:
+_ensured_target: str | None = None
+
+
+def _target_key() -> str:
+    if PATTERN_DB_PATH is not None:
+        return f"sqlite:{PATTERN_DB_PATH}"
+    from .db import _get_pg_url
+
+    pg_url = _get_pg_url()
+    if pg_url:
+        return f"pg:{pg_url}"
+    return f"sqlite:{_db_path()}"
+
+
+def _connect() -> Any:
+    if PATTERN_DB_PATH is None:
+        from .db import _get_pg_url, get_connection
+
+        if _get_pg_url():
+            return get_connection()
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=15.0)
@@ -96,6 +115,10 @@ def _connect() -> sqlite3.Connection:
 
 def ensure_pattern_store() -> None:
     """Create the base schema and seed the template registry (idempotent)."""
+    global _ensured_target
+    target = _target_key()
+    if _ensured_target == target:
+        return
     with _connect() as conn:
         conn.executescript(
             """
@@ -140,7 +163,9 @@ def ensure_pattern_store() -> None:
                 discovered_at TEXT NOT NULL,
                 reviewed_at TEXT NOT NULL DEFAULT '',
                 activated_at TEXT NOT NULL DEFAULT '',
-                evolution_history TEXT NOT NULL DEFAULT '[]'
+                evolution_history TEXT NOT NULL DEFAULT '[]',
+                benefits TEXT NOT NULL DEFAULT '',
+                benefits_generated_at TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS future_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,7 +219,22 @@ def ensure_pattern_store() -> None:
                 patterns_proposed INTEGER NOT NULL DEFAULT 0,
                 error TEXT NOT NULL DEFAULT '',
                 started_at TEXT NOT NULL DEFAULT '',
-                finished_at TEXT NOT NULL DEFAULT ''
+                finished_at TEXT NOT NULL DEFAULT '',
+                crisis_score REAL NOT NULL DEFAULT 0.0,
+                crisis_terms TEXT NOT NULL DEFAULT ''
+            );
+
+            CREATE TABLE IF NOT EXISTS pattern_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS rejected_identities (
+                identity_key TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '',
+                source_type TEXT NOT NULL DEFAULT '',
+                rejected_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
             """
         )
@@ -232,6 +272,7 @@ def ensure_pattern_store() -> None:
                 ),
             )
         conn.commit()
+    _ensured_target = target
 
 
 def _normalize(name: str) -> str:
@@ -592,6 +633,7 @@ def record_future_request(
     topic: str = "",
     fields: list[str] | None = None,
     note: str = "",
+    status: str = "logged",
 ) -> dict[str, Any]:
     """Log a future-work request (R&D paper, manual discovery request, ...)."""
     ensure_pattern_store()
@@ -599,7 +641,7 @@ def record_future_request(
         cur = conn.execute(
             """
             INSERT INTO future_requests (kind, pattern_id, topic, fields, note, status, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'logged', datetime('now'))
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 str(kind or "").strip() or "unspecified",
@@ -607,11 +649,48 @@ def record_future_request(
                 str(topic or "")[:300],
                 json.dumps(list(fields or [])),
                 str(note or "")[:2000],
+                str(status or "logged")[:80],
+                _utc_now(),
             ),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM future_requests WHERE id = ?", (int(cur.lastrowid),)).fetchone()
     return dict(row)
+
+
+def update_future_request(
+    request_id: int,
+    *,
+    status: str | None = None,
+    note: str | None = None,
+    pattern_id: int | None = None,
+) -> dict[str, Any] | None:
+    ensure_pattern_store()
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM future_requests WHERE id = ?", (int(request_id),)).fetchone()
+        if row is None:
+            return None
+        new_status = str(status if status is not None else row["status"])[:80]
+        new_note = str(note if note is not None else row["note"])[:2000]
+        new_pid = int(pattern_id) if pattern_id is not None else row["pattern_id"]
+        conn.execute(
+            """
+            UPDATE future_requests
+            SET status = ?, note = ?, pattern_id = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (new_status, new_note, new_pid, _utc_now(), int(request_id)),
+        )
+        conn.commit()
+        updated = conn.execute("SELECT * FROM future_requests WHERE id = ?", (int(request_id),)).fetchone()
+    return dict(updated) if updated is not None else None
+
+
+def get_future_request(request_id: int) -> dict[str, Any] | None:
+    ensure_pattern_store()
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM future_requests WHERE id = ?", (int(request_id),)).fetchone()
+    return dict(row) if row is not None else None
 
 
 def list_future_requests(kind: str = "") -> list[dict[str, Any]]:
@@ -631,7 +710,7 @@ def list_future_requests(kind: str = "") -> list[dict[str, Any]]:
 # Pattern recognition master switch (persisted in patterns.db)
 # ---------------------------------------------------------------------------
 
-def _ensure_settings_table(conn: sqlite3.Connection) -> None:
+def _ensure_settings_table(conn: Any) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS pattern_settings (
@@ -646,8 +725,8 @@ def _ensure_settings_table(conn: sqlite3.Connection) -> None:
 def get_pattern_recognition_enabled() -> bool:
     """True unless the owner has paused pattern recognition (persisted)."""
     try:
+        ensure_pattern_store()
         with _connect() as conn:
-            _ensure_settings_table(conn)
             row = conn.execute(
                 "SELECT value FROM pattern_settings WHERE key = 'recognition_enabled'"
             ).fetchone()
@@ -660,14 +739,13 @@ def set_pattern_recognition_enabled(enabled: bool) -> dict[str, Any]:
     """Persist the pattern-recognition master switch."""
     ensure_pattern_store()
     with _connect() as conn:
-        _ensure_settings_table(conn)
         conn.execute(
             """
             INSERT INTO pattern_settings (key, value, updated_at)
-            VALUES ('recognition_enabled', ?, datetime('now'))
+            VALUES ('recognition_enabled', ?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
             """,
-            ("on" if enabled else "off",),
+            ("on" if enabled else "off", _utc_now()),
         )
         conn.commit()
     return {"recognition_enabled": bool(enabled)}
@@ -685,7 +763,7 @@ PAUSED_MESSAGE = (
 # survives restarts, and independent of the candidates DB's Clear function.
 # ---------------------------------------------------------------------------
 
-def _ensure_rejected_table(conn: sqlite3.Connection) -> None:
+def _ensure_rejected_table(conn: Any) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS rejected_identities (
@@ -705,16 +783,15 @@ def remember_rejected_identity(identity_key: str, title: str = "", source_type: 
         return
     ensure_pattern_store()
     with _connect() as conn:
-        _ensure_rejected_table(conn)
         conn.execute(
             """
-            INSERT INTO rejected_identities (identity_key, title, source_type)
-            VALUES (?, ?, ?)
+            INSERT INTO rejected_identities (identity_key, title, source_type, rejected_at)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(identity_key) DO UPDATE SET
-                title = CASE WHEN ? != '' THEN ? ELSE title END,
-                rejected_at = datetime('now')
+                title = CASE WHEN excluded.title != '' THEN excluded.title ELSE rejected_identities.title END,
+                rejected_at = excluded.rejected_at
             """,
-            (key, str(title or ""), str(source_type or ""), str(title or ""), str(title or "")),
+            (key, str(title or ""), str(source_type or ""), _utc_now()),
         )
         conn.commit()
 
@@ -722,8 +799,8 @@ def remember_rejected_identity(identity_key: str, title: str = "", source_type: 
 def rejected_identities() -> list[str]:
     """All rejected identity keys (persisted across restarts)."""
     try:
+        ensure_pattern_store()
         with _connect() as conn:
-            _ensure_rejected_table(conn)
             rows = conn.execute("SELECT identity_key FROM rejected_identities").fetchall()
         return [str(r["identity_key"]) for r in rows if str(r["identity_key"])]
     except Exception:
@@ -738,7 +815,6 @@ def forget_rejected_identity(identity_key: str) -> bool:
         return False
     ensure_pattern_store()
     with _connect() as conn:
-        _ensure_rejected_table(conn)
         cur = conn.execute("DELETE FROM rejected_identities WHERE identity_key = ?", (key,))
         conn.commit()
     return cur.rowcount > 0

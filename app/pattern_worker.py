@@ -76,12 +76,12 @@ def queue_document(document_id: int) -> int:
     from .pattern_store import _connect
 
     with _connect() as conn:
-        conn.execute(
+        cur = conn.execute(
             "INSERT INTO pattern_extraction_log (document_id, status, started_at) VALUES (?, 'queued', ?)",
             (int(document_id), _now()),
         )
         conn.commit()
-        return int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+        return int(cur.lastrowid or 0)
 
 
 def _now() -> str:
@@ -126,16 +126,27 @@ def _document_chunks(document_id: int, limit: int = MAX_CHUNKS_PER_DOCUMENT) -> 
     ]
 
 
-def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUMENT) -> dict[str, Any]:
+def extract_document(
+    document_id: int,
+    *,
+    max_chunks: int = MAX_CHUNKS_PER_DOCUMENT,
+    focus_topic: str = "",
+    focus_note: str = "",
+    preferred_chunk_ids: list[int] | None = None,
+) -> dict[str, Any]:
     """Run LLM extraction over a document's chunks and store the results."""
     ensure_pattern_store()
     gateway = get_gateway()
     started = _now()
 
-    chunks = _document_chunks(document_id, max_chunks)
+    chunks = _document_chunks(document_id, max(max_chunks, 24) if preferred_chunk_ids else max_chunks)
     if not chunks:
         log_id = log_extraction(document_id, "skipped", error="document not found in library", started_at=started)
         return {"ok": False, "reason": "document-not-found", "log_id": log_id}
+    if preferred_chunk_ids:
+        pref_set = set(int(cid) for cid in preferred_chunk_ids)
+        chunks.sort(key=lambda c: (0 if int(c["chunk_id"]) in pref_set else 1, int(c["chunk_index"])))
+        chunks = chunks[:max_chunks]
 
     entities_found = 0
     relations_found = 0
@@ -187,6 +198,15 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
                 "Treat these as priority entities and prioritize patterns that "
                 "explain, predict, or resolve them."
             )
+        if focus_topic or focus_note:
+            focus_line = f"\n\nUSER-REQUESTED DISCOVERY FOCUS: {focus_topic}"
+            if focus_note:
+                focus_line += f" — {focus_note}"
+            focus_line += (
+                "\nPrioritize extracting entities, relations, and actionable scientific patterns "
+                "directly addressing or illuminating this requested focus."
+            )
+            crisis_line = f"{crisis_line}{focus_line}"
         try:
             reply = gateway.chat_json(
                 [
@@ -202,7 +222,7 @@ def extract_document(document_id: int, *, max_chunks: int = MAX_CHUNKS_PER_DOCUM
                     },
                 ],
                 temperature=0.0,
-                max_tokens=1400,
+                max_tokens=4096,
             )
         except LLMGatewayError as ex:
             batch_errors.append(str(ex)[:200])
@@ -353,26 +373,31 @@ connection. Return STRICT JSON only. You never invent facts; if nothing \
 compelling connects the items, return an empty list."""
 
 
-def synthesize_cross_domain(*, max_pairs: int = 6) -> dict[str, Any]:
+def synthesize_cross_domain(*, max_pairs: int = 6, focus_topic: str = "") -> dict[str, Any]:
     """Find entity pairs bridging different fields and propose bridge patterns."""
     ensure_pattern_store()
     gateway = get_gateway()
     started = _now()
+    from .pattern_store import _connect
 
-    # Entities seen in more than one field, or pairs whose relation type
-    # matches a registered bridge template.
-    with library_connection("gemma") as conn:
+    with _connect() as conn:
         rows = conn.execute(
             """
-            SELECT e.id, e.name, e.entity_type, e.mention_count,
-                   GROUP_CONCAT(DISTINCT d.scientific_field) AS fields
+            SELECT e.id, e.name, e.entity_type, e.description, e.mention_count
             FROM pattern_entities e
-            LEFT JOIN documents d
-              ON d.title LIKE '%' || e.name || '%'
-            GROUP BY e.id
-            HAVING COUNT(DISTINCT d.scientific_field) >= 1 AND e.mention_count >= 2
-            ORDER BY e.mention_count DESC
+            ORDER BY e.mention_count DESC, e.id DESC
             LIMIT 60
+            """,
+            (),
+        ).fetchall()
+        rel_rows = conn.execute(
+            """
+            SELECT se.name AS src_name, r.relation_type, te.name AS tgt_name, r.confidence
+            FROM pattern_relations r
+            JOIN pattern_entities se ON se.id = r.source_entity_id
+            JOIN pattern_entities te ON te.id = r.target_entity_id
+            ORDER BY r.mention_count DESC, r.confidence DESC
+            LIMIT 40
             """,
             (),
         ).fetchall()
@@ -381,8 +406,18 @@ def synthesize_cross_domain(*, max_pairs: int = 6) -> dict[str, Any]:
         return {"ok": True, "proposed": 0, "note": "Not enough extracted entities yet — analyze more documents first."}
 
     entity_lines = [
-        f"- {r['name']} ({r['entity_type']}) fields: {r['fields'] or 'unknown'}" for r in rows
+        f"- {r['name']} ({r['entity_type']}, mentions={r['mention_count']}): {str(r['description'] or '')[:120]}"
+        for r in rows
     ]
+    rel_lines = [
+        f"- {r['src_name']} --[{r['relation_type']}]--> {r['tgt_name']} (conf={float(r['confidence'] or 0.5):.2f})"
+        for r in rel_rows
+    ]
+    focus_clause = (
+        f"\nPrioritize cross-domain patterns relevant to the user-requested focus: \"{focus_topic}\".\n"
+        if focus_topic.strip()
+        else ""
+    )
     try:
         reply = gateway.chat_json(
             [
@@ -390,21 +425,22 @@ def synthesize_cross_domain(*, max_pairs: int = 6) -> dict[str, Any]:
                 {
                     "role": "user",
                     "content": (
-                        "Below are entities extracted from a scientific knowledge library, with the "
-                        "fields they appeared in. Identify at most "
-                        f"{max_pairs} compelling CROSS-DOMAIN patterns: hidden connections between "
-                        "entities from different fields that together suggest a problem, a solution, "
-                        "a cure, or a novel insight. Base every pattern only on the listed entities "
-                        "and general scientific knowledge; do not fabricate specific findings.\n\n"
+                        "Below are entities and relations extracted from a scientific knowledge library. "
+                        f"Identify at most {max_pairs} compelling CROSS-DOMAIN patterns: hidden connections "
+                        "between entities across scientific fields that together suggest a problem, a solution, "
+                        "a cure, or a novel insight. Base every pattern only on the listed entities/relations "
+                        "and general scientific knowledge; do not fabricate specific findings.\n"
+                        f"{focus_clause}\n"
                         "Return JSON: {\"patterns\": [{\"title\", \"statement\", "
                         "\"pattern_type\": \"cross_domain_bridge\", \"fields_involved\": [...], "
                         "\"confidence\": 0.0-1.0, \"entity_names\": [...]}]}\n\n"
-                        "ENTITIES:\n" + "\n".join(entity_lines)
+                        "ENTITIES:\n" + "\n".join(entity_lines) +
+                        ("\n\nRELATIONS:\n" + "\n".join(rel_lines) if rel_lines else "")
                     ),
                 },
             ],
             temperature=0.2,
-            max_tokens=1200,
+            max_tokens=3072,
         )
     except LLMGatewayError as ex:
         return {"ok": False, "error": str(ex)[:300]}

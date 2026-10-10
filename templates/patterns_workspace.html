@@ -157,16 +157,19 @@
 
     <div class="card">
       <h2>User-requested pattern discovery</h2>
-      <div class="mode-pill manual">Manual &middot; coming soon</div>
-      <div class="hint">Describe the pattern you want Sentinari to hunt for (e.g. <i>"Patterns linking drought resilience to crop genetics"</i>). Interactive, conversational discovery is a planned future capability — for now your request is <b>logged and archived</b> in the pattern store as future work, ready to feed the feature when it lands.</div>
+      <div class="mode-pill">Manual &middot; targeted discovery active</div>
+      <div class="hint">Describe the pattern or topic you want Sentinari to hunt for (e.g. <i>"Patterns linking drought resilience to crop genetics"</i> or <i>"medicine"</i>). Sentinari searches the knowledge library for matching documents, prioritizes them against the §74l crisis &amp; threat lexicon, extracts entities, relations and candidate patterns, and analyzes their potential benefits.</div>
       <div class="row" style="margin-top:9px;">
         <input type="text" id="manualTopic" placeholder="Pattern topic to investigate">
         <input type="text" id="manualFields" placeholder="Fields involved (optional, comma-separated)">
       </div>
       <div class="row" style="margin-top:6px;">
-        <button id="btnManual" class="primary" type="button">Log discovery request</button>
+        <button id="btnManual" class="primary" type="button">Run manual discovery</button>
         <span class="muted" id="manualHint"></span>
       </div>
+      <div class="progress-head" id="manualHead" hidden>Manual pattern discovery in progress — <span id="manualPct">0%</span></div>
+      <div class="lp-track" id="manualTrack" hidden><div class="lp-fill active" id="manualFill"></div></div>
+      <div class="lp-label" id="manualLabel" hidden></div>
       <div id="futureRequests" class="future-requests"></div>
     </div>
 
@@ -346,7 +349,9 @@
   }
 
   async function startDiscovery() {
-    const field = $('fieldInput').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const rawField = $('fieldInput').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const field = rawField || 'all';
+    const labelField = rawField || 'all fields';
     const btn = $('btnStart');
     btn.disabled = true;
     $('startHint').textContent = 'Starting…';
@@ -372,9 +377,9 @@
               if (tops.length) extra += ` Top: ${tops.map(t => `#${t.document_id} (${t.score})`).join(', ')}.`;
             }
             if (r.engine_dark) {
-              showAlert(`Engine dark — extraction held, crisis ranking complete for ${field}.${extra}`, false);
+              showAlert(`Engine dark — extraction held, crisis ranking complete for ${labelField}.${extra}`, false);
             } else {
-              showAlert(`Recognition complete for ${field}: ${r.patterns_proposed || 0} new pattern(s), ${r.benefits_generated || 0} benefit analyses.${extra}`, true);
+              showAlert(`Recognition complete for ${labelField}: ${r.patterns_proposed || 0} new pattern(s), ${r.benefits_generated || 0} benefit analyses.${extra}`, true);
             }
             await loadWorkspace(); await loadStatus();
           } else if (job.state === 'error') {
@@ -398,6 +403,47 @@
       btn.disabled = false;
       showAlert(error.message, false);
     }
+  }
+
+  function trackManualJob(jobId, topicLabel, btn) {
+    if (!jobId) {
+      if (btn) btn.disabled = false;
+      return;
+    }
+    $('manualHead').hidden = false; $('manualTrack').hidden = false; $('manualLabel').hidden = false;
+    const poll = async () => {
+      try {
+        const job = await api(`/api/skill-review/progress/${encodeURIComponent(jobId)}`);
+        setBar($('manualFill'), $('manualLabel'), job.percent, `${job.message || ''}`);
+        $('manualPct').textContent = `${(Number(job.percent) || 0).toFixed(1)}%`;
+        if (job.state === 'done') {
+          clearInterval(timer);
+          if (btn) btn.disabled = false;
+          const r = job.result || {};
+          const cl = r.crisis_lexicon || null;
+          let extra = '';
+          if (cl) {
+            extra = ` Triaged ${cl.pool_triaged || 0} matching document(s); ${cl.high_priority_documents || 0} high-priority.`;
+          }
+          showAlert(`Manual discovery complete for "${topicLabel}": ${r.patterns_proposed || 0} new pattern(s), ${r.benefits_generated || 0} benefit analyses.${extra}`, true);
+          await loadWorkspace(); await loadStatus(); await loadFutureRequests();
+        } else if (job.state === 'error') {
+          clearInterval(timer);
+          if (btn) btn.disabled = false;
+          showAlert(`Manual discovery failed: ${job.error || 'unknown error'}`, false);
+          await loadFutureRequests();
+        } else {
+          await loadWorkspace();
+        }
+      } catch (error) {
+        clearInterval(timer);
+        if (btn) btn.disabled = false;
+        showAlert(`Manual discovery tracking failed: ${error.message}`, false);
+      }
+    };
+    const timer = setInterval(poll, 1500);
+    poll();
+    ensurePolling();
   }
 
   document.addEventListener('click', async (event) => {
@@ -443,6 +489,17 @@
         btn.disabled = false; btn.textContent = 'Request R&D Paper';
         showAlert(error.message, false);
       }
+    } else if (btn.dataset.role === 'run-manual') {
+      btn.disabled = true; btn.textContent = 'Running…';
+      try {
+        const r = await api(`/api/patterns/future-requests/${encodeURIComponent(id)}/run`, { method: 'POST' });
+        showAlert(r.message || 'Manual pattern discovery started.', true);
+        await loadFutureRequests();
+        trackManualJob(r.job_id, btn.dataset.topic || `request #${id}`, $('btnManual'));
+      } catch (error) {
+        btn.disabled = false; btn.textContent = 'Run now';
+        showAlert(error.message, false);
+      }
     } else if (btn.dataset.role === 'review') {
       btn.disabled = true;
       try {
@@ -468,19 +525,26 @@
     const fields = $('manualFields').value.split(',').map((s) => s.trim()).filter(Boolean);
     const btn = $('btnManual');
     btn.disabled = true;
+    $('manualHint').textContent = 'Starting…';
     try {
       const r = await api('/api/patterns/future-requests/manual-discovery', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, fields, note: '' }),
       });
-      showAlert(r.message || 'Manual discovery request logged.', true);
+      $('manualHint').textContent = '';
+      showAlert(r.message || 'Manual discovery started.', true);
       $('manualTopic').value = '';
       $('manualFields').value = '';
       await loadFutureRequests();
+      if (r.job_id) {
+        trackManualJob(r.job_id, topic || fields.join(', ') || 'manual request', btn);
+      } else {
+        btn.disabled = false;
+      }
     } catch (error) {
-      showAlert(error.message, false);
-    } finally {
+      $('manualHint').textContent = '';
       btn.disabled = false;
+      showAlert(error.message, false);
     }
   });
 
@@ -488,11 +552,15 @@
     try {
       const data = await api('/api/patterns/future-requests');
       const box = $('futureRequests');
-      if (!data.requests.length) { box.innerHTML = '<div class="muted" style="margin-top:8px;">No future requests logged yet.</div>'; return; }
-      box.innerHTML = data.requests.slice(0, 6).map((r) => {
+      if (!data.requests.length) { box.innerHTML = '<div class="muted" style="margin-top:8px;">No manual requests yet.</div>'; return; }
+      box.innerHTML = data.requests.slice(0, 8).map((r) => {
         const kind = r.kind === 'rd_paper' ? 'R&D paper' : r.kind === 'manual_discovery' ? 'User-requested discovery' : esc(r.kind);
         const fields = (() => { try { return JSON.parse(r.fields || '[]').join(', '); } catch (_) { return ''; } })();
-        return `<div class="future-request-item"><span class="fr-kind">${kind}</span> · <b>${esc(r.topic || '(untitled)')}</b>${fields ? ` · <span>${esc(fields)}</span>` : ''} · <span class="muted">${esc((r.created_at || '').slice(0, 16))} · ${esc(r.status)}</span></div>`;
+        const canRun = r.kind === 'manual_discovery' && r.status !== 'running';
+        const runBtn = canRun
+          ? ` · <button type="button" data-role="run-manual" data-id="${r.id}" data-topic="${esc(r.topic || '')}" style="padding:2px 8px;font-size:11px;cursor:pointer;">${r.status === 'logged' ? 'Run now' : 'Re-run'}</button>`
+          : '';
+        return `<div class="future-request-item"><span class="fr-kind">${kind}</span> · <b>${esc(r.topic || '(untitled)')}</b>${fields ? ` · <span>${esc(fields)}</span>` : ''} · <span class="muted">${esc((r.created_at || '').slice(0, 16))} · ${esc(r.status)}</span>${runBtn}</div>`;
       }).join('');
     } catch (_) { /* non-critical */ }
   }
