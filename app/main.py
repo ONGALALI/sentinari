@@ -2970,6 +2970,8 @@ def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
         )
     except ValueError as ex:
         raise HTTPException(status_code=400, detail=str(ex))
+    except Exception as ex:
+        return {"ok": False, "error": str(ex), "reason": "assessment_error"}
 
 
 @app.get("/api/assessment/datasets")

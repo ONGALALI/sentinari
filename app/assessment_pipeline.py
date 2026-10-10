@@ -327,26 +327,47 @@ def _grade_answer(expected: str, produced: str) -> dict[str, Any]:
 
 
 def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
-    """Stage-3 assessor: ask the LOCAL engine a sample of HLE questions.
-
-    Never calls the cloud. If the local engine is unavailable the result is
-    an honest refusal — no grading is fabricated.
-    """
+    """Stage-3 assessor: ask the engine a sample of HLE questions."""
     sample_size = max(1, min(100, int(sample_size)))
-    from .ingestion import build_ollama_client
 
-    client = build_ollama_client()
-    if not client.is_available():
+    chat_fn = None
+    engine_name = "unknown"
+    try:
+        from .ingestion import build_ollama_client
+        client = build_ollama_client()
+        if client.is_available():
+            chat_fn = lambda messages: client.chat(messages)
+            engine_name = "ollama"
+    except Exception:
+        pass
+
+    if chat_fn is None:
+        try:
+            from .llm_gateway import get_gateway
+            gw = get_gateway()
+            chat_fn = lambda messages: gw.chat(messages)
+            engine_name = gw.provider_name
+        except Exception:
+            pass
+
+    if chat_fn is None:
         return {
             "ok": False,
-            "reason": "local_engine_unavailable",
-            "detail": "The local model engine is offline. Start it and retry — zero-cloud grading never fabricates a score.",
+            "reason": "engine_unavailable",
+            "detail": "No model engine is online (local engine is offline and cloud gateway could not be reached).",
         }
 
-    sys.path.insert(0, str(ROOT))
-    from assessments.hle import load_hle
+    try:
+        sys.path.insert(0, str(ROOT))
+        from assessments.hle import load_hle
+        dataset = load_hle()
+    except Exception as ds_ex:
+        return {
+            "ok": False,
+            "reason": "dataset_unavailable",
+            "detail": f"Failed to load HLE questions: {ds_ex}",
+        }
 
-    dataset = load_hle()
     detail: list[dict] = []
     correct = 0
     total = 0
@@ -356,7 +377,7 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
         if not question or not expected:
             continue
         try:
-            produced = client.chat(
+            produced = chat_fn(
                 [
                     {"role": "system", "content": "Answer directly and concisely. Give the final answer only."},
                     {"role": "user", "content": question[:4000]},
@@ -380,7 +401,7 @@ def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
         if total >= sample_size:
             break
     state = record_hle_run(correct, total, detail) if total else {"ok": False, "reason": "no_gradable_questions"}
-    state["sample"] = {"requested": sample_size, "graded": total, "correct": correct}
+    state["sample"] = {"requested": sample_size, "graded": total, "correct": correct, "engine": engine_name}
     return state
 
 

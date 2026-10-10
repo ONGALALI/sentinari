@@ -12,6 +12,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     curl \
+    ca-certificates \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -23,6 +24,7 @@ RUN pip install --no-cache-dir psycopg2-binary numpy
 
 # Copy application source
 COPY app/ ./app/
+COPY assessments/ ./assessments/
 COPY config/ ./config/
 COPY sentinel/ ./sentinel/
 COPY templates/ ./templates/

@@ -7,7 +7,6 @@ engine/
 .venv-convert/
 .freebuff/
 pattern_discovery/
-assessments/
 Bigtech&Model_Reviews/
 world_bank/
 ml/

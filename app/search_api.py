@@ -34,16 +34,32 @@ def _field_stats(conn: Any, field_slug: str) -> dict[str, int]:
         "SELECT COUNT(1) AS docs FROM documents WHERE LOWER(scientific_field) = LOWER(?)",
         (field_slug,),
     ).fetchone()
-    chunk_row = conn.execute(
-        """
-        SELECT COUNT(1) AS chunks,
-               COALESCE(SUM(CASE WHEN embedding_json IS NULL THEN 0 ELSE 1 END), 0) AS embedded
-        FROM chunks WHERE document_id IN (
-            SELECT id FROM documents WHERE LOWER(scientific_field) = LOWER(?)
-        )
-        """,
-        (field_slug,),
-    ).fetchone()
+    chunk_row = None
+    try:
+        chunk_row = conn.execute(
+            """
+            SELECT COUNT(1) AS chunks,
+                   COALESCE(SUM(CASE WHEN embedding_json IS NULL THEN 0 ELSE 1 END), 0) AS embedded
+            FROM chunks WHERE document_id IN (
+                SELECT id FROM documents WHERE LOWER(scientific_field) = LOWER(?)
+            )
+            """,
+            (field_slug,),
+        ).fetchone()
+    except Exception:
+        try:
+            chunk_row = conn.execute(
+                """
+                SELECT COUNT(1) AS chunks,
+                       COALESCE(SUM(CASE WHEN embedding IS NULL THEN 0 ELSE 1 END), 0) AS embedded
+                FROM chunks WHERE document_id IN (
+                    SELECT id FROM documents WHERE LOWER(scientific_field) = LOWER(?)
+                )
+                """,
+                (field_slug,),
+            ).fetchone()
+        except Exception:
+            pass
     return {
         "dataset_count": int(doc_row["docs"]) if doc_row is not None else 0,
         "chunk_count": int(chunk_row["chunks"]) if chunk_row is not None else 0,
@@ -170,14 +186,28 @@ def documents(
         ).fetchall()
         for row in rows:
             d = dict(row)
-            n = conn.execute(
-                """
-                SELECT COUNT(1) AS chunks,
-                       COALESCE(SUM(CASE WHEN embedding_json IS NULL THEN 0 ELSE 1 END), 0) AS embedded
-                FROM chunks WHERE document_id = ?
-                """,
-                (int(row["id"]),),
-            ).fetchone()
+            n = None
+            try:
+                n = conn.execute(
+                    """
+                    SELECT COUNT(1) AS chunks,
+                           COALESCE(SUM(CASE WHEN embedding_json IS NULL THEN 0 ELSE 1 END), 0) AS embedded
+                    FROM chunks WHERE document_id = ?
+                    """,
+                    (int(row["id"]),),
+                ).fetchone()
+            except Exception:
+                try:
+                    n = conn.execute(
+                        """
+                        SELECT COUNT(1) AS chunks,
+                               COALESCE(SUM(CASE WHEN embedding IS NULL THEN 0 ELSE 1 END), 0) AS embedded
+                        FROM chunks WHERE document_id = ?
+                        """,
+                        (int(row["id"]),),
+                    ).fetchone()
+                except Exception:
+                    pass
             d["chunk_count"] = int(n["chunks"]) if n is not None else 0
             d["embedded_chunks"] = int(n["embedded"]) if n is not None else 0
             items.append(d)

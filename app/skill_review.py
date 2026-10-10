@@ -189,16 +189,28 @@ def _ensure_schema_body(conn: Any) -> None:
                 ON skill_review_candidates(status, discovered_at DESC);
             """
         )
-        existing_cols = {
-            str(row["name"])
-            for row in conn.execute("PRAGMA table_info(skill_review_candidates)").fetchall()
-        }
+        existing_cols = set()
+        try:
+            for row in conn.execute("PRAGMA table_info(skill_review_candidates)").fetchall():
+                existing_cols.add(str(row["name"]))
+        except Exception:
+            pass
         for column in ("loaded_document_id INTEGER", "loaded_title TEXT NOT NULL DEFAULT ''", "loaded_at TEXT NOT NULL DEFAULT ''"):
             name = column.split()[0]
             if name not in existing_cols:
-                conn.execute(f"ALTER TABLE skill_review_candidates ADD COLUMN {column};")
+                try:
+                    conn.execute(f"ALTER TABLE skill_review_candidates ADD COLUMN {column};")
+                    conn.commit()
+                except Exception:
+                    if hasattr(conn, "rollback"):
+                        conn.rollback()
         if "identity_key" not in existing_cols:
-            conn.execute("ALTER TABLE skill_review_candidates ADD COLUMN identity_key TEXT NOT NULL DEFAULT '';")
+            try:
+                conn.execute("ALTER TABLE skill_review_candidates ADD COLUMN identity_key TEXT NOT NULL DEFAULT '';")
+                conn.commit()
+            except Exception:
+                if hasattr(conn, "rollback"):
+                    conn.rollback()
         conn.commit()
 
         # One-time backfill: give legacy rows their identity key.
@@ -1570,10 +1582,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
 
     for _attempt in range(20):
         try:
-            # A direct connection with a generous busy timeout: the live app
-            # writes in bursts, so the plain 1 s timeout is often not enough.
-            with _sqlite3.connect(str(_db_path()), timeout=15.0) as conn:
-                conn.row_factory = _sqlite3.Row
+            with get_connection() as conn:
                 conn.execute(
                     """
                     UPDATE skill_review_candidates
@@ -1592,7 +1601,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
                 conn.commit()
             update_error = None
             break
-        except _sqlite3.OperationalError as ex:
+        except Exception as ex:
             if "locked" not in str(ex).lower():
                 raise
             update_error = ex

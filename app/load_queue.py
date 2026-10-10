@@ -41,11 +41,12 @@ class LoadQueue:
     # Lifecycle
     # ------------------------------------------------------------------
     def start(self) -> None:
-        if self._worker is not None and self._worker.is_alive():
-            return
-        self._stop.clear()
-        self._worker = threading.Thread(target=self._loop, name="load-queue", daemon=True)
-        self._worker.start()
+        with self._lock:
+            if self._worker is not None and self._worker.is_alive():
+                return
+            self._stop.clear()
+            self._worker = threading.Thread(target=self._loop, name="load-queue", daemon=True)
+            self._worker.start()
 
     def stop(self) -> None:
         self._stop.set()
@@ -56,6 +57,7 @@ class LoadQueue:
     # ------------------------------------------------------------------
     def enqueue(self, candidate: dict[str, Any]) -> dict[str, Any]:
         """Line a stored candidate up for loading; returns the queue entry."""
+        self.start()
         candidate_id = int(candidate.get("id") or 0)
         if candidate_id <= 0:
             raise ValueError("Candidate has no database id; cannot queue it.")
@@ -147,22 +149,22 @@ class LoadQueue:
                 self._wake.clear()
                 continue
 
-            candidate_id = int(entry["candidate_id"])
-            job_id, _rep = load_progress.start_job(
-                label=f"Queue load candidate {candidate_id}",
-                field=str(entry.get("field") or ""),
-                source_type=str(entry.get("source_type") or ""),
-                title=str(entry.get("title") or ""),
-                candidate_id=candidate_id,
-            )
-            with self._lock:
-                entry["job_id"] = job_id
-                entry["state"] = "running"
-                entry["started_at"] = time.time()
-                entry["position"] = 0
-            load_progress.mark_job_running(job_id)
-
+            job_id = None
             try:
+                candidate_id = int(entry["candidate_id"])
+                job_id, _rep = load_progress.start_job(
+                    label=f"Queue load candidate {candidate_id}",
+                    field=str(entry.get("field") or ""),
+                    source_type=str(entry.get("source_type") or ""),
+                    title=str(entry.get("title") or ""),
+                    candidate_id=candidate_id,
+                )
+                with self._lock:
+                    entry["job_id"] = job_id
+                    entry["state"] = "running"
+                    entry["started_at"] = time.time()
+                    entry["position"] = 0
+                load_progress.mark_job_running(job_id)
                 rep = load_progress.job_reporter(job_id)
                 # §39: the Learning Index's background exams must not compete
                 # with a load for the LLM and the database on the small
@@ -195,14 +197,16 @@ class LoadQueue:
                         "candidate_status": result.get("candidate_status"),
                     }
             except load_progress.LoadCancelled as ex:
-                load_progress.error_job(job_id, str(ex) or "Cancelled by owner.")
+                if job_id:
+                    load_progress.error_job(job_id, str(ex) or "Cancelled by owner.")
                 with self._lock:
                     entry["state"] = "cancelled"
                     entry["finished_at"] = time.time()
                     entry["error"] = str(ex)[:500]
             except Exception as ex:
                 message = str(ex) or ex.__class__.__name__
-                load_progress.error_job(job_id, message)
+                if job_id:
+                    load_progress.error_job(job_id, message)
                 with self._lock:
                     entry["state"] = "error"
                     entry["finished_at"] = time.time()

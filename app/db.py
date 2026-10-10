@@ -95,6 +95,9 @@ class PostgresConnectionWrapper:
         s = re.sub(r"\bINTEGER PRIMARY KEY AUTOINCREMENT\b", "SERIAL PRIMARY KEY", s, flags=re.IGNORECASE)
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
         s = s.replace("datetime('now')", "CURRENT_TIMESTAMP")
+        s = re.sub(r"\bembedding_json\b", "embedding", s)
+        if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
+            s = re.sub(r"\bADD\s+COLUMN\b", "ADD COLUMN IF NOT EXISTS", s, flags=re.IGNORECASE)
         s = s.replace("?", "%s")
         return s
 
