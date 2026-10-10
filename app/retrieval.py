@@ -141,7 +141,14 @@ def search_chunks(
     coding_focus = _is_coding_focus(query, mode)
     if _get_pg_url():
         tsq = _pg_tsquery_from_text(query)
-        if not tsq:
+        if query_embedding is None and str(query or "").strip():
+            try:
+                from .llm_gateway import get_gateway
+
+                query_embedding = get_gateway().embed(str(query).strip()[:2000])
+            except Exception:
+                query_embedding = None
+        if not tsq and not query_embedding:
             return []
         with library_connection("gemma") as pg_conn:
             return _search_library_chunks_pg(
@@ -195,6 +202,8 @@ def _run_pg_fts_query(
     source_collection: str | None,
     candidate_cap: int,
 ) -> list[dict[str, Any]]:
+    if not tsq:
+        return []
     sql = """
     SELECT
         c.id AS chunk_id,
@@ -244,6 +253,73 @@ def _run_pg_fts_query(
     return [dict(r) for r in conn.execute(sql, tuple(args)).fetchall()]
 
 
+def _run_pg_vector_query(
+    conn: Any,
+    query_embedding: list[float],
+    *,
+    module: str | None,
+    topic: str | None,
+    scientific_field: str | None,
+    vocational_discipline: str | None,
+    source_collection: str | None,
+    candidate_cap: int,
+) -> list[dict[str, Any]]:
+    if not query_embedding or len(query_embedding) != 768:
+        return []
+    vec_literal = "[" + ",".join(f"{float(v):.6f}" for v in query_embedding) + "]"
+    sql = """
+    SELECT
+        c.id AS chunk_id,
+        c.document_id AS document_id,
+        c.chunk_index AS chunk_index,
+        c.content AS content,
+        0.0 AS pg_rank,
+        (c.embedding <-> ?::vector) AS l2_distance,
+        (1.0 - (c.embedding <=> ?::vector)) AS vector_similarity,
+        d.source_id AS source_id,
+        d.title AS title,
+        d.source_type AS source_type,
+        d.source_url AS source_url,
+        d.source_path AS source_path,
+        d.authors AS authors,
+        d.publisher AS publisher,
+        d.published_date AS published_date,
+        d.module AS module,
+        d.topic AS topic,
+        d.scientific_field AS scientific_field,
+        d.vocational_discipline AS vocational_discipline,
+        d.source_collection AS source_collection,
+        d.priority AS priority
+    FROM chunks c
+    JOIN documents d ON d.id = c.document_id
+    WHERE c.embedding IS NOT NULL
+    """
+    args: list[Any] = [vec_literal, vec_literal]
+
+    if module:
+        sql += " AND COALESCE(d.module, '') = ?"
+        args.append(module.strip())
+    if topic:
+        sql += " AND COALESCE(d.topic, '') = ?"
+        args.append(topic.strip())
+    if scientific_field:
+        sql += " AND COALESCE(d.scientific_field, '') = ?"
+        args.append(scientific_field.strip())
+    if vocational_discipline:
+        sql += " AND COALESCE(d.vocational_discipline, '') = ?"
+        args.append(vocational_discipline.strip())
+    if source_collection:
+        sql += " AND COALESCE(d.source_collection, '') = ?"
+        args.append(source_collection.strip())
+
+    sql += " ORDER BY c.embedding <=> ?::vector LIMIT ?"
+    args.extend([vec_literal, candidate_cap])
+    try:
+        return [dict(r) for r in conn.execute(sql, tuple(args)).fetchall()]
+    except Exception:
+        return []
+
+
 def _search_library_chunks_pg(
     conn: Any,
     tsq: str,
@@ -262,7 +338,7 @@ def _search_library_chunks_pg(
 
     tokens, specific = _pg_query_tokens(query)
     candidate_cap = max(1, min(160, limit * (12 if coding_focus else 8)))
-    rows = _run_pg_fts_query(
+    fts_rows = _run_pg_fts_query(
         conn,
         tsq,
         module=module,
@@ -272,9 +348,9 @@ def _search_library_chunks_pg(
         source_collection=source_collection,
         candidate_cap=candidate_cap,
     )
-    if not rows and specific and len(tokens) > len(specific):
+    if not fts_rows and specific and len(tokens) > len(specific):
         fallback_tsq = " | ".join(tokens[:10])
-        rows = _run_pg_fts_query(
+        fts_rows = _run_pg_fts_query(
             conn,
             fallback_tsq,
             module=module,
@@ -284,6 +360,37 @@ def _search_library_chunks_pg(
             source_collection=source_collection,
             candidate_cap=candidate_cap,
         )
+
+    vec_rows: list[dict[str, Any]] = []
+    if query_embedding:
+        vec_rows = _run_pg_vector_query(
+            conn,
+            query_embedding,
+            module=module,
+            topic=topic,
+            scientific_field=scientific_field,
+            vocational_discipline=vocational_discipline,
+            source_collection=source_collection,
+            candidate_cap=max(16, min(80, limit * 6)),
+        )
+
+    merged_by_id: dict[int, dict[str, Any]] = {}
+    for row in fts_rows:
+        cid = int(row.get("chunk_id") or 0)
+        row["_from_fts"] = True
+        merged_by_id[cid] = row
+
+    for vrow in vec_rows:
+        cid = int(vrow.get("chunk_id") or 0)
+        if cid in merged_by_id:
+            merged_by_id[cid]["l2_distance"] = float(vrow.get("l2_distance") or 0.0)
+            merged_by_id[cid]["vector_similarity"] = float(vrow.get("vector_similarity") or 0.0)
+            merged_by_id[cid]["_from_vec"] = True
+        else:
+            vrow["_from_vec"] = True
+            merged_by_id[cid] = vrow
+
+    rows = list(merged_by_id.values())
     if not rows:
         return rows
 
@@ -299,28 +406,36 @@ def _search_library_chunks_pg(
                 coverage_bonus += 2.5 if is_spec else 0.6
             if tok in content_lc:
                 coverage_bonus += 1.5 if is_spec else 0.3
-        score = max(0.05, rank) + coverage_bonus
-        row["lexical_score"] = score
-        row["relevance_score"] = score
-        if coding_focus:
-            row["relevance_score"] *= _coding_source_boost(row)
-        row["relevance_score"] *= field_boost_for(row.get("scientific_field"))
+        lexical_score = (max(0.05, rank) if row.get("_from_fts") else 0.0) + coverage_bonus
 
-    if query_embedding:
-        for row in rows:
+        vector_sim = float(row.get("vector_similarity") or 0.0)
+        l2_dist = row.get("l2_distance")
+        if query_embedding and not row.get("_from_vec"):
             emb_raw = row.get("embedding_json")
-            vector_score = 0.0
             if emb_raw:
                 try:
                     emb = json.loads(str(emb_raw))
-                    if isinstance(emb, list):
-                        vector_score = _cosine_similarity(query_embedding, [float(v) for v in emb])
+                    if isinstance(emb, list) and len(emb) == len(query_embedding):
+                        vector_sim = _cosine_similarity(query_embedding, [float(v) for v in emb])
+                        l2_dist = math.sqrt(max(0.0, 2.0 * (1.0 - vector_sim)))
                 except Exception:
-                    vector_score = 0.0
-            row["relevance_score"] = (0.65 * row["relevance_score"]) + (0.35 * max(-1.0, min(1.0, vector_score)))
+                    pass
 
-    for row in rows:
+        l2_score = (1.0 / (1.0 + float(l2_dist))) if l2_dist is not None else max(0.0, vector_sim)
+        hybrid_bonus = 2.0 if (row.get("_from_fts") and row.get("_from_vec")) else 0.0
+        total_score = lexical_score + (l2_score * 5.0 if (l2_dist is not None or vector_sim > 0) else 0.0) + hybrid_bonus
+
+        row["lexical_score"] = round(lexical_score, 4)
+        if l2_dist is not None:
+            row["l2_distance"] = round(float(l2_dist), 4)
+        row["vector_score"] = round(float(l2_score), 4)
+        row["relevance_score"] = total_score
+        if coding_focus:
+            row["relevance_score"] *= _coding_source_boost(row)
+        row["relevance_score"] *= field_boost_for(row.get("scientific_field"))
         row.pop("embedding_json", None)
+        row.pop("_from_fts", None)
+        row.pop("_from_vec", None)
         if not coding_focus and _is_noise_source(row.get("source_path")):
             row["relevance_score"] *= 0.75
 

@@ -689,10 +689,15 @@ class LLMGateway:
         )
 
     def embed(self, text: str) -> list[float] | None:
+        import math as _math
+
         for provider in [self.provider, *self._fallbacks]:
             embedding = provider.embed(text)
             if embedding:
-                return embedding
+                norm = _math.sqrt(sum(float(x) * float(x) for x in embedding))
+                if norm > 0:
+                    return [float(x) / norm for x in embedding]
+                return [float(x) for x in embedding]
         return None
 
     # -- structured output --------------------------------------------------
