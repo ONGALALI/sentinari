@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import re
 import sqlite3
@@ -1581,20 +1582,23 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
     from .db import _db_path
 
     for _attempt in range(20):
+        now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         try:
             with get_connection() as conn:
                 conn.execute(
                     """
                     UPDATE skill_review_candidates
-                    SET status = ?, reviewed_at = datetime('now'),
-                        loaded_document_id = ?, loaded_title = ?, loaded_at = CASE WHEN ? > 0 THEN datetime('now') ELSE loaded_at END
+                    SET status = ?, reviewed_at = ?,
+                        loaded_document_id = ?, loaded_title = ?, loaded_at = CASE WHEN ? > 0 THEN ? ELSE loaded_at END
                     WHERE id = ?
                     """,
                     (
                         "loaded" if loaded_ok else "failed",
+                        now_iso,
                         document_ids[0] if document_ids else None,
                         (document_titles[0] if document_titles else (str(candidate.get("title") or "") or result.get("field") or "")),
                         1 if loaded_ok else 0,
+                        now_iso,
                         candidate_id,
                     ),
                 )
@@ -1709,9 +1713,10 @@ def review_candidate(
                 "activated": False,
                 "shared_skills_root": str(_root()),
             }
+        now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         conn.execute(
-            "UPDATE skill_review_candidates SET status = ?, reviewed_at = datetime('now') WHERE id = ?",
-            (decision, candidate_id),
+            "UPDATE skill_review_candidates SET status = ?, reviewed_at = ? WHERE id = ?",
+            (decision, now_iso, candidate_id),
         )
         conn.commit()
 

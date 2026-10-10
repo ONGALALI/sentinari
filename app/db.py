@@ -94,6 +94,7 @@ class PostgresConnectionWrapper:
             )
         s = re.sub(r"\bINTEGER PRIMARY KEY AUTOINCREMENT\b", "SERIAL PRIMARY KEY", s, flags=re.IGNORECASE)
         s = re.sub(r"\bAUTOINCREMENT\b", "", s, flags=re.IGNORECASE)
+        s = re.sub(r"\bCASE\s+WHEN\b(.*?)\bdatetime\('now'\)(.*?)\bEND\b", r"CASE WHEN\1CURRENT_TIMESTAMP::text\2END", s, flags=re.IGNORECASE | re.DOTALL)
         s = re.sub(r"\bdatetime\('now'\)", "CURRENT_TIMESTAMP", s)
         s = re.sub(r"\bembedding_json\b", "embedding", s)
         if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
@@ -133,7 +134,9 @@ class PostgresConnectionWrapper:
         return PostgresCursorWrapper(cur, lastrowid=lastrowid)
 
     def executescript(self, sql: str) -> None:
-        for stmt in sql.split(";"):
+        clean = re.sub(r"--[^\n]*", "", sql)
+        clean = re.sub(r"/\*.*?\*/", "", clean, flags=re.DOTALL)
+        for stmt in clean.split(";"):
             stmt = stmt.strip()
             if stmt:
                 self.execute(stmt)
@@ -495,7 +498,9 @@ _FK_TABLE_FIXES = (
 )
 
 
-def _migrate_library_fk_tables(conn: sqlite3.Connection) -> None:
+def _migrate_library_fk_tables(conn: Any) -> None:
+    if isinstance(conn, PostgresConnectionWrapper):
+        return
     for table in _FK_TABLE_FIXES:
         row = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)
@@ -546,6 +551,12 @@ def _migrate_library_fk_tables(conn: sqlite3.Connection) -> None:
 
 
 def initialize_database() -> None:
+    db_url = _get_pg_url()
+    if db_url and psycopg2 is not None:
+        with library_connection() as lib_conn:
+            lib_conn.executescript(_LIBRARY_SCHEMA)
+            lib_conn.commit()
+
     # NOTE: documents / chunks / chunk_fts / ingest_events are NOT created here.
     # They live in the attached physical library (sentinari.db — the former
     # coding library was folded in), created by _attach_libraries() on every connection.
