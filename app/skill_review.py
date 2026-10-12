@@ -151,10 +151,10 @@ _ensured_schema_target: str | None = None
 
 
 def _schema_target_key() -> str:
-    from .db import _get_pg_url, resolve_db_path
+    from .db import _get_pg_url
 
     pg = _get_pg_url()
-    return f"pg:{pg}" if pg else f"sqlite:{resolve_db_path()}"
+    return f"pg:{pg}" if pg else f"sqlite:{get_project_root()}"
 
 
 def _ensure_schema() -> None:
