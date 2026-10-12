@@ -153,10 +153,20 @@ def library_name_for_field(
 
 _DEFAULT_FOCUS_PROFILES: dict[str, list[str]] = {
     "balanced": [],
-    "human-behavior": ["psychology", "sociology", "anthropology", "economics", "political-science"],
+    "human-behavior": [
+        "philosophy",
+        "psychology",
+        "sociology",
+        "anthropology",
+        "economics",
+        "political-science",
+        "laws-per-country-and-international-law",
+        "war",
+        "religion",
+    ],
     "engineering": ["engineering", "computer-and-information-sciences", "materials-science"],
     "life-sciences": ["biology", "genetics-molecular-biology", "neuroscience", "ecology-environmental-biology", "medicine"],
-    "foundations": ["physics", "chemistry", "astronomy-cosmology", "earth-sciences"],
+    "foundations": ["physics", "chemistry", "mathematics", "astronomy-cosmology", "earth-sciences"],
 }
 
 

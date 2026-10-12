@@ -165,7 +165,9 @@ def ensure_pattern_store() -> None:
                 activated_at TEXT NOT NULL DEFAULT '',
                 evolution_history TEXT NOT NULL DEFAULT '[]',
                 benefits TEXT NOT NULL DEFAULT '',
-                benefits_generated_at TEXT NOT NULL DEFAULT ''
+                benefits_generated_at TEXT NOT NULL DEFAULT '',
+                rd_indicators_json TEXT NOT NULL DEFAULT '{}',
+                rd_progress_pct REAL NOT NULL DEFAULT 0.0
             );
             CREATE TABLE IF NOT EXISTS future_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -245,6 +247,10 @@ def ensure_pattern_store() -> None:
             conn.execute("ALTER TABLE patterns ADD COLUMN benefits TEXT NOT NULL DEFAULT '';")
         if "benefits_generated_at" not in pattern_cols:
             conn.execute("ALTER TABLE patterns ADD COLUMN benefits_generated_at TEXT NOT NULL DEFAULT '';")
+        if "rd_indicators_json" not in pattern_cols:
+            conn.execute("ALTER TABLE patterns ADD COLUMN rd_indicators_json TEXT NOT NULL DEFAULT '{}';")
+        if "rd_progress_pct" not in pattern_cols:
+            conn.execute("ALTER TABLE patterns ADD COLUMN rd_progress_pct REAL NOT NULL DEFAULT 0.0;")
         # §74l — crisis & threat lexicon: record each extraction's triage so
         # the owner can see which documents rose and why.
         log_cols = {str(r["name"]) for r in conn.execute("PRAGMA table_info(pattern_extraction_log)").fetchall()}

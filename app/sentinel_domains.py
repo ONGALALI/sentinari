@@ -65,7 +65,7 @@ SENTINEL_DOMAINS: list[dict[str, Any]] = [
     {
         "slug": "human-behavior-and-society",
         "name": "Human Behavior and Society (Guardian of Minds & Cultures)",
-        "description": "Studies human decision-making, culture, and collective survival.",
+        "description": "Studies human decision-making, culture, laws, conflict, belief systems, and collective survival.",
         "fields": [
             {"name": "Philosophy", "detail": "ethics, epistemology, metaphysics, logic, philosophy of science"},
             {"name": "Psychology", "detail": "cognitive, industrial, clinical"},
@@ -73,6 +73,21 @@ SENTINEL_DOMAINS: list[dict[str, Any]] = [
             {"name": "Anthropology", "detail": "cultures, human evolution, ethnography"},
             {"name": "Economics", "detail": "markets, finance, macro and micro economics"},
             {"name": "Political Science", "detail": "governance, policy, international relations"},
+            {
+                "name": "Laws per Country and International Law",
+                "slug": "laws-per-country-and-international-law",
+                "detail": "domestic legislation, constitutional & comparative law, treaties, international & humanitarian law",
+            },
+            {
+                "name": "War",
+                "slug": "war",
+                "detail": "military strategy, conflict studies, defense systems, peace & security, asymmetric & geopolitical warfare",
+            },
+            {
+                "name": "Religion",
+                "slug": "religion",
+                "detail": "theology, comparative religion, sacred texts, religious history, belief systems, faith & society",
+            },
         ],
     },
     {
@@ -115,6 +130,7 @@ SENTINEL_ROOMS: list[dict[str, Any]] = [
     {"name": "Agricultural & Food Sciences", "fields": []},
     {"name": "Space Exploration & Aerospace", "fields": []},
     {"name": "Political Science", "fields": ["Political Science"]},
+    {"name": "Laws, War & Religion", "fields": ["Laws per Country and International Law", "War", "Religion"]},
 ]
 
 
@@ -297,7 +313,7 @@ def _refresh_field_counts(conn: Any) -> None:
 
 
 def _sentinel_schema_present() -> bool:
-    """True when the sentinel tables already exist in the library database.
+    """True when the sentinel tables and all registered fields exist in the library database.
 
     Cheap read-only check used to skip the DDL ensure pass on steady-state
     status calls (§77 anti-stall fix).
@@ -309,11 +325,9 @@ def _sentinel_schema_present() -> bool:
     except Exception:
         return False
     try:
-        row = conn.execute(
-            "SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name IN "
-            "('sentinel_domains', 'sentinel_scientific_fields');"
-        ).fetchone()
-        return int(row[0] or 0) == 2
+        expected_fields = sum(len(d.get("fields", [])) for d in SENTINEL_DOMAINS)
+        row = conn.execute("SELECT COUNT(1) FROM sentinel_scientific_fields;").fetchone()
+        return int(row[0] or 0) >= expected_fields
     except Exception:
         return False
     finally:
@@ -471,6 +485,14 @@ _FIELD_ALIASES: dict[str, str] = {
     "quantum-physics": "physics",
     "quantum-doctrine-rd": "physics",
     "theoretical-physics": "physics",
+    "math": "mathematics",
+    "maths": "mathematics",
+    "pure-mathematics": "mathematics",
+    "applied-mathematics": "mathematics",
+    "statistics": "mathematics",
+    "algebra": "mathematics",
+    "geometry": "mathematics",
+    "calculus": "mathematics",
     "astrophysics": "astronomy-cosmology",
     "astronomy": "astronomy-cosmology",
     "cosmology": "astronomy-cosmology",
@@ -512,6 +534,27 @@ _FIELD_ALIASES: dict[str, str] = {
     "governance": "political-science",
     "institutional-design": "political-science",
     "public-policy": "political-science",
+    "law": "laws-per-country-and-international-law",
+    "laws": "laws-per-country-and-international-law",
+    "laws-per-country": "laws-per-country-and-international-law",
+    "international-law": "laws-per-country-and-international-law",
+    "comparative-law": "laws-per-country-and-international-law",
+    "constitutional-law": "laws-per-country-and-international-law",
+    "legal": "laws-per-country-and-international-law",
+    "legal-studies": "laws-per-country-and-international-law",
+    "jurisprudence": "laws-per-country-and-international-law",
+    "warfare": "war",
+    "military": "war",
+    "military-science": "war",
+    "military-strategy": "war",
+    "conflict-studies": "war",
+    "defense": "war",
+    "defence": "war",
+    "relegion": "religion",
+    "theology": "religion",
+    "comparative-religion": "religion",
+    "religious-studies": "religion",
+    "faith": "religion",
     "organizational-theory": "sociology",
     "social-work": "sociology",
     "computer-science": "computer-and-information-sciences",
@@ -528,6 +571,7 @@ _FIELD_ALIASES: dict[str, str] = {
 _KEYWORD_FIELD_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("buckminsterfullerene", "fullerene", "c60", "c70", "molecule", "chemical", "catalys", "organic chemistry", "inorganic", "polymer", "stoichiometr"), "chemistry"),
     (("newton", "gravity", "gravitation", "quantum", "relativity", "thermodynamic", "lagrangian", "hamiltonian", "boson", "fermion", "electrodynamic", "photon", "schrodinger"), "physics"),
+    (("pure mathematics", "applied mathematics", "differential equation", "cluster algebra", "topology", "number theory", "linear algebra", "calculus", "riemann", "hilbert space", "group theory", "bayesian", "theorem", "combinatorics", "stochastic"), "mathematics"),
     (("galaxy", "cosmolog", "astrophys", "supernova", "exoplanet", "black hole", "stellar"), "astronomy-cosmology"),
     (("geolog", "seismic", "tectonic", "meteorolog", "oceanograph", "stratigraph"), "earth-sciences"),
     (("crispr", "genome", "dna", "rna", "proteom", "transcription", "allele", "ribosom", "stem cell"), "genetics-molecular-biology"),
@@ -543,10 +587,13 @@ _KEYWORD_FIELD_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("sociolog", "social norm", "inequality", "demographic", "urbanization", "social work"), "sociology"),
     (("anthropolog", "ethnograph", "archaeolog", "kinship"), "anthropology"),
     (("macroeconom", "microeconom", "inflation", "gdp", "monetary", "fiscal", "insurance", "financial management", "market"), "economics"),
-    (("governance", "geopolit", "democracy", "treaty", "constitution", "parliament", "election", "institutional design"), "political-science"),
+    (("governance", "geopolit", "democracy", "parliament", "election", "institutional design"), "political-science"),
+    (("international law", "constitutional law", "comparative law", "treaty", "legislation", "statute", "jurisprudence", "criminal law", "civil law", "humanitarian law", "geneva convention", "sovereignty", "judicial", "legal framework", "laws per country"), "laws-per-country-and-international-law"),
+    (("warfare", "military strategy", "armed conflict", "battlefield", "insurgency", "counterinsurgency", "deterrence", "geopolitical conflict", "clausewitz", "asymmetric war", "defense system", "artillery", "naval", "airpower"), "war"),
+    (("religion", "relegion", "theolog", "sacred text", "scripture", "monotheis", "polytheis", "liturg", "eschatolog", "hermeneutic", "faith", "ecclesi", "buddhis", "christian", "islam", "judaism", "hindu"), "religion"),
     (("nanomaterial", "composite", "alloy", "crystal lattice", "perovskite", "semiconductor material"), "materials-science"),
     (("circuit", "mechanical", "aerospace", "civil engineering", "robotics", "control system", "finite element", "bioengineering"), "engineering"),
-    (("algorithm", "compiler", "neural network", "machine learning", "kubernetes", "linux", "python", "database", "encryption", "software", "pure mathematics", "differential equation", "bayesian", "cluster algebra"), "computer-and-information-sciences"),
+    (("algorithm", "compiler", "neural network", "machine learning", "kubernetes", "linux", "python", "database", "encryption", "software"), "computer-and-information-sciences"),
 )
 
 

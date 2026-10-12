@@ -573,8 +573,9 @@
           </div>
           <div class="hint" style="margin-top:8px;"><strong>Weak spots</strong> — fields with the least examined knowledge (from the Learning Index). Click one to scout it:</div>
           <div id="weakFields" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:8px;"></div>
-          <div class="scoutRow" style="margin-top:10px;">
-            <input id="dsScoutQuery" placeholder="Or type a topic she should know — e.g. transformer interpretability">
+          <div class="scoutRow" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <select id="dsScoutField" style="flex:1 1 260px; max-width:360px;" title="Select a Sentinel Domain or Sub-Discipline"></select>
+            <input id="dsScoutQuery" style="flex:2 1 280px;" placeholder="Or type a topic she should know — e.g. Mathematics, International Law, War, Religion">
             <button id="dsScoutBtn">Search sources</button>
           </div>
           <div class="hint" style="margin-top:6px;"><strong>Cognitive lens (Bloom)</strong> — enriches the search with the level's verbs and tags every candidate with the levels it reaches for. Focus: <strong>Evaluate · Create</strong> (NQF 10 = Create):</div>
@@ -587,7 +588,57 @@
           <div id="dsScoutResults" style="margin-top:6px;"></div>
           <div class="hint" style="margin-top:8px;"><span id="dsBlockCount"></span> <a href="#" id="dsBlocksLink" style="display:none;">View blocked sources</a></div>
           <div id="dsBlocksList" style="display:none; margin-top:4px;"></div>
-          <div class="hint" style="margin-top:4px;"><span id="dsAssessCount"></span></div>
+          <div id="dsAssessCount"></span></div>
+        </div>
+
+        <div class="card" id="contemporary-scraper" style="margin-top:14px; border-color:#b8cde3; background:linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);">
+          <div class="row" style="align-items:flex-start; justify-content:space-between;">
+            <div>
+              <h2>Contemporary Articles, Journals &amp; Expert Commentary Scraper</h2>
+              <div class="hint"><strong>Live Horizon Scanner:</strong> Emerging meanings, recent policy/scientific decisions, and new perspectives from contemporary writers, researchers, and experts are not always reflected in static curated datasets. Search live across <strong>OpenAlex Recent Journals (2023–Current)</strong>, <strong>arXiv Preprints</strong>, <strong>Crossref Journals</strong>, <strong>Europe PMC / PubMed</strong>, and <strong>Contemporary Expert Articles &amp; Press</strong>, synthesize the semantic shift, and automatically ingest verified contemporary sources into your canonical Sentinel Domains.</div>
+            </div>
+            <div class="mono">Live Contemporary Scraper</div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <div class="field" style="flex:1 1 100%;">
+              <label for="contempQuery">Query matter, emerging concept, or decision topic</label>
+              <input id="contempQuery" type="text" placeholder="e.g. point group symmetry buckminsterfullerene C60, sovereign AI governance decisions, CRISPR prime editing clinical outcomes">
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field" style="flex:1 1 240px;">
+              <label for="contempField1">1. Primary Domain / Scientific Field</label>
+              <select id="contempField1"></select>
+            </div>
+            <div class="field" style="flex:1 1 240px;">
+              <label for="contempField2">2. Second Domain / Field (Optional)</label>
+              <select id="contempField2"></select>
+            </div>
+            <div class="field" style="flex:1 1 240px;">
+              <label for="contempField3">3. Third Domain / Field (Optional)</label>
+              <select id="contempField3"></select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px; align-items:center; gap:14px;">
+            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="openalex" checked style="width:auto;"> OpenAlex Journals (2023+)</label>
+            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="arxiv" checked style="width:auto;"> arXiv Preprints</label>
+            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="crossref" checked style="width:auto;"> Crossref Journals</label>
+            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="europepmc" checked style="width:auto;"> Europe PMC / PubMed</label>
+            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="web" checked style="width:auto;"> Contemporary Articles &amp; Expert Press</label>
+          </div>
+          <div class="row" style="margin-top:10px; align-items:center; justify-content:space-between;">
+            <label class="hint" style="display:inline-flex;align-items:center;gap:6px; font-weight:600; color:#16324a;">
+              <input id="contempAutoIngest" type="checkbox" checked style="width:auto;">
+              Automatically ingest scraped contemporary articles &amp; journals into Curated Library &amp; queue Pattern Discovery
+            </label>
+            <div class="row" style="gap:8px;">
+              <button id="btnContempScrape" type="button">Scrape Contemporary Sources</button>
+              <button id="btnContempClear" type="button" class="ghost">Clear</button>
+            </div>
+          </div>
+          <div id="contempStatus" class="status" style="margin-top:8px;"></div>
+          <div id="contempSynthesis" style="display:none; margin-top:12px; padding:14px; border-radius:10px; background:#f8fbff; border:1px solid #c9dcf2; white-space:pre-wrap; font-size:13.5px; line-height:1.6; color:#152433;"></div>
+          <div id="contempResults" style="margin-top:12px; display:grid; gap:10px;"></div>
         </div>
 
         <div class="card" id="sentinel-grid" style="margin-top:14px;">
@@ -607,7 +658,7 @@
             <div class="pipeline-step">Chunks<strong id="sentinelChunks">0</strong>
             </div>
             <div class="pipeline-step">Library Size<strong id="sentinelMb">0.0 MB</strong></div>
-            <div class="pipeline-step">Rooms<strong id="sentinelRooms">13</strong></div>
+            <div class="pipeline-step">Rooms<strong id="sentinelRooms">14</strong></div>
             <div class="pipeline-step">Main LLM<strong id="sentinelModel">Sentinari 12B</strong></div>
             <div class="pipeline-step">Status<strong id="sentinelState">Loading</strong></div>
           </div>
@@ -636,11 +687,11 @@
           <div class="row" style="margin-top:10px;align-items:flex-end;">
             <div class="field" style="flex:2 1 260px;">
               <label for="scientificCandidateQuery">Research topic or skill query (use the main field name, e.g. "Physics")</label>
-              <input id="scientificCandidateQuery" type="text" placeholder="e.g. Physics, Chemistry, Neuroscience">
+              <input id="scientificCandidateQuery" type="text" placeholder="e.g. Physics, Mathematics, Laws per Country and International Law, War, Religion">
             </div>
-            <div class="field" style="flex:1 1 220px;">
-              <label for="scientificCandidateField">Scientific field</label>
-              <input id="scientificCandidateField" type="text" placeholder="e.g. physics">
+            <div class="field" style="flex:1 1 240px;">
+              <label for="scientificCandidateField">Scientific Domain / Sub-Discipline</label>
+              <select id="scientificCandidateField"></select>
             </div>
             <button id="btnDiscoverScientificCandidates" type="button">Discover Candidates</button>
             <button id="btnClearScientificCandidates" type="button" class="ghost">Clear Candidates</button>
@@ -4149,9 +4200,17 @@
     };
     const runDashboardScout = async (opts = {}) => {
       const btn = byId('dsScoutBtn');
-      const q = String(byId('dsScoutQuery').value || '').trim();
+      const fieldEl = byId('dsScoutField');
+      const fieldName = fieldEl && fieldEl.selectedIndex > 0 ? String(fieldEl.options[fieldEl.selectedIndex].dataset.fieldName || fieldEl.value || '').trim() : '';
+      let q = String(byId('dsScoutQuery').value || '').trim();
+      if (!q && fieldName) {
+        q = fieldName;
+        byId('dsScoutQuery').value = fieldName;
+      } else if (q && fieldName && !q.toLowerCase().includes(fieldName.toLowerCase())) {
+        q = `${q} (${fieldName})`;
+      }
       const lens = String(byId('dsLens') ? byId('dsLens').value : '').trim();
-      if (!q) { byId('dsScoutStatus').textContent = 'Type a topic to search for — or click a weak spot above.'; return; }
+      if (!q) { byId('dsScoutStatus').textContent = 'Select a domain/sub-discipline, type a topic to search for, or click a weak spot above.'; return; }
       if (!opts.silent) {
         btn.disabled = true;
         byId('dsScoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
@@ -4269,6 +4328,226 @@
       setStatus('libraryProgressStatus', 'Learning library progress loaded.', true);
       setStatus('qualiaRecommendationStatus', 'Sandbox proposal engine is ready; auto-apply is disabled.', true);
       setStatus('qualiaBenchmarkStatus', 'Benchmark runner ready.', true);
+    })();
+
+    // Contemporary Articles, Journals & Expert Commentary Scraper + Playground Search Domain/Sub-Discipline Selectors
+    (() => {
+      const DOMAIN_GROUPS = [
+        {
+          domainSlug: 'foundations-of-reality',
+          domainName: 'Foundations of Reality (Guardian of Matter & Energy)',
+          fields: [
+            { slug: 'physics', name: 'Physics' },
+            { slug: 'chemistry', name: 'Chemistry' },
+            { slug: 'mathematics', name: 'Mathematics' },
+            { slug: 'astronomy-cosmology', name: 'Astronomy & Cosmology' },
+            { slug: 'earth-sciences', name: 'Earth Sciences' },
+          ],
+        },
+        {
+          domainSlug: 'life-and-biological-systems',
+          domainName: 'Life and Biological Systems (Guardian of Living Order)',
+          fields: [
+            { slug: 'biology', name: 'Biology' },
+            { slug: 'genetics-molecular-biology', name: 'Genetics & Molecular Biology' },
+            { slug: 'neuroscience', name: 'Neuroscience' },
+            { slug: 'ecology-environmental-biology', name: 'Ecology & Environmental Biology' },
+          ],
+        },
+        {
+          domainSlug: 'human-behavior-and-society',
+          domainName: 'Human Behavior and Society (Guardian of Minds & Cultures)',
+          fields: [
+            { slug: 'philosophy', name: 'Philosophy' },
+            { slug: 'psychology', name: 'Psychology' },
+            { slug: 'sociology', name: 'Sociology' },
+            { slug: 'anthropology', name: 'Anthropology' },
+            { slug: 'economics', name: 'Economics' },
+            { slug: 'political-science', name: 'Political Science' },
+            { slug: 'laws-per-country-and-international-law', name: '1) Laws per Country and International Law' },
+            { slug: 'war', name: '2) War' },
+            { slug: 'religion', name: '3) Religion' },
+          ],
+        },
+        {
+          domainSlug: 'applied-systems-and-technology',
+          domainName: 'Applied Systems and Technology (Guardian of Tools & Innovation)',
+          fields: [
+            { slug: 'engineering', name: 'Engineering' },
+            { slug: 'computer-and-information-sciences', name: 'Computer Science & AI' },
+            { slug: 'information-science', name: 'Information Science' },
+            { slug: 'materials-science', name: 'Materials Science' },
+          ],
+        },
+        {
+          domainSlug: 'health-safety-and-well-being',
+          domainName: 'Health, Safety, and Well-Being (Guardian of Life\'s Continuity)',
+          fields: [
+            { slug: 'medicine', name: 'Medicine' },
+            { slug: 'pharmacology', name: 'Pharmacology' },
+            { slug: 'public-health', name: 'Public Health' },
+            { slug: 'environmental-science', name: 'Environmental Science' },
+          ],
+        },
+      ];
+
+      const fillDropdown = (id, label) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        let html = `<option value="">${escapeHtml(label)}</option>`;
+        DOMAIN_GROUPS.forEach((g) => {
+          html += `<optgroup label="${escapeHtml(g.domainName)}">`;
+          html += `<option value="${escapeHtml(g.domainSlug)}" data-field-name="${escapeHtml(g.domainName)}">[All in Domain] ${escapeHtml(g.domainName)}</option>`;
+          g.fields.forEach((f) => {
+            const cleanName = f.name.replace(/^\d+\)\s*/, '');
+            html += `<option value="${escapeHtml(f.slug)}" data-field-name="${escapeHtml(cleanName)}">${escapeHtml(f.name)} (${escapeHtml(f.slug)})</option>`;
+          });
+          html += `</optgroup>`;
+        });
+        el.innerHTML = html;
+      };
+
+      fillDropdown('dsScoutField', '— Filter by Domain / Sub-Discipline —');
+      fillDropdown('scientificCandidateField', '— All Domains / Sub-Disciplines —');
+      fillDropdown('contempField1', '— Select Domain / Field 1 (Optional) —');
+      fillDropdown('contempField2', '— Select Domain / Field 2 (Optional) —');
+      fillDropdown('contempField3', '— Select Domain / Field 3 (Optional) —');
+
+      const dsFieldEl = document.getElementById('dsScoutField');
+      if (dsFieldEl) {
+        dsFieldEl.addEventListener('change', () => {
+          const opt = dsFieldEl.options[dsFieldEl.selectedIndex];
+          const fname = opt ? String(opt.dataset.fieldName || '').trim() : '';
+          const qBox = document.getElementById('dsScoutQuery');
+          if (qBox && fname && !qBox.value.trim()) {
+            qBox.value = fname;
+          }
+        });
+      }
+
+      const candFieldEl = document.getElementById('scientificCandidateField');
+      if (candFieldEl) {
+        candFieldEl.addEventListener('change', () => {
+          const opt = candFieldEl.options[candFieldEl.selectedIndex];
+          const fname = opt ? String(opt.dataset.fieldName || '').trim() : '';
+          const qBox = document.getElementById('scientificCandidateQuery');
+          if (qBox && fname && !qBox.value.trim()) {
+            qBox.value = fname;
+          }
+          if (typeof loadScientificCandidates === 'function') {
+            loadScientificCandidates(1).catch(() => {});
+          }
+        });
+      }
+
+      const btnScrape = document.getElementById('btnContempScrape');
+      const btnClear = document.getElementById('btnContempClear');
+      const qInput = document.getElementById('contempQuery');
+      const synthBox = document.getElementById('contempSynthesis');
+      const resBox = document.getElementById('contempResults');
+
+      if (btnClear) {
+        btnClear.addEventListener('click', () => {
+          if (qInput) qInput.value = '';
+          ['contempField1', 'contempField2', 'contempField3'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+          });
+          if (synthBox) { synthBox.style.display = 'none'; synthBox.textContent = ''; }
+          if (resBox) resBox.innerHTML = '';
+          setStatus('contempStatus', '', true);
+        });
+      }
+
+      if (btnScrape) {
+        btnScrape.addEventListener('click', async () => {
+          const query = String(qInput ? qInput.value : '').trim();
+          if (!query) {
+            setStatus('contempStatus', 'Please enter a query matter, emerging concept, or decision topic first.', false);
+            return;
+          }
+          const fields = Array.from(new Set(
+            ['contempField1', 'contempField2', 'contempField3']
+              .map((id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; })
+              .filter(Boolean)
+          ));
+          const lanes = Array.from(document.querySelectorAll('.contemp-lane:checked')).map((el) => el.value);
+          const autoIngest = Boolean(document.getElementById('contempAutoIngest')?.checked);
+
+          btnScrape.disabled = true;
+          btnScrape.textContent = 'Scraping Contemporary Sources…';
+          setStatus('contempStatus', `Scraping contemporary journals, preprints, and expert commentary for "${query}"…`, true);
+          if (synthBox) synthBox.style.display = 'none';
+          if (resBox) resBox.innerHTML = '';
+
+          try {
+            const resp = await fetch('/api/playground/contemporary-scrape', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query,
+                fields,
+                lanes: lanes.length ? lanes : ['openalex', 'arxiv', 'crossref', 'europepmc', 'web'],
+                max_per_lane: 3,
+                ingest_to_library: autoIngest,
+              }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok || data.ok === false) {
+              throw new Error(data.detail || data.error || `Request failed (${resp.status})`);
+            }
+            const items = data.items || [];
+            const ingCount = Number(data.ingested_count || 0);
+            setStatus(
+              'contempStatus',
+              `Scraped ${items.length} contemporary article(s)/journal paper(s)` +
+                (autoIngest ? ` · ${ingCount} ingested into the Curated Knowledge Library & queued for Pattern Discovery.` : '.'),
+              true
+            );
+            if (synthBox && data.synthesis) {
+              synthBox.style.display = 'block';
+              synthBox.textContent = data.synthesis;
+            }
+            if (resBox) {
+              if (!items.length) {
+                resBox.innerHTML = '<div class="hint">No contemporary items returned for this query.</div>';
+              } else {
+                resBox.innerHTML = items.map((it, idx) => {
+                  const badgeIngest = it.ingested
+                    ? `<span class="mono" style="background:#e6f6ea;color:#1d7a3a;border:1px solid #b7e2c2;">Ingested DOC #${escapeHtml(it.document_id)}</span>`
+                    : '';
+                  const urlHtml = it.url
+                    ? `<a href="${escapeHtml(it.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:#1d6fd8;">Open Contemporary Source &rarr;</a>`
+                    : '';
+                  return `
+                    <div style="border:1px solid #d4dee8; border-radius:8px; padding:12px; background:#fff;">
+                      <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center;">
+                        <div>
+                          <span class="mono" style="background:#e7f0fe;color:#1d6fd8;">[${idx + 1}] ${escapeHtml(it.lane || 'Contemporary')}</span>
+                          <span class="mono">${escapeHtml(it.domain || '')} &middot; ${escapeHtml(it.scientific_field || '')}</span>
+                          ${badgeIngest}
+                        </div>
+                        <span class="hint">${escapeHtml(it.published_date || '')}</span>
+                      </div>
+                      <div style="font-weight:700; font-size:14px; margin-top:6px; color:#152433;">${escapeHtml(it.title || '')}</div>
+                      <div class="hint" style="margin-top:3px;"><strong>Authors:</strong> ${escapeHtml(it.authors || '')} &middot; <strong>Publication / Venue:</strong> ${escapeHtml(it.publisher || '')}</div>
+                      <div style="font-size:13px; line-height:1.55; color:#2b3e52; margin-top:8px; white-space:pre-wrap;">${escapeHtml(it.summary || '')}</div>
+                      <div style="margin-top:8px;">${urlHtml}</div>
+                    </div>`;
+                }).join('');
+              }
+            }
+            if (autoIngest && typeof loadSentinelStatus === 'function') {
+              loadSentinelStatus({ silent: true });
+            }
+          } catch (err) {
+            setStatus('contempStatus', `Contemporary scrape failed: ${err.message || err}`, false);
+          } finally {
+            btnScrape.disabled = false;
+            btnScrape.textContent = 'Scrape Contemporary Sources';
+          }
+        });
+      }
     })();
   </script>
 

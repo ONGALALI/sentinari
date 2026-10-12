@@ -61,6 +61,7 @@ def list_pattern_candidates(
 @router.get("/workspace")
 def pattern_workspace() -> dict[str, Any]:
     """Patterns grouped into per-field and cross-field combination containers."""
+    from .rd_paper import evaluate_rd_indicators
     from .sentinel_domains import sanitize_field_and_domain, sanitize_pattern_fields
 
     ensure_pattern_store()
@@ -97,6 +98,7 @@ def pattern_workspace() -> dict[str, Any]:
             pass
 
     groups: dict[str, dict[str, Any]] = {}
+    needs_evolution: list[tuple[int, str]] = []
     for row in patterns:
         pid = int(row.get("id") or 0)
         evs = evidence_by_pattern.get(pid, [])
@@ -148,6 +150,11 @@ def pattern_workspace() -> dict[str, Any]:
         pub = _pattern_public(row)
         pub["fields_involved"] = _json.dumps(sorted_fields, ensure_ascii=False)
         pub["sources"] = sources
+        ind_eval = evaluate_rd_indicators(row)
+        pub["rd_indicators"] = ind_eval
+        pub["rd_progress_pct"] = ind_eval["progress_pct"]
+        if ind_eval["completed_indicators"] < ind_eval["total_indicators"]:
+            needs_evolution.append((pid, key))
         group["patterns"].append(pub)
         discovered = str(row.get("discovered_at") or "")
         if discovered > group["last_discovered"]:
@@ -199,22 +206,35 @@ def pattern_workspace() -> dict[str, Any]:
         done_docs = len(done_docs_set)
         if done_docs > total_docs:
             total_docs = done_docs
-        cov_pct = (
+        lib_cov_pct = (
             max(0.1, round(100.0 * done_docs / total_docs, 1))
             if (total_docs > 0 and done_docs > 0)
             else 0.0
         )
+        pats = group["patterns"]
+        ind_done_sum = sum(int((p.get("rd_indicators") or {}).get("completed_indicators") or 0) for p in pats)
+        ind_total_sum = sum(int((p.get("rd_indicators") or {}).get("total_indicators") or 15) for p in pats)
+        ind_pct = round(100.0 * ind_done_sum / max(1, ind_total_sum), 1) if pats else lib_cov_pct
         containers.append(
             {
                 **group,
-                "pattern_count": len(group["patterns"]),
+                "pattern_count": len(pats),
                 "is_combination": len(fields) >= 2,
                 "library_docs": total_docs,
                 "analyzed_docs": done_docs,
-                "coverage_percent": cov_pct,
+                "library_coverage_percent": lib_cov_pct,
+                "completed_indicators": ind_done_sum,
+                "total_indicators": ind_total_sum,
+                "indicator_progress_percent": ind_pct,
+                "coverage_percent": ind_pct,
             }
         )
     containers.sort(key=lambda c: (-c["pattern_count"], c["container_key"]))
+
+    # Wake up autonomous R&D indicator progression if recognition is enabled and any pattern has < 15 indicators.
+    if needs_evolution and get_pattern_recognition_enabled():
+        _maybe_start_auto_indicator_evolution(needs_evolution)
+
     return {
         "ok": True,
         "containers": containers,
@@ -256,7 +276,9 @@ def assessment_matrix_endpoint() -> Response:
 
 @router.get("/discovery-status")
 def pattern_discovery_status() -> dict[str, Any]:
-    """Overall recognition coverage across the whole knowledge library."""
+    """Overall recognition & 15-indicator R&D maturity across the knowledge library."""
+    from .rd_paper import evaluate_rd_indicators
+
     ensure_pattern_store()
     enabled = get_pattern_recognition_enabled()
     total_docs = 0
@@ -273,14 +295,25 @@ def pattern_discovery_status() -> dict[str, Any]:
         )
         queued = int(conn.execute("SELECT COUNT(1) AS n FROM pattern_extraction_log WHERE status = 'queued'").fetchone()["n"])
         candidates = int(conn.execute("SELECT COUNT(1) AS n FROM patterns WHERE status = 'candidate'").fetchone()["n"])
-    percent = round(100.0 * analyzed / total_docs, 1) if total_docs else 0.0
+        pat_rows = conn.execute("SELECT id, rd_indicators_json, rd_progress_pct FROM patterns").fetchall()
+
+    ind_done = 0
+    ind_total = len(pat_rows) * 15
+    for pr in pat_rows:
+        ev = evaluate_rd_indicators(dict(pr))
+        ind_done += int(ev["completed_indicators"])
+    ind_pct = round(100.0 * ind_done / max(1, ind_total), 1) if pat_rows else 0.0
+    lib_pct = round(100.0 * analyzed / total_docs, 1) if total_docs else 0.0
     return {
         "ok": True,
         "library_documents": total_docs,
         "documents_analyzed": analyzed,
+        "library_percent": lib_pct,
+        "completed_indicators": ind_done,
+        "total_indicators": ind_total,
+        "percent": ind_pct,
         "queued": queued,
         "candidate_patterns": candidates,
-        "percent": percent,
         "active": dict(_ACTIVE_DISCOVERY),
         "recognition_enabled": enabled,
     }
@@ -298,6 +331,7 @@ def _pattern_public(row: dict[str, Any]) -> dict[str, Any]:
         "discovered_at": str(row.get("discovered_at") or ""),
         "benefits": str(row.get("benefits") or ""),
         "has_benefits": bool(str(row.get("benefits") or "").strip()),
+        "rd_progress_pct": float(row.get("rd_progress_pct") or 0.0),
     }
 
 
@@ -360,22 +394,65 @@ def _utc() -> str:
 
 
 _FIELD_ALIASES: dict[str, list[str]] = {
+    "foundations-of-reality": ["physics", "chemistry", "mathematics", "astronomy-cosmology", "earth-sciences"],
+    "life-and-biological-systems": ["biology", "genetics-molecular-biology", "neuroscience", "ecology-environmental-biology"],
+    "human-behavior-and-society": [
+        "philosophy",
+        "psychology",
+        "sociology",
+        "anthropology",
+        "economics",
+        "political-science",
+        "laws-per-country-and-international-law",
+        "war",
+        "religion",
+    ],
+    "applied-systems-and-technology": ["engineering", "computer-and-information-sciences", "information-science", "materials-science"],
+    "health-safety-and-well-being": ["medicine", "pharmacology", "public-health", "environmental-science"],
     "health": ["medicine", "public-health", "pharmacology", "neuroscience", "biology", "genetics-molecular-biology"],
     "medicine": ["medicine", "public-health", "pharmacology"],
     "medical": ["medicine", "public-health", "pharmacology"],
     "biology": ["biology", "genetics-molecular-biology", "ecology-environmental-biology", "neuroscience"],
     "physics": ["physics", "quantum-physics", "astronomy-cosmology"],
+    "math": ["mathematics", "physics", "computer-and-information-sciences"],
+    "mathematics": ["mathematics", "physics", "computer-and-information-sciences"],
+    "law": ["laws-per-country-and-international-law", "political-science"],
+    "laws-per-country-and-international-law": ["laws-per-country-and-international-law", "political-science"],
+    "war": ["war", "political-science"],
+    "religion": ["religion", "philosophy", "anthropology", "sociology"],
+    "relegion": ["religion", "philosophy", "anthropology", "sociology"],
     "computer-science": ["computer-and-information-sciences", "information-science"],
     "ai": ["computer-and-information-sciences", "information-science"],
     "artificial-intelligence": ["computer-and-information-sciences", "information-science"],
     "cs": ["computer-and-information-sciences", "information-science"],
-    "social-sciences": ["economics", "political-science", "sociology", "psychology", "anthropology"],
-    "society": ["economics", "political-science", "sociology", "psychology", "anthropology"],
+    "social-sciences": [
+        "economics",
+        "political-science",
+        "sociology",
+        "psychology",
+        "anthropology",
+        "laws-per-country-and-international-law",
+        "war",
+        "religion",
+    ],
+    "society": [
+        "economics",
+        "political-science",
+        "sociology",
+        "psychology",
+        "anthropology",
+        "laws-per-country-and-international-law",
+        "war",
+        "religion",
+    ],
 }
 
 
 def _expand_field_aliases(field_slug: str) -> list[str]:
-    clean = "-".join(str(field_slug or "").strip().lower().replace("_", "-").split())
+    raw = str(field_slug or "").strip().lower()
+    if raw.startswith("domain:"):
+        raw = raw[len("domain:") :].strip()
+    clean = "-".join(raw.replace("_", "-").split())
     if not clean or clean in {"all", "*", "every", "all-fields"}:
         return []
     aliases = list(_FIELD_ALIASES.get(clean, []))
@@ -536,12 +613,15 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
         ).fetchall()
     proposed_ids = [int(r["id"]) for r in new_rows]
 
-    # Generate benefits for this field's newest patterns.
-    _load_progress.stage("embed", "Analyzing potential benefits of new patterns...")
+    # Generate benefits and develop 5-stage (15-indicator) R&D profile for newest patterns.
+    from .rd_paper import advance_pattern_rd_stage
+
+    _load_progress.stage("embed", "Developing 5-Stage (15-Indicator) R&D profiles and benefit analyses...")
     benefits_ok = 0
-    newest = list(reversed(proposed_ids))[:5]
+    indicators_ok = 0
+    newest = list(reversed(proposed_ids))[:6]
     for offset, pattern_id in enumerate(newest):
-        rep.report(offset / max(1, len(newest)), f"Analyzing benefits of pattern {pattern_id}...")
+        rep.report(offset / max(1, len(newest)), f"Developing 15 R&D indicators for pattern #{pattern_id}...")
         try:
             pattern = get_pattern(pattern_id)
             if pattern and not str(pattern.get("benefits") or "").strip():
@@ -553,6 +633,8 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
                     )
                     conn.commit()
                 benefits_ok += 1
+            advance_pattern_rd_stage(int(pattern_id), target_stage=5, use_llm=True)
+            indicators_ok += 1
         except Exception:
             continue
 
@@ -563,6 +645,7 @@ def _discover_field_impl(field_slug: str, rep: Any, max_documents: int, max_chun
         "patterns_proposed": len(proposed_ids),
         "pattern_ids": proposed_ids,
         "benefits_generated": benefits_ok,
+        "indicators_developed": indicators_ok,
         "crisis_lexicon": {
             "high_priority_documents": crisis_picked,
             "pool_triaged": len(triaged),
@@ -586,6 +669,160 @@ def _discover_field_worker(field_slug: str, job_id: str, max_documents: int, max
         _load_progress.error_job(job_id, str(ex) or ex.__class__.__name__)
     finally:
         _ACTIVE_DISCOVERY.pop(field_slug, None)
+
+
+_EVOLVE_LOCK = _threading.Lock()
+
+
+def _auto_evolve_worker(items: list[tuple[int, str]], job_id: str, force: bool = False) -> None:
+    import time as _time
+    from .rd_paper import RD_STAGES, advance_pattern_rd_stage, evaluate_rd_indicators
+
+    rep = _load_progress.job_reporter(job_id)
+    active_keys: set[str] = {"all"}
+    try:
+        with _load_progress.bind(rep):
+            total_steps = max(1, len(items) * 5)
+            step_done = 0
+            evolved_count = 0
+            for pid, container_key in items:
+                if not get_pattern_recognition_enabled() or _load_progress.is_cancel_requested(job_id):
+                    _load_progress.finish_job(job_id, {"ok": True, "cancelled": True, "evolved": evolved_count})
+                    return
+                _ACTIVE_DISCOVERY[container_key] = job_id
+                active_keys.add(container_key)
+                pat = get_pattern(pid)
+                if not pat:
+                    step_done += 5
+                    continue
+                cur_eval = evaluate_rd_indicators(pat)
+                start_st = 1 if force else int(cur_eval.get("current_stage") or 1)
+                step_done += max(0, start_st - 1)
+                for st_num in range(start_st, 6):
+                    if not get_pattern_recognition_enabled() or _load_progress.is_cancel_requested(job_id):
+                        _load_progress.finish_job(job_id, {"ok": True, "cancelled": True, "evolved": evolved_count})
+                        return
+                    st_name = RD_STAGES[st_num - 1]["name"]
+                    rep.report(
+                        step_done / total_steps,
+                        f"Pattern #{pid} ({str(pat.get('title') or '')[:42]}): developing {st_name}...",
+                    )
+                    try:
+                        advance_pattern_rd_stage(
+                            pid,
+                            target_stage=st_num,
+                            force=(force and st_num == 1),
+                            use_llm=(st_num == start_st),
+                        )
+                    except Exception:
+                        pass
+                    step_done += 1
+                    _time.sleep(0.25)
+                evolved_count += 1
+            _load_progress.finish_job(
+                job_id,
+                {
+                    "ok": True,
+                    "evolved": evolved_count,
+                    "message": f"Developed all 15 R&D indicators across {evolved_count} pattern(s).",
+                },
+            )
+    except Exception as ex:
+        _load_progress.error_job(job_id, str(ex) or ex.__class__.__name__)
+    finally:
+        for k in active_keys:
+            if _ACTIVE_DISCOVERY.get(k) == job_id:
+                _ACTIVE_DISCOVERY.pop(k, None)
+        _EVOLVE_LOCK.release()
+
+
+def _maybe_start_auto_indicator_evolution(
+    needs_evolution: list[tuple[int, str]],
+    *,
+    force: bool = False,
+) -> str | None:
+    if not needs_evolution:
+        return None
+    if not _EVOLVE_LOCK.acquire(blocking=False):
+        return _ACTIVE_DISCOVERY.get("all")
+    try:
+        job_id, _rep = _load_progress.start_job(
+            label="R&D Indicator Progression",
+            field="all",
+            source_type="pattern-indicators",
+            title=f"Developing 15 R&D indicators across {len(needs_evolution)} pattern(s)",
+        )
+        _ACTIVE_DISCOVERY["all"] = job_id
+        for _, ckey in needs_evolution:
+            _ACTIVE_DISCOVERY.setdefault(ckey, job_id)
+        worker = _threading.Thread(
+            target=_auto_evolve_worker,
+            args=(list(needs_evolution), job_id, force),
+            name=f"pattern-evolve-{job_id}",
+            daemon=True,
+        )
+        worker.start()
+        return job_id
+    except Exception:
+        _EVOLVE_LOCK.release()
+        return None
+
+
+@router.post("/evolve-indicators")
+def evolve_all_indicators_endpoint(force: int = Query(default=0)) -> dict[str, Any]:
+    """Start or re-run 5-stage (15-indicator) R&D progression across patterns."""
+    from .rd_paper import evaluate_rd_indicators
+    from .sentinel_domains import sanitize_pattern_fields
+
+    ensure_pattern_store()
+    if not get_pattern_recognition_enabled():
+        raise HTTPException(status_code=409, detail=PAUSED_MESSAGE)
+    patterns = list_patterns(status="", limit=300)
+    targets: list[tuple[int, str]] = []
+    for row in patterns:
+        pid = int(row.get("id") or 0)
+        ind = evaluate_rd_indicators(row)
+        if bool(force) or ind["completed_indicators"] < ind["total_indicators"]:
+            fields = sorted(sanitize_pattern_fields(row.get("fields_involved")))
+            ckey = " + ".join(fields) if len(fields) >= 2 else (fields[0] if fields else "unassigned")
+            targets.append((pid, ckey))
+    if not targets:
+        return {"ok": True, "job_id": "", "count": 0, "message": "All patterns have already completed 15/15 R&D indicators."}
+    job_id = _maybe_start_auto_indicator_evolution(targets, force=bool(force))
+    return {
+        "ok": True,
+        "job_id": job_id or "",
+        "count": len(targets),
+        "message": f"Developing 5-Stage (15-Indicator) R&D progression for {len(targets)} pattern(s).",
+    }
+
+
+@router.post("/{pattern_id}/advance-indicators")
+def advance_pattern_indicators_endpoint(
+    pattern_id: int,
+    full: int = Query(default=1, description="1 = complete all 5 stages, 0 = advance next stage only"),
+    force: int = Query(default=0),
+) -> dict[str, Any]:
+    """Advance one pattern's 15 R&D indicators and synchronize its R&D Validation Paper."""
+    from .rd_paper import advance_pattern_rd_stage, get_or_generate_rd_report
+
+    try:
+        if bool(full):
+            report = get_or_generate_rd_report(int(pattern_id), force=bool(force))
+            return {
+                "ok": True,
+                "pattern_id": int(pattern_id),
+                "indicators": report.get("indicators"),
+                "paper_title": report.get("paper_title"),
+            }
+        res = advance_pattern_rd_stage(int(pattern_id), target_stage=None, force=bool(force), use_llm=True)
+        return {
+            "ok": True,
+            "pattern_id": int(pattern_id),
+            "indicators": res.get("indicators"),
+        }
+    except ValueError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
 
 
 @router.post("/discover/all")
@@ -940,19 +1177,34 @@ def _discover_manual_impl(
 
         # 2. Search chunks for the requested topic terms if we need more candidates
         if len(candidate_docs) < 30 and terms:
-            c_likes = " OR ".join("LOWER(content) LIKE ?" for _ in terms[:4])
-            c_params = [f"%{t}%" for t in terms[:4]]
-            c_rows = conn.execute(
-                f"""
-                SELECT DISTINCT d.id, d.title
-                FROM chunks c
-                JOIN documents d ON d.id = c.document_id
-                WHERE ({c_likes})
-                ORDER BY d.id DESC
-                LIMIT 60
-                """,
-                c_params,
-            ).fetchall()
+            c_likes = " OR ".join("LOWER(c.content) LIKE ?" for _ in terms[:4])
+            c_params: list[Any] = [f"%{t}%" for t in terms[:4]]
+            if field_aliases:
+                f_marks = ",".join("?" for _ in field_aliases)
+                c_rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT d.id, d.title
+                    FROM documents d
+                    JOIN chunks c ON c.document_id = d.id AND c.chunk_index < 6
+                    WHERE LOWER(COALESCE(d.scientific_field, '')) IN ({f_marks})
+                      AND ({c_likes})
+                    ORDER BY d.id DESC
+                    LIMIT 60
+                    """,
+                    [*field_aliases, *c_params],
+                ).fetchall()
+            else:
+                c_rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT d.id, d.title
+                    FROM documents d
+                    JOIN chunks c ON c.document_id = d.id AND c.chunk_index < 4
+                    WHERE ({c_likes})
+                    ORDER BY d.id DESC
+                    LIMIT 60
+                    """,
+                    c_params,
+                ).fetchall()
             for r in c_rows:
                 candidate_docs.setdefault(int(r["id"]), r)
 
@@ -1057,11 +1309,14 @@ def _discover_manual_impl(
         ).fetchall()
     proposed_ids = [int(r["id"]) for r in new_rows]
 
-    _load_progress.stage("embed", "Analyzing potential benefits of newly discovered patterns...")
+    from .rd_paper import advance_pattern_rd_stage
+
+    _load_progress.stage("embed", "Developing 5-Stage (15-Indicator) R&D profiles and benefit analyses...")
     benefits_ok = 0
+    indicators_ok = 0
     newest = list(reversed(proposed_ids))[:5]
     for offset, pattern_id in enumerate(newest):
-        rep.report(offset / max(1, len(newest)), f"Analyzing benefits of pattern {pattern_id}...")
+        rep.report(offset / max(1, len(newest)), f"Developing 15 R&D indicators for pattern #{pattern_id}...")
         try:
             pattern = get_pattern(pattern_id)
             if pattern and not str(pattern.get("benefits") or "").strip():
@@ -1073,6 +1328,8 @@ def _discover_manual_impl(
                     )
                     conn.commit()
                 benefits_ok += 1
+            advance_pattern_rd_stage(int(pattern_id), target_stage=5, use_llm=True)
+            indicators_ok += 1
         except Exception:
             continue
 
@@ -1091,6 +1348,7 @@ def _discover_manual_impl(
         "patterns_proposed": len(proposed_ids),
         "pattern_ids": proposed_ids,
         "benefits_generated": benefits_ok,
+        "indicators_developed": indicators_ok,
         "crisis_lexicon": {
             "high_priority_documents": crisis_picked,
             "pool_triaged": len(triaged),

@@ -150,6 +150,7 @@
           </div>
           <div class="row" style="margin-top:10px;">
             <button id="btnRun">Run Task</button>
+            <button id="btnScrapeContemporary" class="secondary" type="button">Scrape Contemporary Articles &amp; Journals</button>
             <button id="btnLoadBaseline" class="ghost" type="button">Load Sentinari Baseline</button>
             <button id="btnClearDraft" class="secondary" type="button">Clear Draft</button>
             <button id="btnClearSession" class="ghost" type="button">Clear Session</button>
@@ -353,6 +354,46 @@
     };
 
     byId('btnRun').addEventListener('click', () => { runTask().catch((e) => setStatus('workStatus', e.message || String(e), false)); });
+    byId('btnScrapeContemporary').addEventListener('click', async () => {
+      const query = String(byId('taskBrief').value || '').trim();
+      if (!query) {
+        setStatus('workStatus', 'Enter a task or query in "Task to run" first so Sentinari knows what contemporary articles and journals to scrape.', false);
+        return;
+      }
+      const btn = byId('btnScrapeContemporary');
+      btn.disabled = true;
+      btn.textContent = 'Scraping Contemporary Sources…';
+      setStatus('workStatus', `Scraping contemporary journals, preprints, and expert commentary for "${query.slice(0, 80)}"…`, true);
+      try {
+        const res = await fetch('/api/playground/contemporary-scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: query.slice(0, 300),
+            fields: [],
+            lanes: ['openalex', 'arxiv', 'crossref', 'europepmc', 'web'],
+            max_per_lane: 2,
+            ingest_to_library: true,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) throw new Error(data.detail || data.error || 'Contemporary scrape failed.');
+        const items = data.items || [];
+        const refsText = items.map((it, i) =>
+          `[${i + 1}] (${it.lane} | ${it.published_date}) ${it.title} — ${it.authors} (${it.publisher}). URL: ${it.url || 'n/a'}\nSummary: ${(it.summary || '').slice(0, 500)}`
+        ).join('\n\n');
+        const prevCtx = String(byId('taskContext').value || '').trim();
+        const block = `--- Contemporary Scraped Articles & Journals (${items.length} sources) ---\n${data.synthesis || ''}\n\n${refsText}`;
+        byId('taskContext').value = prevCtx ? `${prevCtx}\n\n${block}` : block;
+        persistDraft();
+        setStatus('workStatus', `Scraped ${items.length} contemporary source(s) (${data.ingested_count || 0} ingested into library) and added to Context.`, true);
+      } catch (e) {
+        setStatus('workStatus', e.message || String(e), false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Scrape Contemporary Articles & Journals';
+      }
+    });
     byId('btnLoadBaseline').addEventListener('click', loadGemmaBaseline);
     byId('btnClearDraft').addEventListener('click', () => {
       byId('taskBrief').value = '';

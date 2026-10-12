@@ -33,7 +33,10 @@
   button.reject { background: #b23a48; border-color: #b23a48; color: #fff; }
   button.activate { background: #1c7ed6; border-color: #1c7ed6; color: #fff; }
   button:disabled { opacity: 0.5; cursor: default; }
-  input[type="text"] { font: inherit; font-size: 13.5px; padding: 7px 10px; border: 1px solid #ccd9ea; border-radius: 8px; min-width: 240px; }
+  input[type="text"], select { font: inherit; font-size: 13.5px; padding: 7px 10px; border: 1px solid #ccd9ea; border-radius: 8px; min-width: 220px; background: #fff; color: #1d2b3a; }
+  .domain-select-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; width: 100%; margin-top: 8px; }
+  .domain-select-col { display: flex; flex-direction: column; gap: 4px; }
+  .domain-select-col label { font-size: 11.5px; font-weight: 700; color: #33506e; text-transform: uppercase; letter-spacing: 0.3px; }
   .stats-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
   .stat { background: #f6f9fd; border: 1px solid #e3eaf5; border-radius: 10px; padding: 8px 14px; min-width: 130px; }
   .stat b { display: block; font-size: 19px; color: #17304f; }
@@ -136,16 +139,16 @@
         <div class="stat"><b id="stEntities">0</b><span>Entities mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Entities mapped.</b> Scientific entities (concepts, materials, methods, quantities) extracted from analyzed documents and stored in the pattern_entities table — the nodes of a pattern's evidence graph.</span></span></span></div>
         <div class="stat"><b id="stRelations">0</b><span>Relations mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Relations mapped.</b> Directed links between mapped entities, stored in pattern_relations — the edges that let a pattern state HOW things connect, not just that they do.</span></span></span></div>
       </div>
-      <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Recognition progress.</b> The share of the whole library processed for new patterns: analyzed documents ÷ library documents. The label beneath gives the exact counts and what is still queued.</span></span> — <span id="overallPct">0.0%</span></div>
+      <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Recognition progress.</b> Driven by the 15 R&amp;D Indicators across 5 stages (Front Matter, Introduction &amp; Framework, Methodology &amp; System Design, Theoretical Testing &amp; Evaluation, Back Matter).</span></span> — <span id="overallPct">0.0%</span></div>
       <div class="lp-track"><div class="lp-fill" id="overallFill"></div></div>
       <div class="lp-label" id="overallLabel">Waiting for status…</div>
     </div>
 
     <div class="card">
       <h2>Start recognizing patterns in a scientific field</h2>
-      <div class="hint">Enter a field name (e.g. <b>physics</b>, <b>chemistry</b>, <b>psychology</b>) — or leave blank to scan every field. Sentinari reads the field's documents, extracts entities, relations and patterns, then analyzes each new pattern's potential benefits.</div>
+      <div class="hint">Select a Sentinel Domain or Scientific Field — or leave on <b>All Domains &amp; Fields</b> to scan every field. Sentinari reads the field's documents, extracts entities, relations and patterns, and develops each new pattern's 15 R&amp;D indicators and benefits.</div>
       <div class="row" style="margin-top:9px;">
-        <input type="text" id="fieldInput" placeholder="Scientific field (blank = all fields)">
+        <select id="fieldInput" style="min-width:320px;"></select>
         <button id="btnStart" class="primary" type="button">Start recognition</button>
         <span class="muted" id="startHint"></span>
       </div>
@@ -158,12 +161,25 @@
     <div class="card">
       <h2>User-requested pattern discovery</h2>
       <div class="mode-pill">Manual &middot; targeted discovery active</div>
-      <div class="hint">Describe the pattern or topic you want Sentinari to hunt for (e.g. <i>"Patterns linking drought resilience to crop genetics"</i> or <i>"medicine"</i>). Sentinari searches the knowledge library for matching documents, prioritizes them against the §74l crisis &amp; threat lexicon, extracts entities, relations and candidate patterns, and analyzes their potential benefits.</div>
-      <div class="row" style="margin-top:9px;">
-        <input type="text" id="manualTopic" placeholder="Pattern topic to investigate">
-        <input type="text" id="manualFields" placeholder="Fields involved (optional, comma-separated)">
+      <div class="hint">State your custom query or hypothesis below and select up to <b>3 Sentinel Domains / Scientific Fields</b> from the dropdown lists to scope single-domain or cross-domain pattern discovery. Sentinari searches the knowledge library for matching documents, prioritizes them against the §74l crisis &amp; threat lexicon, extracts entities, relations and candidate patterns, and develops their 15 R&amp;D indicators.</div>
+      <div class="row" style="margin-top:10px;">
+        <input type="text" id="manualTopic" placeholder="State your custom pattern query or research topic (e.g. 'Patterns linking drought resilience to crop genetics')" style="flex:1 1 100%; width:100%;">
       </div>
-      <div class="row" style="margin-top:6px;">
+      <div class="domain-select-grid">
+        <div class="domain-select-col">
+          <label for="manualField1">1. Primary Domain / Scientific Field</label>
+          <select id="manualField1"></select>
+        </div>
+        <div class="domain-select-col">
+          <label for="manualField2">2. Second Domain / Field (Optional Bridge)</label>
+          <select id="manualField2"></select>
+        </div>
+        <div class="domain-select-col">
+          <label for="manualField3">3. Third Domain / Field (Optional Tri-Domain)</label>
+          <select id="manualField3"></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
         <button id="btnManual" class="primary" type="button">Run manual discovery</button>
         <span class="muted" id="manualHint"></span>
       </div>
@@ -214,8 +230,10 @@
       $('stDocs').textContent = fmtInt(data.library_documents);
       $('stAnalyzed').textContent = fmtInt(data.documents_analyzed);
       $('stCandidates').textContent = fmtInt(data.candidate_patterns);
+      const indDone = Number(data.completed_indicators || 0);
+      const indTotal = Number(data.total_indicators || 0);
       setBar($('overallFill'), $('overallLabel'), data.percent,
-        `${fmtInt(data.documents_analyzed)} of ${fmtInt(data.library_documents)} documents analyzed · ${fmtInt(data.queued)} queued`);
+        `${fmtInt(indDone)} of ${fmtInt(indTotal)} R&D indicators developed (${pctText(data.percent)}) · ${fmtInt(data.documents_analyzed)} of ${fmtInt(data.library_documents)} library datasets scanned`);
       $('overallPct').textContent = pctText(data.percent);
       const sw = $('recognitionSwitch');
       if (sw) sw.checked = data.recognition_enabled !== false;
@@ -246,7 +264,7 @@
       });
       showAlert(r.message || (enabled ? 'Pattern recognition resumed.' : 'Pattern recognition paused.'), enabled);
       updateSwitchUi(enabled, r.message);
-      if (!enabled) await loadWorkspace();
+      await loadWorkspace();
     } catch (error) {
       sw.checked = !enabled;
       showAlert(error.message, false);
@@ -270,6 +288,27 @@
           return `<span>${esc(s.title)}${by}${dlLink}${extLink}</span>`;
         }).join(' · ')}</div>`
       : '';
+    const ind = p.rd_indicators || {};
+    const stages = Array.isArray(ind.stages) ? ind.stages : [];
+    const indDone = Number(ind.completed_indicators || 0);
+    const indTotal = Number(ind.total_indicators || 15);
+    const indPct = Number(ind.progress_pct || 0);
+    const stagePills = stages.map((st) => {
+      const done = Boolean(st.done);
+      const bg = done ? 'background:#dcfce7;color:#166534;border-color:#86efac;' : 'background:#f8fafc;color:#475569;border-color:#cbd5e1;';
+      const check = done ? '&#10003;' : `${st.completed || 0}/${st.total || 3}`;
+      const subItems = (st.indicators || []).map((i) => `${i.done ? '✓' : '○'} ${esc(i.label)}`).join('<br>');
+      return `<span class="meta-pill" style="${bg}font-weight:600;">${esc(st.short_name || st.name)}: ${check}<span class="ptag" tabindex="0">i<span class="ptip"><b>${esc(st.name)} (${st.completed || 0}/${st.total || 3})</b><br>${subItems}</span></span></span>`;
+    }).join('');
+    const indicatorsBlock = stages.length
+      ? `<div class="storage-note" style="margin-top:8px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+           <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;margin-bottom:5px;">
+             <b>5-Stage R&amp;D Indicator Progression (${indDone}/${indTotal} indicators &middot; ${indPct.toFixed(1)}%)</b>
+             <span class="muted">${esc(ind.stage_label || '')}</span>
+           </div>
+           <div class="meta-pills" style="margin-top:4px;">${stagePills}</div>
+         </div>`
+      : '';
     const benefitsBlock = p.has_benefits
       ? `<div class="benefits"><div class="benefits-title">Potential benefits<span class="ptag" tabindex="0">i<span class="ptip"><b>Potential benefits.</b> Generated by analyzing the pattern's own evidence with the local engine: what the pattern could enable, why it matters, and the measured inputs (evidence depth, sources, graph mass) that feed its dimension levels.</span></span></div>${esc(p.benefits)}</div>`
       : `<div class="actions"><button type="button" data-role="benefits" data-id="${p.id}">Analyze benefits</button></div><div class="benefits" data-role="benefits-slot-${p.id}" hidden></div>`;
@@ -284,11 +323,13 @@
         </div>
         <div class="statement">${esc(p.statement)}</div>
         ${sourcesBlock}
+        ${indicatorsBlock}
         ${benefitsBlock}
         <div class="report-actions">
           <button type="button" data-role="pattern-report" data-id="${p.id}">View Report (HTML)</button>
           <button type="button" class="pdf" data-role="pattern-report" data-id="${p.id}" data-format="pdf">Report PDF</button>
-          <button type="button" data-role="rd-paper" data-id="${p.id}">Request R&D Paper</button>
+          <button type="button" data-role="rd-paper" data-id="${p.id}">View / Generate R&amp;D Paper (${indDone}/${indTotal})</button>
+          ${indDone < indTotal ? `<button type="button" data-role="advance-indicators" data-id="${p.id}">Develop R&amp;D Indicators</button>` : ''}
         </div>
         <div class="actions">
           <button type="button" class="approve" data-role="review" data-decision="approve" data-id="${p.id}" ${status === 'approved' ? 'disabled' : ''}>Approve</button>
@@ -300,27 +341,29 @@
 
   function containerCard(c) {
     const name = c.fields.length ? c.fields.map((f) => f.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())).join(' + ') : 'Unassigned';
-    const liveJob = liveJobs[c.container_key];
+    const liveJob = liveJobs[c.container_key] || liveJobs['all'];
     const livePct = liveJob ? Number(liveJob.percent) || 0 : 0;
-    const inProgress = Boolean(liveJob) || Number(c.coverage_percent) < 100;
-    const barPct = liveJob ? livePct : (Number(c.coverage_percent) || 0);
+    const indPct = Number(c.indicator_progress_percent ?? c.coverage_percent ?? 0);
+    const barPct = liveJob ? Math.max(livePct, indPct) : indPct;
+    const indDone = Number(c.completed_indicators || 0);
+    const indTotal = Number(c.total_indicators || (c.pattern_count * 15));
     const barLabel = liveJob
-      ? `${liveJob.message || 'Working…'}`
+      ? `${liveJob.message || 'Developing R&D indicators…'} (${fmtInt(indDone)}/${fmtInt(indTotal)} indicators · ${fmtInt(c.analyzed_docs)} of ${fmtInt(c.library_docs)} library datasets scanned)`
       : (Number(c.library_docs) > 0
-        ? `${fmtInt(c.analyzed_docs)} of ${fmtInt(c.library_docs)} documents analyzed for patterns`
+        ? `${fmtInt(indDone)} of ${fmtInt(indTotal)} R&D indicators complete across ${c.pattern_count} pattern${c.pattern_count === 1 ? '' : 's'} · ${fmtInt(c.analyzed_docs)} of ${fmtInt(c.library_docs)} library datasets scanned`
         : 'No library documents in this field yet — load datasets or upload documents to feed discovery.');
     return `
       <div class="container-card${c.is_combination ? ' combination' : ''}">
         <div class="container-title">${esc(name)}${c.is_combination ? '<span class="cross-pill">Cross-field</span>' : ''}</div>
         <div class="hint" style="margin-top:3px;">${c.is_combination ? 'Pattern bridging several scientific fields.' : 'Patterns discovered within this scientific field.'} · <b>${c.pattern_count}</b> pattern${c.pattern_count === 1 ? '' : 's'}</div>
-        <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Field recognition progress.</b> Share of THIS field's documents analyzed for patterns${c.is_combination ? ' (combination container: the bridge between these fields)' : ''}: analyzed ÷ library documents for the container.</span></span> — <span>${barPct.toFixed(1)}%</span></div>
+        <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>5-Stage (15-Indicator) R&amp;D Maturity.</b> Measures completion of the 15 R&amp;D Paper indicators (1. Front Matter, 2. Intro &amp; Framework, 3. Methodology &amp; System Design, 4. Theoretical Testing &amp; Matrix Results, 5. Back Matter) across all patterns in this container.</span></span> — <span>${barPct.toFixed(1)}%</span></div>
         <div class="lp-track"><div class="lp-fill${liveJob ? ' active' : ''}" style="width:${Math.max(0, Math.min(100, barPct))}%"></div></div>
         <div class="lp-label">${esc(barLabel)}</div>
         <div class="report-actions">
           <button type="button" data-role="container-report" data-key="${esc(c.container_key)}">View Report (HTML)</button>
           <button type="button" class="pdf" data-role="container-report" data-key="${esc(c.container_key)}" data-format="pdf">Report PDF</button>
         </div>
-        <div class="storage-note">Archive: new patterns are recorded in <code>patterns.db</code> (tables <code>patterns</code>, <code>pattern_evidence</code>, <code>pattern_entities</code>, <code>pattern_relations</code>), keyed by <code>fields_involved</code>.</div>
+        <div class="storage-note">Archive: new patterns are recorded in <code>patterns</code>, <code>pattern_evidence</code>, <code>pattern_entities</code>, <code>pattern_relations</code>, and synchronized with the 5-Section R&amp;D Validation Paper.</div>
         ${c.patterns.map(patternCard).join('') || '<div class="muted" style="margin-top:8px;">No patterns yet for this container.</div>'}
       </div>`;
   }
@@ -333,6 +376,12 @@
       Object.entries(data.active_discovery || {}).forEach(([field, job]) => {
         if (job && job.state === 'running') liveJobs[field] = job;
       });
+      const allJob = liveJobs['all'];
+      if (allJob) {
+        $('liveHead').hidden = false; $('liveTrack').hidden = false; $('liveLabel').hidden = false;
+        setBar($('liveFill'), $('liveLabel'), allJob.percent, `${allJob.message || 'Developing R&D indicators…'}`);
+        $('livePct').textContent = `${(Number(allJob.percent) || 0).toFixed(1)}%`;
+      }
       const grid = $('containersGrid');
       if (!data.containers.length) {
         grid.innerHTML = '<div class="container-card"><span class="muted">No patterns recorded yet. Start recognition above after loading datasets into your fields — Sentinari will raise new patterns here as they form.</span></div>';
@@ -342,7 +391,9 @@
       const st = data.stats || {};
       $('stEntities').textContent = fmtInt(st.pattern_entities || 0);
       $('stRelations').textContent = fmtInt(st.pattern_relations || 0);
-      return Object.keys(liveJobs).length > 0;
+      const hasBusy = Object.keys(liveJobs).length > 0 || Boolean(data.indicator_evolve_running);
+      if (hasBusy) ensurePolling();
+      return hasBusy;
     } catch (error) {
       $('containersGrid').innerHTML = `<div class="container-card"><span class="muted">Could not load containers: ${esc(error.message)}</span></div>`;
       return false;
@@ -494,10 +545,23 @@
         showAlert(r.message || 'R&D paper request logged as future work.', true);
         btn.textContent = 'R&D paper ✓ logged';
         await loadFutureRequests();
+        await loadWorkspace();
+        await loadStatus();
         // §79: open the generated validation paper (math computed from the pattern's record).
         window.open(`/api/patterns/rd-paper/${encodeURIComponent(id)}/report`, '_blank', 'noopener');
       } catch (error) {
-        btn.disabled = false; btn.textContent = 'Request R&D Paper';
+        btn.disabled = false; btn.textContent = 'Open 5-Section R&D Paper';
+        showAlert(error.message, false);
+      }
+    } else if (btn.dataset.role === 'advance-indicators') {
+      btn.disabled = true; btn.textContent = 'Developing R&D Indicators…';
+      try {
+        const r = await api(`/api/patterns/${encodeURIComponent(id)}/advance-indicators?full=1`, { method: 'POST' });
+        showAlert(`Pattern #${id} advanced to ${r.completed_count || 15}/${r.total_count || 15} R&D indicators (${(Number(r.progress_pct) || 100).toFixed(1)}%).`, true);
+        await loadWorkspace();
+        await loadStatus();
+      } catch (error) {
+        btn.disabled = false; btn.textContent = 'Develop R&D Indicators';
         showAlert(error.message, false);
       }
     } else if (btn.dataset.role === 'run-manual') {
@@ -528,12 +592,95 @@
     }
   });
 
+  const SENTINEL_DOMAIN_GROUPS = [
+    {
+      domainSlug: 'foundations-of-reality',
+      domainName: 'Foundations of Reality (Guardian of Matter & Energy)',
+      fields: [
+        { slug: 'physics', name: 'Physics' },
+        { slug: 'chemistry', name: 'Chemistry' },
+        { slug: 'mathematics', name: 'Mathematics' },
+        { slug: 'astronomy-cosmology', name: 'Astronomy & Cosmology' },
+        { slug: 'earth-sciences', name: 'Earth Sciences' },
+      ],
+    },
+    {
+      domainSlug: 'life-and-biological-systems',
+      domainName: 'Life and Biological Systems (Guardian of Living Order)',
+      fields: [
+        { slug: 'biology', name: 'Biology' },
+        { slug: 'genetics-molecular-biology', name: 'Genetics & Molecular Biology' },
+        { slug: 'neuroscience', name: 'Neuroscience' },
+        { slug: 'ecology-environmental-biology', name: 'Ecology & Environmental Biology' },
+      ],
+    },
+    {
+      domainSlug: 'human-behavior-and-society',
+      domainName: 'Human Behavior and Society (Guardian of Minds & Cultures)',
+      fields: [
+        { slug: 'philosophy', name: 'Philosophy' },
+        { slug: 'psychology', name: 'Psychology' },
+        { slug: 'sociology', name: 'Sociology' },
+        { slug: 'anthropology', name: 'Anthropology' },
+        { slug: 'economics', name: 'Economics' },
+        { slug: 'political-science', name: 'Political Science' },
+        { slug: 'laws-per-country-and-international-law', name: '1) Laws per Country and International Law' },
+        { slug: 'war', name: '2) War' },
+        { slug: 'religion', name: '3) Religion' },
+      ],
+    },
+    {
+      domainSlug: 'applied-systems-and-technology',
+      domainName: 'Applied Systems and Technology (Guardian of Tools & Innovation)',
+      fields: [
+        { slug: 'engineering', name: 'Engineering' },
+        { slug: 'computer-and-information-sciences', name: 'Computer Science & AI' },
+        { slug: 'information-science', name: 'Information Science' },
+        { slug: 'materials-science', name: 'Materials Science' },
+      ],
+    },
+    {
+      domainSlug: 'health-safety-and-well-being',
+      domainName: 'Health, Safety, and Well-Being (Guardian of Life\'s Continuity)',
+      fields: [
+        { slug: 'medicine', name: 'Medicine' },
+        { slug: 'pharmacology', name: 'Pharmacology' },
+        { slug: 'public-health', name: 'Public Health' },
+        { slug: 'environmental-science', name: 'Environmental Science' },
+      ],
+    },
+  ];
+
+  function populateDomainDropdown(selectEl, placeholderText) {
+    if (!selectEl) return;
+    let html = `<option value="">${esc(placeholderText)}</option>`;
+    SENTINEL_DOMAIN_GROUPS.forEach((grp) => {
+      html += `<optgroup label="${esc(grp.domainName)}">`;
+      html += `<option value="${esc(grp.domainSlug)}">[All in Domain] ${esc(grp.domainName)}</option>`;
+      grp.fields.forEach((f) => {
+        html += `<option value="${esc(f.slug)}">${esc(f.name)} (${esc(f.slug)})</option>`;
+      });
+      html += `</optgroup>`;
+    });
+    selectEl.innerHTML = html;
+  }
+
+  populateDomainDropdown($('fieldInput'), '— All Sentinel Domains & Scientific Fields —');
+  populateDomainDropdown($('manualField1'), '— Select Domain / Field 1 (Optional) —');
+  populateDomainDropdown($('manualField2'), '— Select Domain / Field 2 (Optional) —');
+  populateDomainDropdown($('manualField3'), '— Select Domain / Field 3 (Optional) —');
+
   $('btnStart').addEventListener('click', startDiscovery);
   $('btnRefresh').addEventListener('click', async () => { await loadStatus(); await loadWorkspace(); });
 
   $('btnManual').addEventListener('click', async () => {
     const topic = $('manualTopic').value.trim();
-    const fields = $('manualFields').value.split(',').map((s) => s.trim()).filter(Boolean);
+    const rawFields = [
+      $('manualField1') ? $('manualField1').value.trim() : '',
+      $('manualField2') ? $('manualField2').value.trim() : '',
+      $('manualField3') ? $('manualField3').value.trim() : '',
+    ].filter(Boolean);
+    const fields = Array.from(new Set(rawFields));
     const btn = $('btnManual');
     btn.disabled = true;
     $('manualHint').textContent = 'Starting…';
@@ -545,7 +692,9 @@
       $('manualHint').textContent = '';
       showAlert(r.message || 'Manual discovery started.', true);
       $('manualTopic').value = '';
-      $('manualFields').value = '';
+      if ($('manualField1')) $('manualField1').value = '';
+      if ($('manualField2')) $('manualField2').value = '';
+      if ($('manualField3')) $('manualField3').value = '';
       await loadFutureRequests();
       if (r.job_id) {
         trackManualJob(r.job_id, topic || fields.join(', ') || 'manual request', btn);

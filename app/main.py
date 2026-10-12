@@ -967,6 +967,36 @@ def api_direct_chat(
     }
 
 
+class ContemporaryScrapeRequest(BaseModel):
+    query: str = Field(..., min_length=2, max_length=500)
+    fields: list[str] = Field(default_factory=list)
+    lanes: list[str] = Field(default_factory=lambda: ["openalex", "arxiv", "crossref", "europepmc", "web"])
+    max_per_lane: int = Field(default=3, ge=1, le=6)
+    ingest_to_library: bool = Field(default=True)
+
+
+@app.post("/api/playground/contemporary-scrape")
+def api_playground_contemporary_scrape(
+    payload: ContemporaryScrapeRequest,
+) -> dict[str, Any]:
+    """Scrape contemporary articles, journals, preprints, and expert commentary
+    for a query matter, optionally ingesting them into the curated library."""
+    from .contemporary_scraper import scrape_contemporary_sources
+
+    try:
+        return scrape_contemporary_sources(
+            payload.query,
+            fields=payload.fields,
+            lanes=payload.lanes,
+            max_per_lane=payload.max_per_lane,
+            ingest_to_library=bool(payload.ingest_to_library),
+        )
+    except ValueError as ex:
+        raise HTTPException(status_code=400, detail=str(ex))
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f"Contemporary scrape failed: {ex}")
+
+
 @app.get("/api/playground/qualia/status")
 def api_playground_qualia_status(_: None = Depends(_admin_auth_dependency)) -> dict[str, Any]:
     """§51: live status for the Qualia console + A1 logs (route never existed)."""
