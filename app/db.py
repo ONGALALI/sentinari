@@ -123,7 +123,14 @@ class PostgresConnectionWrapper:
         if m:
             table = m.group(1).lower()
             return f"SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name='{table}'"
-        if u.startswith("PRAGMA") or u.startswith("ATTACH") or "TEMP VIEW" in u or "DROP VIEW" in u or "VIRTUAL TABLE" in u or ("CHUNK_FTS" in u and u.startswith("INSERT INTO")):
+        if (
+            u.startswith("PRAGMA")
+            or u.startswith("ATTACH")
+            or "TEMP VIEW" in u
+            or "DROP VIEW" in u
+            or "VIRTUAL TABLE" in u
+            or ("CHUNK_FTS" in u and (u.startswith("INSERT INTO") or u.startswith("DELETE FROM") or u.startswith("UPDATE ")))
+        ):
             return ""
         if "sqlite_master" in s:
             s = s.replace(

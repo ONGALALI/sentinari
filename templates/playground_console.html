@@ -2091,13 +2091,17 @@
     };
 
     const sentinelClearField = async (fieldSlug) => {
-      if (!window.confirm(`Remove all ingested data from the ${fieldSlug} field? This deletes its documents and chunks from the database.`)) return;
+      const wrap = document.querySelector(`.sentinel-field[data-field-slug="${CSS.escape(fieldSlug)}"]`);
+      const fileInput = wrap?.querySelector('input[type="file"]');
+      const ghInput = wrap?.querySelector('input[data-role="github-url"]');
+      if (fileInput) fileInput.value = '';
+      if (ghInput) ghInput.value = '';
       await sentinelIngest({
         url: '/api/playground/sentinel/field/clear',
-        options: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ field: fieldSlug }) },
+        options: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ field: fieldSlug, purge_database: false }) },
         fieldSlug,
-        busyText: `Clearing the ${fieldSlug} data room...`,
-        doneText: (data) => `Cleared ${fieldSlug}: removed ${data.removed_documents ?? 0} documents / ${data.removed_chunks ?? 0} chunks.`,
+        busyText: `Clearing ${fieldSlug} upload staging...`,
+        doneText: (data) => `✓ Cleared ${fieldSlug} upload queue (${data.staged_files_cleared ?? 0} staged file(s) removed). All ${formatInt(data.kept_documents ?? 0)} indexed documents (${formatInt(data.kept_chunks ?? 0)} chunks) remain safely stored in the library.`,
       });
     };
 

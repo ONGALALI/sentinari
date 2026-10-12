@@ -2681,8 +2681,9 @@ def api_playground_sentinel_field_clear(
     field = str(payload.get("field") or "").strip()
     if not field:
         raise HTTPException(status_code=400, detail="A Sentinel scientific field is required.")
+    purge_db = bool(payload.get("purge_database", False))
     try:
-        return remove_sentinel_field_data(field)
+        return remove_sentinel_field_data(field, purge_database=purge_db)
     except ValueError as ex:
         raise HTTPException(status_code=400, detail=str(ex))
 

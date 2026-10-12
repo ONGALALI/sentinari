@@ -169,7 +169,10 @@ def purge_field_documents(field: str, doc_ids: list[int], *, keep_docs: list[int
                 ).fetchone()["n"]
             )
             conn.execute(f"DELETE FROM chunks WHERE document_id IN ({placeholders});", targets)
-            conn.execute(f"DELETE FROM chunk_fts WHERE document_id IN ({placeholders});", targets)
+            try:
+                conn.execute(f"DELETE FROM chunk_fts WHERE document_id IN ({placeholders});", targets)
+            except Exception:
+                pass
             conn.execute(f"DELETE FROM documents WHERE id IN ({placeholders});", targets)
             conn.commit()
         removed_documents = len(targets)
@@ -1231,14 +1234,19 @@ def ingest_huggingface_dataset_to_field(
     }
 
 
-def remove_sentinel_field_data(field: str) -> dict[str, Any]:
-    """Remove all documents attached to a field (purge its data room)."""
+def remove_sentinel_field_data(field: str, *, purge_database: bool = False) -> dict[str, Any]:
+    """Clear a field's temporary upload staging folder (or purge database rows only if purge_database=True)."""
+    from .config import get_settings
     from .db import library_connection
 
     resolved = _resolve_field(field)
     field_slug = resolved["field_slug"]
     removed_documents = 0
     removed_chunks = 0
+    kept_documents = 0
+    kept_chunks = 0
+    staged_files_cleared = 0
+
     with library_connection("gemma") as conn:
         doc_ids = [
             int(row["id"])
@@ -1246,20 +1254,39 @@ def remove_sentinel_field_data(field: str) -> dict[str, Any]:
         ]
         if doc_ids:
             placeholders = ",".join("?" for _ in doc_ids)
-            removed_chunks = int(
+            total_chunks = int(
                 conn.execute(f"SELECT COUNT(1) AS n FROM chunks WHERE document_id IN ({placeholders});", doc_ids).fetchone()["n"]
             )
-            conn.execute(f"DELETE FROM chunks WHERE document_id IN ({placeholders});", doc_ids)
-            conn.execute(f"DELETE FROM chunk_fts WHERE document_id IN ({placeholders});", doc_ids)
-            conn.execute(f"DELETE FROM documents WHERE id IN ({placeholders});", doc_ids)
-            removed_documents = len(doc_ids)
+            if purge_database:
+                conn.execute(f"DELETE FROM chunks WHERE document_id IN ({placeholders});", doc_ids)
+                try:
+                    conn.execute(f"DELETE FROM chunk_fts WHERE document_id IN ({placeholders});", doc_ids)
+                except Exception:
+                    pass
+                conn.execute(f"DELETE FROM documents WHERE id IN ({placeholders});", doc_ids)
+                removed_documents = len(doc_ids)
+                removed_chunks = total_chunks
+                conn.execute("UPDATE sentinel_scientific_fields SET last_ingest_at = NULL WHERE field_slug = ?;", (field_slug,))
+            else:
+                kept_documents = len(doc_ids)
+                kept_chunks = total_chunks
         _refresh_field_counts(conn)
-        conn.execute("UPDATE sentinel_scientific_fields SET last_ingest_at = NULL WHERE field_slug = ?;", (field_slug,))
         conn.commit()
 
-    data_root = resolved["target_dir"] / "github"
-    if data_root.exists():
-        shutil.rmtree(data_root, ignore_errors=True)
+    # Clear temporary upload staging files on disk once indexed into the database
+    try:
+        upload_dir = get_settings().data_dir / "sentinel_uploads" / field_slug
+        if upload_dir.exists():
+            staged_files_cleared = sum(1 for p in upload_dir.rglob("*") if p.is_file())
+            shutil.rmtree(upload_dir, ignore_errors=True)
+            upload_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    if purge_database:
+        data_root = resolved["target_dir"] / "github"
+        if data_root.exists():
+            shutil.rmtree(data_root, ignore_errors=True)
 
     return {
         "ok": True,
@@ -1267,5 +1294,8 @@ def remove_sentinel_field_data(field: str) -> dict[str, Any]:
         "field_slug": field_slug,
         "removed_documents": removed_documents,
         "removed_chunks": removed_chunks,
+        "kept_documents": kept_documents,
+        "kept_chunks": kept_chunks,
+        "staged_files_cleared": staged_files_cleared,
         "status": get_sentinel_status(refresh_counts=False),
     }
