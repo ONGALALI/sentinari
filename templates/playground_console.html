@@ -532,6 +532,7 @@
       <div class="brand">Sentinari</div>
       <div class="sidecopy">Landing dashboard for the main playground workflow.</div>
       <nav class="nav">
+        <a href="/" style="border-color:#9fc1e3;background:#eef6ff;">&#127760; Website Landing Page<small>Public portal &amp; live Pattern Discoveries counter.</small></a>
         <a href="/ui/playground" class="active">Dashboard Home<small>Summary, domains, and downloads.</small></a>
         <a href="/ui/direct">Chat Lab<small>Dedicated conversation workspace.</small></a>
         <a href="/ui/qualia">Qualia Lab<small>Dedicated qualia workspace.</small></a>
@@ -568,7 +569,7 @@
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
               <h2>Scientific Dataset Discovery &amp; Review</h2>
-              <div class="hint"><strong>Learning first, HLE second.</strong> The Learning Index shows what she has not learned yet — scouting targets exactly that lacking knowledge (priority order: 1) OpenAlex &rarr; 2) Medical web (Europe PMC) &rarr; 3) GitHub &rarr; 4) HuggingFace) &rarr; you approve &rarr; it is digested, examined, and feeds re-learning/fine-tuning (ladder stage 4). HLE measures the gap once the library is learned. Standard: <strong>comprehensive, whole-field datasets at masters/PhD level</strong> — fewer datasets, entire subjects. Sub-standard sources get blocked; once blocked, always blocked. Proposals only — the intake firewall guards the door; nothing enters without you.</div>
+              <div class="hint"><strong>Unified Single-Scan Discovery:</strong> One search simultaneously scans <strong>OpenAlex</strong>, <strong>NLM / NHLBI / PubMed</strong>, <strong>World Bank</strong>, <strong>Eurostat</strong>, <strong>IMF</strong>, <strong>ECB</strong>, <strong>BIS</strong>, <strong>UN Data</strong>, <strong>OECD</strong>, and <strong>Scraped Contemporary Sources</strong> (recent journals, preprints, emerging meanings &amp; expert decisions), with <strong>GitHub &amp; Hugging Face moved to the very last</strong>.</div>
             </div>
           </div>
           <div class="hint" style="margin-top:8px;"><strong>Weak spots</strong> — fields with the least examined knowledge (from the Learning Index). Click one to scout it:</div>
@@ -591,61 +592,11 @@
           <div id="dsAssessCount"></span></div>
         </div>
 
-        <div class="card" id="contemporary-scraper" style="margin-top:14px; border-color:#b8cde3; background:linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);">
-          <div class="row" style="align-items:flex-start; justify-content:space-between;">
-            <div>
-              <h2>Contemporary Articles, Journals &amp; Expert Commentary Scraper</h2>
-              <div class="hint"><strong>Live Horizon Scanner:</strong> Emerging meanings, recent policy/scientific decisions, and new perspectives from contemporary writers, researchers, and experts are not always reflected in static curated datasets. Search live across <strong>OpenAlex Recent Journals (2023–Current)</strong>, <strong>arXiv Preprints</strong>, <strong>Crossref Journals</strong>, <strong>Europe PMC / PubMed</strong>, and <strong>Contemporary Expert Articles &amp; Press</strong>, synthesize the semantic shift, and automatically ingest verified contemporary sources into your canonical Sentinel Domains.</div>
-            </div>
-            <div class="mono">Live Contemporary Scraper</div>
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <div class="field" style="flex:1 1 100%;">
-              <label for="contempQuery">Query matter, emerging concept, or decision topic</label>
-              <input id="contempQuery" type="text" placeholder="e.g. point group symmetry buckminsterfullerene C60, sovereign AI governance decisions, CRISPR prime editing clinical outcomes">
-            </div>
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <div class="field" style="flex:1 1 240px;">
-              <label for="contempField1">1. Primary Domain / Scientific Field</label>
-              <select id="contempField1"></select>
-            </div>
-            <div class="field" style="flex:1 1 240px;">
-              <label for="contempField2">2. Second Domain / Field (Optional)</label>
-              <select id="contempField2"></select>
-            </div>
-            <div class="field" style="flex:1 1 240px;">
-              <label for="contempField3">3. Third Domain / Field (Optional)</label>
-              <select id="contempField3"></select>
-            </div>
-          </div>
-          <div class="row" style="margin-top:10px; align-items:center; gap:14px;">
-            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="openalex" checked style="width:auto;"> OpenAlex Journals (2023+)</label>
-            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="arxiv" checked style="width:auto;"> arXiv Preprints</label>
-            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="crossref" checked style="width:auto;"> Crossref Journals</label>
-            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="europepmc" checked style="width:auto;"> Europe PMC / PubMed</label>
-            <label class="hint" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" class="contemp-lane" value="web" checked style="width:auto;"> Contemporary Articles &amp; Expert Press</label>
-          </div>
-          <div class="row" style="margin-top:10px; align-items:center; justify-content:space-between;">
-            <label class="hint" style="display:inline-flex;align-items:center;gap:6px; font-weight:600; color:#16324a;">
-              <input id="contempAutoIngest" type="checkbox" checked style="width:auto;">
-              Automatically ingest scraped contemporary articles &amp; journals into Curated Library &amp; queue Pattern Discovery
-            </label>
-            <div class="row" style="gap:8px;">
-              <button id="btnContempScrape" type="button">Scrape Contemporary Sources</button>
-              <button id="btnContempClear" type="button" class="ghost">Clear</button>
-            </div>
-          </div>
-          <div id="contempStatus" class="status" style="margin-top:8px;"></div>
-          <div id="contempSynthesis" style="display:none; margin-top:12px; padding:14px; border-radius:10px; background:#f8fbff; border:1px solid #c9dcf2; white-space:pre-wrap; font-size:13.5px; line-height:1.6; color:#152433;"></div>
-          <div id="contempResults" style="margin-top:12px; display:grid; gap:10px;"></div>
-        </div>
-
         <div class="card" id="sentinel-grid" style="margin-top:14px;">
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
               <h2>Sentinari Knowledge Grid &mdash; Datasets Feeding the Engine</h2>
-              <div class="hint">Five knowledge domains hold the scientific fields. Upload PDFs or pull GitHub datasets into any field; data lands in its proper vector room for the main LLM. Limits: 100 files per upload; PDFs max 30 MB, other documents 80 MB. Bars fill toward a 1000 MB cap per field and turn red when full.</div>
+              <div class="hint">Five knowledge domains hold the scientific fields. Upload PDFs or pull datasets into any field; data lands in its proper vector room for the main LLM. Limits: 100 files per upload; PDFs max 30 MB, other documents 80 MB. Bars fill toward a 1000 MB cap per field and turn red when full.</div>
             </div>
             <div class="row" style="gap:8px;">
               <div class="mono">SQLite knowledge DB</div>
@@ -679,8 +630,8 @@
         <div class="card" id="scientific-candidate-review" style="margin-top:14px;">
           <div class="row" style="align-items:flex-start; justify-content:space-between;">
             <div>
-              <h2>Scientific Dataset Discovery &amp; Review</h2>
-              <div class="hint">Searches GitHub, Hugging Face, OpenAlex, and PubMed <strong>at the same time</strong> using the field's own name (e.g. just "Physics" — not its sub-sciences). <strong>OpenAlex is the primary R&amp;D source</strong>: results are prioritized <strong>2020–current, most-cited first</strong>. PubMed is active for <strong>Health, Medicine, Psychology and Neuroscience</strong> fields only. Candidates are stored here for Approve / Reject / Test, then <strong>Load into field</strong> downloads and ingests with a progress bar. You can also run the same worker inside any Sentinel field above.</div>
+              <h2>Scientific Dataset Discovery &amp; Review (Unified Curated + Scraped Contemporary Scan)</h2>
+              <div class="hint">One single scan searches <strong>OpenAlex</strong>, <strong>NLM / NHLBI / PubMed</strong>, <strong>World Bank</strong>, <strong>Eurostat</strong>, <strong>IMF</strong>, <strong>ECB</strong>, <strong>BIS</strong>, <strong>UN Data</strong>, <strong>OECD</strong>, and <strong>Scraped Contemporary Sources</strong> (recent journals, preprints &amp; expert commentary) simultaneously, while placing <strong>GitHub &amp; Hugging Face at the very last</strong>. Click <strong>Load into field</strong> on any curated or contemporary source to ingest it with live progress.</div>
             </div>
             <div class="mono">Review before ingest</div>
           </div>
@@ -2215,13 +2166,17 @@
         const active = n === page;
         return `<button type="button" class="pagerBtn${active ? ' active' : ''}" data-pager-page="${n}"${active ? ' aria-current="page"' : ''} ${attrs}>${n}</button>`;
       }).join('');
+      const nextBatchBtn = scope === 'panel'
+        ? `<button type="button" class="pagerBtn" data-discover-next-batch="1" style="background:#eef6ff;border-color:#9fc1e3;color:#17477a;font-weight:700;" title="Fetch the next batch of candidates for the current query">Discover Next Batch &rarr;</button>`
+        : '';
       return `
         <div class="pagerInner">
           <button type="button" class="pagerBtn" data-pager-page="${page - 1}" ${attrs}${page <= 1 ? ' disabled' : ''}>‹ Prev</button>
           ${buttons}
           <button type="button" class="pagerBtn" data-pager-page="${page + 1}" ${attrs}${page >= pages ? ' disabled' : ''}>Next ›</button>
+          ${nextBatchBtn}
         </div>
-        <div class="pagerMeta">Page ${page} of ${pages} · ${formatInt(total)} dataset${Number(total) === 1 ? '' : 's'} found · ${CANDIDATE_PAGE_SIZE} per page</div>`;
+        <div class="pagerMeta">Page ${page} of ${pages} · ${formatInt(total)} dataset${Number(total) === 1 ? '' : 's'} found for current query · ${CANDIDATE_PAGE_SIZE} per page</div>`;
     };
     const findCandidateById = (candidateId) => {
       const id = Number(candidateId || 0);
@@ -2253,9 +2208,6 @@
       const fieldSlug = String(fieldWrap?.dataset.fieldSlug || button.dataset.field || '');
       const role = String(button.dataset.role || '');
       const candidateId = Number(button.dataset.candidateId || 0);
-      // Use the in-memory search result when available; otherwise build a
-      // minimal stub from the card so buttons keep working after a refresh
-      // (the backend resolves everything it needs from the stored id).
       const candidate = candidateId > 0
         ? (findCandidateById(candidateId) || {
             id: candidateId,
@@ -2269,7 +2221,6 @@
       } else if (role === 'sourcing-load') {
         if (candidate) await sentinelLoadSourcingCandidate(button, candidate);
       } else if (role === 'sourcing-download') {
-        // §74j one-click download: queue the load, then hand over the .pdf.
         if (candidate) await sentinelLoadSourcingCandidate(button, candidate, { autoDownload: true });
       } else if (role === 'sourcing-load-all') {
         await sentinelLoadAllShown(button);
@@ -2292,7 +2243,6 @@
           window.alert(`Cancel failed: ${error.message || error}`);
         }
       } else if (role === 'candidate-review' || role === 'candidate-load') {
-        // Legacy roles (older cached page) map onto the new actions.
         const mapped = role === 'candidate-load' ? 'sourcing-load' : 'sourcing-save';
         const stub = { id: Number(button.dataset.candidateReview || button.dataset.candidateLoad || 0), title: '' };
         if (mapped === 'sourcing-load') await sentinelLoadSourcingCandidate(button, stub);
@@ -2300,10 +2250,38 @@
       }
     });
 
-    const SOURCE_LABELS = { github: 'GitHub', huggingface: 'Hugging Face', openalex: 'OpenAlex', pubmed: 'PubMed', worldbank: 'World Bank (DBnomics)', oecd: 'OECD (Official Statistics)' };
+    const SOURCE_LABELS = {
+      openalex: 'OpenAlex (Primary R&D)',
+      pubmed: 'NLM / NHLBI / PubMed',
+      worldbank: 'World Bank (Official Indicators)',
+      eurostat: 'Eurostat (EU Statistics SDMX 2.1)',
+      imf: 'IMF (Monetary Fund Finances)',
+      ecb: 'ECB (European Central Bank Data)',
+      bis: 'BIS (Bank for International Settlements)',
+      undata: 'UN Data (United Nations Statistics)',
+      oecd: 'OECD (Official Statistics)',
+      contemporary: 'Scraped Contemporary Sources',
+      'contemporary-journal': 'Scraped Contemporary Sources',
+      'contemporary-article': 'Scraped Contemporary Sources',
+      'contemporary-preprint': 'Scraped Contemporary Sources',
+      github: 'GitHub',
+      huggingface: 'Hugging Face',
+    };
 
-    // Identity keys of datasets already loaded into fields — powers the
-    // "Already loaded" badge and stops duplicate Load attempts.
+    const isContemporarySource = (st) => {
+      const s = String(st || '').toLowerCase();
+      return s === 'contemporary' || s.startsWith('contemporary-');
+    };
+    const isRepoTailSource = (st) => {
+      const s = String(st || '').toLowerCase();
+      return s === 'github' || s === 'huggingface';
+    };
+    const groupHeaderHtml = (title, subtitle, bg, border, color) => `
+      <div style="margin:12px 0 6px; padding:8px 12px; border-radius:8px; background:${bg}; border:1px solid ${border}; color:${color}; font-size:13px; font-weight:700; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+        <span>${title}</span>
+        <span style="font-size:11.5px; font-weight:500; opacity:0.9;">${subtitle}</span>
+      </div>`;
+
     const sentinelLoadedIdentities = new Set();
     const refreshLoadedIdentities = async () => {
       try {
@@ -2324,33 +2302,38 @@
       if (!wrap) return;
       const root = wrap.querySelector('[data-role="sourcing-results"]');
       if (!root) return;
-      // §76 — one page of 25 at a time; the pager below reaches every result.
       const all = (candidates || []).slice();
       const pages = Math.max(1, Math.ceil(all.length / CANDIDATE_PAGE_SIZE));
       const page = Math.min(Math.max(1, sentinelFieldSourcingPages[fieldSlug] || 1), pages);
       sentinelFieldSourcingPages[fieldSlug] = page;
       const slice = all.slice((page - 1) * CANDIDATE_PAGE_SIZE, page * CANDIDATE_PAGE_SIZE);
-      const cards = slice.map((item) => {
+      const renderOneSourcingCard = (item) => {
         const cid = Number(item.id || 0);
-        const label = SOURCE_LABELS[String(item.source_type || '').toLowerCase()] || String(item.source_type || 'Dataset');
+        const stLow = String(item.source_type || '').toLowerCase();
+        const label = SOURCE_LABELS[stLow] || String(item.source_type || 'Dataset');
         const isLoaded = sentinelIsAlreadyLoaded(item);
         const badges = [];
-        const pmcPill = String(item.source_type || '') === 'pubmed'
+        const pmcPill = stLow === 'pubmed'
           ? (String(item.pmcid || '')
             ? '<span class="pmc-pill full">PMC full text ✓</span>'
-            : '<span class="pmc-pill abs">Abstract only</span>')
-          : '';
-        if (item.source_type === 'github' && Number(item.stars || 0) > 0) badges.push(`★ ${formatInt(item.stars)}`);
-        if (item.source_type === 'huggingface' && Number(item.downloads || 0) > 0) badges.push(`${formatInt(item.downloads)} downloads`);
-        if (item.source_type === 'openalex') {
+            : '<span class="pmc-pill abs">NLM / PubMed Indexed</span>')
+          : isContemporarySource(stLow)
+            ? `<span class="pmc-pill full" style="background:#e6f2ff;color:#0f4c9c;border-color:#b6d4f7;">${escapeHtml(item.contemporary_lane || item.journal || 'Contemporary Source')}</span>`
+            : '';
+        if (stLow === 'github' && Number(item.stars || 0) > 0) badges.push(`★ ${formatInt(item.stars)}`);
+        if (stLow === 'huggingface' && Number(item.downloads || 0) > 0) badges.push(`${formatInt(item.downloads)} downloads`);
+        if (stLow === 'openalex') {
           if (Number(item.cited_by_count || 0) > 0) badges.push(`cited ${formatInt(item.cited_by_count)}`);
           if (item.doi) badges.push(`DOI: ${String(item.doi)}`);
         }
-        if (item.source_type === 'oecd') {
-          badges.push('SDMX REST 2.1');
-          if (item.agency) badges.push(`Agency: ${item.agency}`);
+        if (['oecd', 'eurostat', 'imf', 'ecb', 'bis', 'undata', 'worldbank'].includes(stLow)) {
+          badges.push('Official Statistical API');
+          if (item.agency || item.provider) badges.push(`Authority: ${item.agency || item.provider}`);
         }
-        const isOa = item.source_type === 'openalex' && item.is_oa ? ' · open access' : '';
+        if (isContemporarySource(stLow) && item.published_date) {
+          badges.push(`Published: ${item.published_date}`);
+        }
+        const isOa = stLow === 'openalex' && item.is_oa ? ' · open access' : '';
         const detail = String(item.abstract || item.description || 'No description available.').slice(0, 700);
         const href = String(item.landing_page_url || item.source_url || (item.doi ? `https://doi.org/${item.doi}` : '') || '');
         return `
@@ -2374,17 +2357,53 @@
             <div class="lp-label" data-role="lp-label"></div>
           </div>
         </div>`;
-      }).join('');
-      // §74j — one-click bulk load: the sequential queue runs them one at a time
+      };
+
+      const curatedSlice = slice.filter((c) => !isContemporarySource(c.source_type) && !isRepoTailSource(c.source_type));
+      const contempSlice = slice.filter((c) => isContemporarySource(c.source_type));
+      const repoSlice = slice.filter((c) => isRepoTailSource(c.source_type));
+
+      let groupedHtml = '';
+      if (curatedSlice.length) {
+        groupedHtml += groupHeaderHtml(
+          'Curated Scholarly &amp; Official Statistical Sources',
+          `OpenAlex · NLM/PubMed · World Bank · Eurostat · IMF · ECB · BIS · UN Data · OECD (${curatedSlice.length})`,
+          '#eef5fc', '#c7dbf0', '#143a63'
+        ) + curatedSlice.map(renderOneSourcingCard).join('');
+      }
+      if (contempSlice.length) {
+        groupedHtml += groupHeaderHtml(
+          'Scraped Contemporary Sources',
+          `Recent Journals, Preprints, Emerging Meanings &amp; Expert Commentary (${contempSlice.length})`,
+          '#e8f4ff', '#9ec5eb', '#0d4785'
+        ) + contempSlice.map(renderOneSourcingCard).join('');
+      }
+      if (repoSlice.length) {
+        groupedHtml += groupHeaderHtml(
+          'GitHub &amp; Hugging Face Repositories (Moved to Last)',
+          `Code &amp; Dataset Repositories (${repoSlice.length})`,
+          '#f3f5f8', '#d5dde7', '#3a4b5e'
+        ) + repoSlice.map(renderOneSourcingCard).join('');
+      }
+
       const loadable = (candidates || []).filter((item) => !sentinelIsAlreadyLoaded(item)).map((item) => Number(item.id || 0)).filter(Boolean);
       const bulkBar = loadable.length > 1
         ? `<div class="sourcing-bulkbar"><button type="button" data-role="sourcing-load-all" data-field="${escapeAttr(fieldSlug)}" data-ids="${escapeAttr(loadable.join(','))}">⚡ Load all shown (${loadable.length})</button><span class="hint">One click queues every dataset above — the sequential queue downloads them one at a time with live progress. No extra clicks.</span></div>`
         : '';
       const pager = `<div class="pager">${pagerHtml({ pages, page, total: all.length, scope: fieldSlug })}</div>`;
-      root.innerHTML = bulkBar + (cards || '<div class="hint">No candidates found — try the field\'s own name (e.g. "Physics") as the query.</div>') + pager;
+      root.innerHTML = bulkBar + (groupedHtml || '<div class="hint">No candidates found — try the field\'s own name (e.g. "Physics") as the query.</div>') + pager;
     };
 
-    const sentinelFindDatasets = async (fieldSlug) => {
+    const sentinelFieldBatchPages = {};
+    const _sourceSortRank = (st) => {
+      const s = String(st || '').toLowerCase();
+      if (s === 'huggingface') return 3;
+      if (s === 'github') return 2;
+      if (isContemporarySource(s)) return 1;
+      return 0;
+    };
+
+    const sentinelFindDatasets = async (fieldSlug, opts = {}) => {
       const fieldWrap = document.querySelector(`.sentinel-field[data-field-slug="${CSS.escape(fieldSlug)}"]`);
       if (!fieldWrap) return;
       const queryInput = fieldWrap.querySelector('[data-role="sourcing-query"]');
@@ -2395,7 +2414,9 @@
         if (statusEl) statusEl.textContent = 'Type a research topic, or use the field\'s own name (e.g. "Physics").';
         return;
       }
-      if (statusEl) statusEl.textContent = 'Sourcing worker searching GitHub, Hugging Face, OpenAlex, and PubMed (medical fields) at the same time... nothing is ingested yet.';
+      const isNextBatch = Boolean(opts && opts.nextBatch);
+      const batchPage = isNextBatch ? ((sentinelFieldBatchPages[fieldSlug] || 1) + 1) : 1;
+      if (statusEl) statusEl.textContent = `Sourcing worker running unified scan (batch #${batchPage}) across OpenAlex, NLM/PubMed, World Bank, Eurostat, IMF, ECB, BIS, UN Data, OECD, Scraped Contemporary Sources, GitHub, and Hugging Face...`;
       try {
         const fullTextOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fulltext-only"]')?.checked);
         const freshOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fresh-only"]')?.checked);
@@ -2405,24 +2426,33 @@
           body: JSON.stringify({
             query,
             scientific_field: fieldSlug,
-            limit: Math.max(1, Math.min(25, Number(limitInput?.value || 10))),
+            limit: Math.max(1, Math.min(25, Number(limitInput?.value || 15))),
             pubmed_full_text_only: fullTextOnly,
             fresh_only: freshOnly,
+            batch_page: batchPage,
+            clear_previous_pending: !isNextBatch,
           }),
         });
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || 'Dataset search failed.');
-        sentinelFieldSourcingResults[fieldSlug] = data.candidates || [];
-        sentinelFieldSourcingPages[fieldSlug] = 1;
-        renderSourcingResults(fieldSlug, pubmedFullTextOnlyActive() || fullTextOnly ? hideAbstractOnly(data.candidates || []) : (data.candidates || []));
+        sentinelFieldBatchPages[fieldSlug] = batchPage;
+        const incoming = data.candidates || [];
+        if (isNextBatch && Array.isArray(sentinelFieldSourcingResults[fieldSlug])) {
+          const existingIds = new Set(sentinelFieldSourcingResults[fieldSlug].map((c) => Number(c.id)));
+          const merged = [
+            ...sentinelFieldSourcingResults[fieldSlug],
+            ...incoming.filter((c) => !existingIds.has(Number(c.id))),
+          ];
+          merged.sort((a, b) => _sourceSortRank(a.source_type) - _sourceSortRank(b.source_type));
+          sentinelFieldSourcingResults[fieldSlug] = merged;
+          sentinelFieldSourcingPages[fieldSlug] = (sentinelFieldSourcingPages[fieldSlug] || 1) + 1;
+        } else {
+          sentinelFieldSourcingResults[fieldSlug] = incoming;
+          sentinelFieldSourcingPages[fieldSlug] = 1;
+        }
+        renderSourcingResults(fieldSlug, pubmedFullTextOnlyActive() || fullTextOnly ? hideAbstractOnly(sentinelFieldSourcingResults[fieldSlug] || []) : (sentinelFieldSourcingResults[fieldSlug] || []));
         if (statusEl) {
-          const dupNote = Number(data.duplicates_skipped || 0) > 0
-            ? ` — <span class="dup-note">${formatInt(data.duplicates_skipped)} duplicate(s) skipped</span>`
-            : '';
-          const loadedNote = Number(data.loaded_skipped || 0) > 0
-            ? ` — <span class="dup-note">${formatInt(data.loaded_skipped)} already in the library (hidden)</span>`
-            : '';
-          statusEl.innerHTML = `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · World Bank ${formatInt(data.worldbank_count || 0)} · OECD ${formatInt(data.oecd_count || 0)} · PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}${fullTextOnly ? ' · full text only' : ''}). Approve to keep for review, or Load to ingest into the field.${dupNote}${loadedNote}`;
+          statusEl.innerHTML = `Batch #${batchPage}: Found ${formatInt(data.count)} candidates (OpenAlex ${formatInt(data.openalex_count)} · NLM/PubMed ${formatInt(data.pubmed_count || 0)} · World Bank ${formatInt(data.worldbank_count || 0)} · Eurostat ${formatInt(data.eurostat_count || 0)} · IMF ${formatInt(data.imf_count || 0)} · ECB ${formatInt(data.ecb_count || 0)} · BIS ${formatInt(data.bis_count || 0)} · UN Data ${formatInt(data.undata_count || 0)} · OECD ${formatInt(data.oecd_count || 0)} · <strong>Scraped Contemporary ${formatInt(data.contemporary_count || 0)}</strong> · GitHub ${formatInt(data.github_count)} · HF ${formatInt(data.huggingface_count)}).`;
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = `Dataset search failed: ${error.message || error}`;
@@ -3332,16 +3362,24 @@
     const renderScientificCandidates = (items) => {
       const root = byId('scientificCandidateList');
       if (!root) return;
-      root.innerHTML = (items || []).map((item) => {
+      const all = items || [];
+      if (!all.length) {
+        root.innerHTML = '<div class="hint">No pending scientific candidates. Use Discover Candidates above, or Find datasets inside a Sentinel field.</div>';
+        return;
+      }
+      const renderOnePanelCard = (item) => {
         const cid = Number(item.id || 0);
-        const label = SOURCE_LABELS[String(item.source_type || '').toLowerCase()] || String(item.source_type || 'Dataset');
+        const stLow = String(item.source_type || '').toLowerCase();
+        const label = SOURCE_LABELS[stLow] || String(item.source_type || 'Dataset');
         const isLoaded = sentinelIsAlreadyLoaded(item);
         const detail = String(item.description || 'No description available.').slice(0, 700);
-        const pmcPill = String(item.source_type || '') === 'pubmed'
+        const pmcPill = stLow === 'pubmed'
           ? (String(item.pmcid || '')
             ? '<span class="pmc-pill full">PMC full text ✓</span>'
-            : '<span class="pmc-pill abs">Abstract only</span>')
-          : '';
+            : '<span class="pmc-pill abs">NLM / PubMed Indexed</span>')
+          : isContemporarySource(stLow)
+            ? `<span class="pmc-pill full" style="background:#e6f2ff;color:#0f4c9c;border-color:#b6d4f7;">${escapeHtml(item.contemporary_lane || item.journal || 'Contemporary Source')}</span>`
+            : '';
         return `
         <div class="sourcing-result${isLoaded ? ' already-loaded' : ''}" data-candidate-id="${cid}">
           <strong>${escapeHtml(item.title || 'Untitled work')}${pmcPill}${isLoaded ? loadedBadgeHtml() : ''}</strong>
@@ -3363,7 +3401,35 @@
             <div class="lp-label" data-role="lp-label"></div>
           </div>
         </div>`;
-      }).join('') || '<div class="hint">No pending scientific candidates. Use Discover Candidates above, or Find datasets inside a Sentinel field.</div>';
+      };
+
+      const curatedItems = all.filter((c) => !isContemporarySource(c.source_type) && !isRepoTailSource(c.source_type));
+      const contempItems = all.filter((c) => isContemporarySource(c.source_type));
+      const repoItems = all.filter((c) => isRepoTailSource(c.source_type));
+
+      let html = '';
+      if (curatedItems.length) {
+        html += groupHeaderHtml(
+          'Curated Scholarly &amp; Official Statistical Sources',
+          `OpenAlex · NLM/PubMed · World Bank · Eurostat · IMF · ECB · BIS · UN Data · OECD (${curatedItems.length})`,
+          '#eef5fc', '#c7dbf0', '#143a63'
+        ) + curatedItems.map(renderOnePanelCard).join('');
+      }
+      if (contempItems.length) {
+        html += groupHeaderHtml(
+          'Scraped Contemporary Sources',
+          `Recent Journals, Preprints, Emerging Meanings &amp; Expert Commentary (${contempItems.length})`,
+          '#e8f4ff', '#9ec5eb', '#0d4785'
+        ) + contempItems.map(renderOnePanelCard).join('');
+      }
+      if (repoItems.length) {
+        html += groupHeaderHtml(
+          'GitHub &amp; Hugging Face Repositories (Moved to Last)',
+          `Code &amp; Dataset Repositories (${repoItems.length})`,
+          '#f3f5f8', '#d5dde7', '#3a4b5e'
+        ) + repoItems.map(renderOnePanelCard).join('');
+      }
+      root.innerHTML = html;
     };
 
     const pubmedFullTextOnlyActive = () => Boolean(byId('pubmedFullTextOnly')?.checked);
@@ -3372,6 +3438,9 @@
       : (items || []);
 
     let panelPagerState = { page: 1, pages: 1, total: 0 };
+    let activeCandidateQuery = '';
+    let currentCandidateBatchPage = 1;
+
     const renderPanelPager = (state) => {
       panelPagerState = {
         page: Number(state.page || 1),
@@ -3384,18 +3453,34 @@
 
     async function loadScientificCandidates(page = 1) {
       const fieldName = String(byId('scientificCandidateField')?.value || '').trim();
-      const scope = fieldName ? `&scientific_field=${encodeURIComponent(fieldName)}` : '';
+      const queryVal = activeCandidateQuery || String(byId('scientificCandidateQuery')?.value || '').trim();
+      const scope = (fieldName ? `&scientific_field=${encodeURIComponent(fieldName)}` : '')
+        + (queryVal ? `&query=${encodeURIComponent(queryVal)}` : '');
       const response = await fetch(`/api/skill-review/candidates?status=pending&page=${encodeURIComponent(page)}&page_size=${CANDIDATE_PAGE_SIZE}${scope}`);
       const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.detail || data.error || 'Could not load candidates.');
       sentinelFieldSourcingResults.__panel__ = data.candidates || [];
       renderScientificCandidates(hideAbstractOnly(data.candidates || []));
-      // §76 — page numbers at the bottom cover ALL datasets found (server total).
+      // §76 — page numbers at the bottom cover ALL datasets found for the current query.
       renderPanelPager(data);
     }
 
-    // §76 — one delegated listener for every pager on the page.
+    // §76 — one delegated listener for every pager on the page (including "Discover Next Batch ➔").
     document.addEventListener('click', (event) => {
+      const nextBatchBtn = event.target.closest('button[data-discover-next-batch="1"]');
+      if (nextBatchBtn && !nextBatchBtn.disabled) {
+        if (nextBatchBtn.dataset.panel === '1') {
+          discoverScientificCandidates({ nextBatch: true }).catch(() => {});
+          return;
+        }
+        const wrap = nextBatchBtn.closest('.sentinel-field');
+        const slug = String(wrap?.dataset.fieldSlug || nextBatchBtn.dataset.fieldSlug || '');
+        if (slug) {
+          sentinelFindDatasets(slug, { nextBatch: true }).catch(() => {});
+        }
+        return;
+      }
+
       const btn = event.target.closest('button[data-pager-page]');
       if (!btn || btn.disabled) return;
       const target = Math.max(1, Number(btn.dataset.pagerPage) || 1);
@@ -3410,13 +3495,25 @@
       renderSourcingResults(slug, sentinelFieldSourcingResults[slug] || []);
     });
 
-    const discoverScientificCandidates = async () => {
-      const query = String(byId('scientificCandidateQuery')?.value || '').trim();
+    const discoverScientificCandidates = async (opts = {}) => {
+      const isNextBatch = Boolean(opts && opts.nextBatch === true);
+      const query = String(byId('scientificCandidateQuery')?.value || activeCandidateQuery || '').trim();
       if (!query) {
         setStatus('scientificCandidateStatus', 'Enter a scientific topic or query first — the field\'s own name (e.g. "Physics") works best.', false);
         return;
       }
-      setStatus('scientificCandidateStatus', 'Searching GitHub, Hugging Face, OpenAlex, and PubMed (medical fields) at the same time. Nothing is being ingested yet.', true);
+      if (!isNextBatch || query.toLowerCase() !== activeCandidateQuery.toLowerCase()) {
+        activeCandidateQuery = query;
+        currentCandidateBatchPage = 1;
+      } else {
+        currentCandidateBatchPage += 1;
+      }
+      const prevPages = Number(panelPagerState.pages || 1);
+      setStatus(
+        'scientificCandidateStatus',
+        `Running unified scan (batch #${currentCandidateBatchPage}) across OpenAlex, NLM/PubMed, World Bank, Eurostat, IMF, ECB, BIS, UN Data, OECD, Scraped Contemporary Sources, GitHub, and Hugging Face...`,
+        true
+      );
       try {
         const response = await fetch('/api/skill-review/find', {
           method: 'POST',
@@ -3424,9 +3521,11 @@
           body: JSON.stringify({
             query,
             scientific_field: String(byId('scientificCandidateField')?.value || '').trim(),
-            limit: 10,
+            limit: 15,
             pubmed_full_text_only: pubmedFullTextOnlyActive(),
-            fresh_only: Boolean(byId('freshOnlyMode')?.checked)
+            fresh_only: Boolean(byId('freshOnlyMode')?.checked),
+            batch_page: currentCandidateBatchPage,
+            clear_previous_pending: !isNextBatch,
           })
         });
         const data = await readApiJson(response);
@@ -3439,18 +3538,30 @@
         const loadedNote = Number(data.loaded_skipped || 0) > 0
           ? ` <span class="dup-note">· ${formatInt(data.loaded_skipped)} already in the library (hidden)</span>`
           : '';
-        const pmNote = Number(data.pubmed_count || 0) > 0
-          ? ` · PubMed ${formatInt(data.pubmed_count)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` with ${formatInt(data.pubmed_fulltext_count)} full text` : ''}`
-          : '';
-        const oecdNote = Number(data.oecd_count || 0) > 0 ? ` · OECD ${formatInt(data.oecd_count)}` : '';
-        setStatus('scientificCandidateStatus', `Found ${formatInt(data.count)} candidates (GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)} · OpenAlex ${formatInt(data.openalex_count)} · World Bank ${formatInt(data.worldbank_count || 0)}${oecdNote}${pmNote}). They are stored below for review.${dupNote}${loadedNote}`, true);
-        await loadScientificCandidates();
+        const pmNote = ` · NLM/PubMed ${formatInt(data.pubmed_count || 0)}${Number(data.pubmed_fulltext_count || 0) > 0 ? ` (${formatInt(data.pubmed_fulltext_count)} full text)` : ''}`;
+        const intlCounts = [
+          `World Bank ${formatInt(data.worldbank_count || 0)}`,
+          `Eurostat ${formatInt(data.eurostat_count || 0)}`,
+          `IMF ${formatInt(data.imf_count || 0)}`,
+          `ECB ${formatInt(data.ecb_count || 0)}`,
+          `BIS ${formatInt(data.bis_count || 0)}`,
+          `UN Data ${formatInt(data.undata_count || 0)}`,
+          `OECD ${formatInt(data.oecd_count || 0)}`,
+          `Scraped Contemporary ${formatInt(data.contemporary_count || 0)}`,
+        ].join(' · ');
+        setStatus(
+          'scientificCandidateStatus',
+          `Batch #${currentCandidateBatchPage}: Found ${formatInt(data.count)} candidates (OpenAlex ${formatInt(data.openalex_count)}${pmNote} · ${intlCounts} · GitHub ${formatInt(data.github_count)} · Hugging Face ${formatInt(data.huggingface_count)}). GitHub & HF are placed at the end.${dupNote}${loadedNote}`,
+          true
+        );
+        const targetPage = isNextBatch ? (prevPages + 1) : 1;
+        await loadScientificCandidates(targetPage);
       } catch (error) {
         setStatus('scientificCandidateStatus', error.message, false);
       }
     };
 
-    byId('btnDiscoverScientificCandidates')?.addEventListener('click', discoverScientificCandidates);
+    byId('btnDiscoverScientificCandidates')?.addEventListener('click', () => discoverScientificCandidates({ nextBatch: false }));
 
     // Clear the review lane so a new science can be searched without old
     // candidates lingering. Scoped to the field in the box when present;
@@ -4213,7 +4324,7 @@
       if (!q) { byId('dsScoutStatus').textContent = 'Select a domain/sub-discipline, type a topic to search for, or click a weak spot above.'; return; }
       if (!opts.silent) {
         btn.disabled = true;
-        byId('dsScoutStatus').textContent = 'Searching OpenAlex → Medical → GitHub → HuggingFace…';
+        byId('dsScoutStatus').textContent = 'Running unified scan: OpenAlex → NLM/PubMed → World Bank → Eurostat → IMF → ECB → BIS → UN Data → OECD → Scraped Contemporary Sources → GitHub → HuggingFace…';
       }
       byId('dsScoutResults').innerHTML = '';
       try {
@@ -4221,9 +4332,22 @@
         const d = await res.json();
         if (!res.ok || d.ok === false) throw new Error(d.detail || d.error || 'Scout failed.');
         const blockNote = Number(d.blocked_count || 0) ? ` (${d.blocked_count} hidden by your blocklist)` : (Number(d.blocks_active || 0) ? ' (blocklist active — nothing blocked this time)' : '');
-        byId('dsScoutStatus').textContent = `${d.total} candidates found${blockNote} — ${d.priority_note}. Proposals only: approve via the admin console before ingestion.`;
-        const LABELS = { openalex: '1·OpenAlex', medical: '2·Medical', github: '3·GitHub', huggingface: '4·HF' };
-        byId('dsScoutResults').innerHTML = (d.candidates || []).map((c) => {
+        byId('dsScoutStatus').textContent = `${d.total} candidates found${blockNote} — ${d.priority_note}.`;
+        const LABELS = {
+          openalex: '1·OpenAlex',
+          medical: '2·NLM/PubMed',
+          worldbank: '3·WorldBank',
+          eurostat: '4·Eurostat',
+          imf: '5·IMF',
+          ecb: '6·ECB',
+          bis: '7·BIS',
+          undata: '8·UN Data',
+          oecd: '9·OECD',
+          contemporary: '10·Scraped Contemporary Source',
+          github: '11·GitHub',
+          huggingface: '12·HF',
+        };
+        const renderOneScoutRow = (c) => {
           const rank = c.priority_rank;
           const origin = (c.authors && c.authors[0]) || '';
           const a = origin ? dsAssessMap[String(origin).toLowerCase()] : null;
@@ -4245,7 +4369,34 @@
           return `<div class="scoutCandidate"><span class="scoutBadge r${rank}">${LABELS[c.source] || c.source}</span>` +
             `<a href="${escapeHtml(c.url || '')}" target="_blank" rel="noopener"><strong>${escapeHtml(c.title || '(untitled)')}</strong></a>${badge}${bloomTags}${assessBtn}${blockBtn}` +
             `<div class="liMeta">${escapeHtml(c.detail || '')}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</div></div>`;
-        }).join('') || '<div class="hint">No candidates found for that query.</div>';
+        };
+        const allScout = d.candidates || [];
+        const scoutCurated = allScout.filter((c) => !isContemporarySource(c.source) && !isRepoTailSource(c.source));
+        const scoutContemp = allScout.filter((c) => isContemporarySource(c.source));
+        const scoutRepos = allScout.filter((c) => isRepoTailSource(c.source));
+        let scoutHtml = '';
+        if (scoutCurated.length) {
+          scoutHtml += groupHeaderHtml(
+            'Curated Scholarly &amp; Official Statistical Sources',
+            `OpenAlex · NLM/PubMed · World Bank · Eurostat · IMF · ECB · BIS · UN Data · OECD (${scoutCurated.length})`,
+            '#eef5fc', '#c7dbf0', '#143a63'
+          ) + scoutCurated.map(renderOneScoutRow).join('');
+        }
+        if (scoutContemp.length) {
+          scoutHtml += groupHeaderHtml(
+            'Scraped Contemporary Sources',
+            `Recent Journals, Preprints, Emerging Meanings &amp; Expert Commentary (${scoutContemp.length})`,
+            '#e8f4ff', '#9ec5eb', '#0d4785'
+          ) + scoutContemp.map(renderOneScoutRow).join('');
+        }
+        if (scoutRepos.length) {
+          scoutHtml += groupHeaderHtml(
+            'GitHub &amp; Hugging Face Repositories (Moved to Last)',
+            `Code &amp; Dataset Repositories (${scoutRepos.length})`,
+            '#f3f5f8', '#d5dde7', '#3a4b5e'
+          ) + scoutRepos.map(renderOneScoutRow).join('');
+        }
+        byId('dsScoutResults').innerHTML = scoutHtml || '<div class="hint">No candidates found for that query.</div>';
         byId('dsScoutResults').querySelectorAll('.dsBlockBtn').forEach((b) => {
           b.addEventListener('click', () => {
             dsBlockSource(String(b.getAttribute('data-origin') || ''), String(b.getAttribute('data-source') || ''), 'user', b);

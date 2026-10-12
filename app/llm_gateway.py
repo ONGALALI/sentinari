@@ -486,11 +486,14 @@ class VertexAIProvider:
         self._cached_token = ""
         self._token_expiry = 0.0
 
-    def _get_token(self) -> str:
+    def _get_token(self, force_refresh: bool = False) -> str:
         import time as _time
-        if self._cached_token and _time.time() < self._token_expiry:
+        if not force_refresh and self._cached_token and _time.time() < self._token_expiry:
             return self._cached_token
-        token = str(os.environ.get("GOOGLE_OAUTH_TOKEN") or "").strip()
+        self._cached_token = ""
+        self._token_expiry = 0.0
+        token = "" if force_refresh else str(os.environ.get("GOOGLE_OAUTH_TOKEN") or "").strip()
+        ttl_seconds = 1500
 
         # 1. Cloud environment: GCP Metadata server (Cloud Run, GCE, GKE)
         if not token:
@@ -503,6 +506,8 @@ class VertexAIProvider:
                 with urllib.request.urlopen(req, timeout=2) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     token = str(data.get("access_token") or "").strip()
+                    exp_in = int(data.get("expires_in") or 1500)
+                    ttl_seconds = max(60, min(1800, exp_in - 120))
             except Exception:
                 pass
 
@@ -514,6 +519,7 @@ class VertexAIProvider:
                 creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
                 creds.refresh(google.auth.transport.requests.Request())
                 token = str(creds.token or "").strip()
+                ttl_seconds = 1200
             except Exception:
                 pass
 
@@ -523,12 +529,13 @@ class VertexAIProvider:
                 import subprocess
                 out = subprocess.check_output("gcloud auth print-access-token", shell=True, timeout=8).decode().strip()
                 token = out.splitlines()[-1].strip()
+                ttl_seconds = 900
             except Exception:
                 token = ""
 
         if token:
             self._cached_token = token
-            self._token_expiry = _time.time() + 3000
+            self._token_expiry = _time.time() + ttl_seconds
         return token
 
     def is_available(self) -> bool:
@@ -567,34 +574,45 @@ class VertexAIProvider:
         if system_text:
             payload["systemInstruction"] = {"parts": [{"text": system_text}]}
 
-        url = f"{self.base}/models/{self.chat_model_id}:generateContent"
+        primary_url = f"{self.base}/models/{self.chat_model_id}:generateContent"
+        fallback_url = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.project}/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent"
+        endpoints = [primary_url]
+        if fallback_url != primary_url:
+            endpoints.append(fallback_url)
+
         import time as _time
 
         last_exc: Exception | None = None
         data: dict[str, Any] = {}
-        for attempt in range(3):
-            try:
-                resp = requests.post(
-                    url,
-                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                    json=payload,
-                    verify=False,
-                    timeout=self.timeout,
-                )
-                if resp.status_code in (429, 500, 502, 503, 504) and attempt < 2:
-                    _time.sleep(1.5 * (attempt + 1))
-                    continue
-                resp.raise_for_status()
-                data = resp.json() or {}
-                last_exc = None
+        for url in endpoints:
+            for attempt in range(3):
+                try:
+                    resp = requests.post(
+                        url,
+                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                        json=payload,
+                        verify=False,
+                        timeout=self.timeout,
+                    )
+                    if resp.status_code in (401, 403) and attempt < 2:
+                        token = self._get_token(force_refresh=True) or token
+                        continue
+                    if resp.status_code in (429, 500, 502, 503, 504) and attempt < 2:
+                        _time.sleep(1.5 * (attempt + 1))
+                        continue
+                    resp.raise_for_status()
+                    data = resp.json() or {}
+                    last_exc = None
+                    break
+                except Exception as ex:
+                    last_exc = ex
+                    if attempt < 2:
+                        _time.sleep(1.5 * (attempt + 1))
+                    else:
+                        break
+            if last_exc is None and data.get("candidates"):
                 break
-            except Exception as ex:
-                last_exc = ex
-                if attempt < 2:
-                    _time.sleep(1.5 * (attempt + 1))
-                else:
-                    raise
-        if last_exc is not None:
+        if last_exc is not None and not data.get("candidates"):
             raise last_exc
         candidates = data.get("candidates") or []
         if not candidates:

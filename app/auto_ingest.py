@@ -48,7 +48,7 @@ class AutoIngestService:
         ingestion = settings.get("ingestion", {})
         unsupervised = settings.get("unsupervised", {})
         self.enabled = bool(ingestion.get("auto_ingest_enabled", True))
-        self.poll_seconds = max(10, int(ingestion.get("auto_polling_seconds") or 20))
+        self.poll_seconds = max(60, int(ingestion.get("auto_polling_seconds") or 180))
         self.recursive_scan = bool(ingestion.get("recursive_scan", True))
         self.failed_retry_interval_seconds = max(
             60,
@@ -86,6 +86,10 @@ class AutoIngestService:
         if not self.enabled:
             return {"processed": 0, "failed": 0, "skipped": 0, "items": [], "stopped_early": False}
 
+        candidates = self._discover_candidate_files()
+        if not candidates:
+            return {"processed": 0, "failed": 0, "skipped": 0, "items": [], "stopped_early": False}
+
         processed = 0
         failed = 0
         skipped = 0
@@ -95,7 +99,6 @@ class AutoIngestService:
             ensure_configured_taxonomy_dirs(conn)
             conn.commit()
 
-        candidates = self._discover_candidate_files()
         stopped_early = False
         for path in candidates:
             if self._stop.is_set():

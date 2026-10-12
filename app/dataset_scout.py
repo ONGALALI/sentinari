@@ -25,10 +25,18 @@ from typing import Any
 import requests
 
 SOURCE_PRIORITY = (
-    {"rank": 1, "id": "openalex", "label": "OpenAlex (scholarly works)"},
-    {"rank": 2, "id": "medical", "label": "Medical web sources (Europe PMC)"},
-    {"rank": 3, "id": "github", "label": "GitHub (repos & data)"},
-    {"rank": 4, "id": "huggingface", "label": "HuggingFace (datasets hub)"},
+    {"rank": 1, "id": "openalex", "label": "OpenAlex (Scholarly R&D Works)"},
+    {"rank": 2, "id": "medical", "label": "NLM / NHLBI / PubMed / Europe PMC"},
+    {"rank": 3, "id": "worldbank", "label": "World Bank (Official Global Indicators)"},
+    {"rank": 4, "id": "eurostat", "label": "Eurostat (European Union Statistics SDMX 2.1)"},
+    {"rank": 5, "id": "imf", "label": "IMF (International Monetary Fund Finances)"},
+    {"rank": 6, "id": "ecb", "label": "ECB (European Central Bank Financial Data)"},
+    {"rank": 7, "id": "bis", "label": "BIS (Bank for International Settlements)"},
+    {"rank": 8, "id": "undata", "label": "UN Data (United Nations Statistical Division)"},
+    {"rank": 9, "id": "oecd", "label": "OECD (Official Statistical Dataflows)"},
+    {"rank": 10, "id": "contemporary", "label": "Scraped Contemporary Sources (Recent Journals, Preprints & Expert Press)"},
+    {"rank": 11, "id": "github", "label": "GitHub (Repos & Data)"},
+    {"rank": 12, "id": "huggingface", "label": "HuggingFace (Datasets Hub)"},
 )
 
 _HTTP_TIMEOUT = 20
@@ -50,9 +58,9 @@ def _openalex_candidates(query: str, limit: int) -> dict[str, Any]:
                 "source": "openalex",
                 "title": _clean(w.get("title")),
                 "year": w.get("year") or w.get("publication_year"),
-                "authors": [_clean(a, 60) for a in (w.get("authors") or [])[:3]],
-                "detail": _clean(str(w.get("landing_page") or w.get("doi") or "")),
-                "url": str(w.get("landing_page") or w.get("doi") or ""),
+                "authors": [_clean(a, 60) for a in (w.get("authors") or [])[:3]] if isinstance(w.get("authors"), list) else ([_clean(w.get("authors"), 60)] if w.get("authors") else []),
+                "detail": _clean(str(w.get("landing_page") or w.get("landing_page_url") or w.get("doi") or w.get("description") or "")),
+                "url": str(w.get("landing_page") or w.get("landing_page_url") or w.get("source_url") or (f"https://doi.org/{w['doi']}" if w.get("doi") else "")),
                 "citations": w.get("cited_by_count"),
             })
         return {"ok": bool(result.get("ok")), "items": items, "error": result.get("error")}
@@ -61,7 +69,7 @@ def _openalex_candidates(query: str, limit: int) -> dict[str, Any]:
 
 
 def _medical_candidates(query: str, limit: int) -> dict[str, Any]:
-    """Europe PMC REST search — free, no key, the biomedical wing."""
+    """NLM / NHLBI / PubMed / Europe PMC REST search."""
     try:
         resp = requests.get(
             "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
@@ -78,13 +86,76 @@ def _medical_candidates(query: str, limit: int) -> dict[str, Any]:
         results = (resp.json() or {}).get("resultList", {}).get("result", []) or []
         items = []
         for r in results[:limit]:
+            pmid = str(r.get("pmid") or r.get("id") or "").strip()
             items.append({
                 "source": "medical",
                 "title": _clean(r.get("title")),
                 "year": r.get("pubYear"),
                 "authors": [_clean(a, 60) for a in str(r.get("authorString") or "").split(",")[:3]],
-                "detail": _clean(r.get("abstractText") or r.get("journalTitle") or "", 200),
-                "url": (f"https://europepmc.org/article/{r.get('source','')}/{r.get('id','')}" if r.get("id") else ""),
+                "detail": _clean(r.get("abstractText") or r.get("journalTitle") or "", 220),
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid.isdigit() else (f"https://europepmc.org/article/{r.get('source','')}/{r.get('id','')}" if r.get("id") else ""),
+            })
+        return {"ok": True, "items": items}
+    except Exception as ex:
+        return {"ok": False, "error": str(ex)[:200], "items": []}
+
+
+def _worldbank_candidates(query: str, limit: int) -> dict[str, Any]:
+    try:
+        from .worldbank_worker import search_dbnomics_datasets
+
+        res = search_dbnomics_datasets(query, limit=min(10, limit))
+        items = []
+        for c in (res.get("candidates") or [])[:limit]:
+            items.append({
+                "source": "worldbank",
+                "title": _clean(c.get("title")),
+                "year": 2025,
+                "authors": ["World Bank"],
+                "detail": _clean(c.get("description") or "", 220),
+                "url": str(c.get("source_url") or ""),
+            })
+        return {"ok": True, "items": items}
+    except Exception as ex:
+        return {"ok": False, "error": str(ex)[:200], "items": []}
+
+
+def _make_intl_stat_fn(provider_key: str, author_label: str):
+    def _fn(query: str, limit: int) -> dict[str, Any]:
+        try:
+            from .intl_stats_worker import search_intl_stat_provider
+
+            res = search_intl_stat_provider(provider_key, query, limit=min(8, limit))
+            items = []
+            for c in (res.get("candidates") or [])[:limit]:
+                items.append({
+                    "source": provider_key,
+                    "title": _clean(c.get("title")),
+                    "year": 2025,
+                    "authors": [author_label],
+                    "detail": _clean(c.get("description") or "", 220),
+                    "url": str(c.get("source_url") or ""),
+                })
+            return {"ok": True, "items": items}
+        except Exception as ex:
+            return {"ok": False, "error": str(ex)[:200], "items": []}
+    return _fn
+
+
+def _oecd_candidates(query: str, limit: int) -> dict[str, Any]:
+    try:
+        from .oecd_worker import search_oecd_datasets
+
+        res = search_oecd_datasets(query, limit=min(8, limit))
+        items = []
+        for c in (res.get("candidates") or [])[:limit]:
+            items.append({
+                "source": "oecd",
+                "title": _clean(c.get("title")),
+                "year": 2025,
+                "authors": ["OECD"],
+                "detail": _clean(c.get("description") or "", 220),
+                "url": str(c.get("source_url") or ""),
             })
         return {"ok": True, "items": items}
     except Exception as ex:
@@ -140,9 +211,37 @@ def _huggingface_candidates(query: str, limit: int) -> dict[str, Any]:
         return {"ok": False, "error": str(ex)[:200], "items": []}
 
 
+def _contemporary_candidates(query: str, limit: int) -> dict[str, Any]:
+    try:
+        from .contemporary_scraper import search_contemporary_candidates
+
+        res = search_contemporary_candidates(query, limit=min(10, limit))
+        items = []
+        for c in (res.get("candidates") or [])[:limit]:
+            items.append({
+                "source": "contemporary",
+                "title": _clean(c.get("title")),
+                "year": c.get("year") or 2026,
+                "authors": [_clean(c.get("authors") or "Contemporary Authors", 60)],
+                "detail": _clean(f"{c.get('journal') or 'Contemporary Source'} — {c.get('description') or ''}", 220),
+                "url": str(c.get("source_url") or ""),
+            })
+        return {"ok": True, "items": items}
+    except Exception as ex:
+        return {"ok": False, "error": str(ex)[:200], "items": []}
+
+
 _SOURCES = {
     "openalex": _openalex_candidates,
     "medical": _medical_candidates,
+    "worldbank": _worldbank_candidates,
+    "eurostat": _make_intl_stat_fn("eurostat", "Eurostat"),
+    "imf": _make_intl_stat_fn("imf", "IMF"),
+    "ecb": _make_intl_stat_fn("ecb", "ECB"),
+    "bis": _make_intl_stat_fn("bis", "BIS"),
+    "undata": _make_intl_stat_fn("undata", "UN Data"),
+    "oecd": _oecd_candidates,
+    "contemporary": _contemporary_candidates,
     "github": _github_candidates,
     "huggingface": _huggingface_candidates,
 }

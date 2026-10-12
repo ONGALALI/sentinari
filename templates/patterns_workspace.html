@@ -46,11 +46,37 @@
   .lp-fill.active { background: linear-gradient(90deg, #1c7ed6, #4dabf7); }
   .lp-label { font-size: 12px; color: #47586b; margin-top: 4px; min-height: 15px; }
   .progress-head { font-size: 13px; font-weight: 700; color: #17304f; margin-top: 10px; }
-  .containers { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-top: 14px; }
+  .containers { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
   .container-card { background: #fff; border: 1px solid #e3eaf5; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,35,60,0.04); }
   .container-card.combination { border-color: #c9daf3; background: linear-gradient(180deg, #fbfdff, #f4f8fd); }
-  .container-title { font-size: 16.5px; font-weight: 800; color: #17304f; }
+  .container-title { font-size: 15.5px; font-weight: 800; color: #17304f; }
   .cross-pill { display: inline-block; margin-left: 8px; padding: 1px 9px; border-radius: 10px; background: #e7f0fb; color: #1c5d99; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; vertical-align: middle; }
+  /* Concertina (Accordion) styles */
+  details.concertina { background: #fff; border: 1px solid #dbe6f3; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,35,60,0.04); transition: border-color 0.15s ease; }
+  details.concertina[open] { border-color: #2f6fb2; box-shadow: 0 4px 14px rgba(16,35,60,0.08); }
+  details.concertina.combination { background: linear-gradient(180deg, #fbfdff, #f4f8fd); }
+  summary.concertina-head { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; user-select: none; flex-wrap: wrap; }
+  summary.concertina-head::-webkit-details-marker { display: none; }
+  summary.concertina-head:hover { background: #f6f9fd; }
+  .c-left { display: flex; align-items: center; gap: 10px; flex: 1 1 320px; min-width: 0; }
+  .c-chev { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 6px; background: #eef3fa; color: #1c5d99; font-size: 12px; font-weight: 800; transition: transform 0.15s ease; flex-shrink: 0; }
+  details.concertina[open] > summary.concertina-head .c-chev { transform: rotate(90deg); background: #2f6fb2; color: #fff; }
+  .c-title-wrap { min-width: 0; }
+  .c-title { font-size: 14.5px; font-weight: 800; color: #17304f; line-height: 1.3; }
+  .c-sub { font-size: 11.5px; color: #5b6b7d; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .c-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .concertina-body { padding: 12px 16px 16px; border-top: 1px solid #e9eef6; background: #fff; }
+  .btn-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 8px; border: 1px solid #2f6fb2; background: #2f6fb2; color: #fff; text-decoration: none; cursor: pointer; }
+  .btn-link:hover { filter: brightness(0.95); }
+  .btn-link.secondary { background: #f6f9fd; color: #17304f; border-color: #ccd9ea; }
+  /* Pagination bar */
+  .pager-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 16px; padding: 12px 16px; background: #fff; border: 1px solid #dbe6f3; border-radius: 12px; }
+  .pager-info { font-size: 12.5px; color: #47586b; font-weight: 600; }
+  .pager-btns { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .pager-btns button { min-width: 34px; padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
+  .pager-btns button.active-page { background: #2f6fb2; border-color: #2f6fb2; color: #fff; font-weight: 800; }
+  .matrix-drawer { margin-top: 12px; border: 2px solid #2f6fb2; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 6px 20px rgba(16,35,60,0.1); }
+  .matrix-drawer-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #17304f; color: #fff; font-size: 13.5px; font-weight: 700; }
   .pattern-item { border: 1px solid #e9eef6; border-radius: 10px; padding: 10px 12px; margin-top: 10px; background: #fbfdff; }
   .pattern-item .pt { font-weight: 700; font-size: 13.5px; color: #17304f; }
   .meta-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
@@ -68,7 +94,7 @@
   .confidence-track { display: inline-block; width: 64px; height: 6px; background: #e6ebf3; border-radius: 999px; vertical-align: middle; margin-right: 5px; overflow: hidden; }
   .confidence-fill { height: 100%; background: #2f6fb2; border-radius: 999px; }
   .muted { color: #8296aa; font-size: 12px; }
-  .report-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; padding-top: 8px; border-top: 1px dashed #dfe8f2; }
+  .report-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; padding-top: 8px; border-top: 1px dashed #dfe8f2; align-items: center; }
   .report-actions button { font-size: 12px; padding: 3px 10px; }
   .report-actions button.pdf { font-weight: 700; }
   .storage-note { margin-top: 9px; padding: 7px 10px; border: 1px dashed #d9c9ec; background: #faf7fd; border-radius: 8px; font-size: 11.5px; color: #6b5a86; line-height: 1.5; }
@@ -86,7 +112,6 @@
   .alert.ok { background: #e6f6ea; border: 1px solid #b7e2c2; color: #22743a; }
   .alert.err { background: #fdf0f1; border: 1px solid #efc3c9; color: #8f3a45; }
   .topbar-note { font-size: 12.5px; color: #5b6b7d; margin-top: 2px; }
-  /* §80b: ⓘ info tags with hover pop-ups on static terms (§74c pattern from the learning ladder) */
   .ptag { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: #dcebf9; border: 1px solid #b9d4ee; color: #103c6b; font-size: 9px; font-weight: 700; line-height: 12px; text-align: center; cursor: help; user-select: none; position: relative; vertical-align: middle; margin-left: 4px; }
   .ptag .ptip { position: absolute; bottom: calc(100% + 6px); right: -6px; width: 300px; background: #10233d; color: #e8f0fb; border-radius: 8px; padding: 9px 11px; font-size: 11px; line-height: 1.5; opacity: 0; pointer-events: none; transition: opacity .15s ease; z-index: 30; box-shadow: 0 6px 18px rgba(16,35,61,.35); text-align: left; font-weight: 400; }
   .ptag .ptip:after { content: ""; position: absolute; top: 100%; right: 16px; border: 6px solid transparent; border-top-color: #10233d; }
@@ -100,19 +125,32 @@
     <div class="brand">Sentinari</div>
     <div class="sidecopy">Sentinari watches the knowledge library and raises new scientific patterns as they form.</div>
     <nav class="nav">
-      <a href="/ui/playground">Dashboard Home<small>Main landing page.</small></a>
+      <a href="/ui/playground">Dashboard Home<small>Main workspace console.</small></a>
       <a href="/ui/patterns" class="active">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
       <a href="/ui/playground#sentinel-grid">Knowledge Domains<small>Scientific fields feeding the engine.</small></a>
       <a href="/ui/admin">Admin Console<small>Profile, memory, and task board.</small></a>
+      <a href="/" style="border-top:1px solid rgba(255,255,255,0.14);margin-top:8px;padding-top:10px;">Website Landing Page<small>Exit to Sentinari Frontpage.</small></a>
     </nav>
   </aside>
 
   <main class="page-shell">
     <h1>Scientific Patterns Discovery</h1>
-    <div class="topbar-note">Containers below are named for their scientific fields. Cross-field patterns appear in combination containers (Field A + Field B). Every container shows live recognition progress, the potential benefits of each pattern, and an APA 7th edition report (HTML preview / PDF download) covering all fields in the container, its data sources, and its Works Cited.</div>
+    <div class="topbar-note">Discovered patterns are organized below in a collapsible concertina (8 per page) to minimize screen space and browser compute cost. Every pattern includes its unified 5-Section (15-Indicator) R&amp;D Validation Paper with APA 7th citations and consolidated bottom graphs.</div>
     <div class="report-actions" style="margin-top:10px;">
-      <button type="button" class="primary" data-role="assessment-matrix">View document (HTML) &mdash; Assessment Matrix</button>
-      <span class="muted">The scoring law behind this workspace: impact dimensions<span class="ptag" tabindex="0">i<span class="ptip"><b>Impact dimensions (7).</b> Knowledge, Intelligence, Decision, Human Agency, Societal, Scientific, Risk. Each level x_i (0–10) is measured from the pattern's real extraction record: evidence-chunk depth, source-document breadth, entity/relation graph mass, pipeline confidence, cross-field span, and recorded benefits. Sustainability Weights: Knowledge 0.18 · Human Agency 0.16 · Societal 0.16 · Intelligence 0.14 · Decision 0.14 · Scientific 0.14 · Risk 0.08.</span></span>, level bands<span class="ptag" tabindex="0">i<span class="ptip"><b>Impact level bands.</b> Normalized Dimension Impact SD_i(%) = (W_i × S_i(x)) ÷ NSIS × 100, where NSIS = Σ W_j·S_j(x) is the Net Sustainable Impact Score. Bands: 0–33.33% Level 1 (Low) · 33.34–67.67% Level 2 (Medium) · 67.68–100% Level 3 (High).</span></span>, and the coupled bell curve<span class="ptag" tabindex="0">i<span class="ptip"><b>Coupled bell curve.</b> Each dimension has a sustainability function S_i(x) = G_i(x) ÷ A_i with G_i(x) = A_i·exp(−(x−μ_i)² ÷ (2σ_i²)). Coupling rules from the Assessment Matrix: Intelligence &gt; 7 contracts Human Agency (μ −0.4·excess, σ −0.15·excess); Risk &gt; 5 widens Societal σ (+0.3·excess) and drops Decision μ (−0.25·excess); Scientific &gt; 7 lifts Knowledge amplitude (+0.05, capped 1.0).</span></span>.</span>
+      <button type="button" class="primary" id="btnToggleMatrix" data-role="assessment-matrix">&#128202; View Assessment Matrix &amp; Live Simulator (Inline)</button>
+      <a class="btn-link secondary" href="/api/patterns/assessment-matrix" target="_blank" rel="noopener">Open Full-Page Assessment Matrix &nearr;</a>
+      <span class="muted">The scoring law behind this workspace: impact dimensions<span class="ptag" tabindex="0">i<span class="ptip"><b>Impact dimensions (7).</b> Knowledge, Intelligence, Decision, Human Agency, Societal, Scientific, Risk. Each level x_i (0–10) is measured from the pattern's real extraction record.</span></span>, level bands<span class="ptag" tabindex="0">i<span class="ptip"><b>Impact level bands.</b> Normalized Dimension Impact SD_i(%) = (W_i × S_i(x)) ÷ NSIS × 100.</span></span>, and the coupled bell curve<span class="ptag" tabindex="0">i<span class="ptip"><b>Coupled bell curve.</b> Each dimension has a sustainability function S_i(x) = G_i(x) ÷ A_i with Interdependence Rules A, B, and C.</span></span>.</span>
+    </div>
+
+    <div id="inlineMatrixDrawer" class="matrix-drawer" hidden>
+      <div class="matrix-drawer-head">
+        <span>&#128202; Systemic Sustainability Assessment Matrix — Interactive 7-Dimension Coupled Bell-Curve Simulator &amp; Specification</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <a href="/api/patterns/assessment-matrix" target="_blank" rel="noopener" style="color:#a5f3fc;font-size:12px;text-decoration:none;">Open in New Tab &nearr;</a>
+          <button type="button" id="btnCloseMatrix" style="padding:2px 10px;font-size:12px;">Close &#10005;</button>
+        </div>
+      </div>
+      <iframe id="inlineMatrixFrame" style="width:100%;height:680px;border:0;display:block;background:#fff;" title="Assessment Matrix Simulator"></iframe>
     </div>
 
     <div id="pageAlert" class="alert" hidden></div>
@@ -120,8 +158,8 @@
     <div class="card">
       <div class="row" style="justify-content:space-between;">
         <div>
-          <h2>Library-wide recognition</h2>
-          <div class="hint">How much of the knowledge library Sentinari has analyzed for new patterns so far.</div>
+          <h2>Library-wide continuous pattern recognition</h2>
+          <div class="hint">Continuous background pattern discovery is active across the knowledge library, prioritizing compute for entity/relation graph mapping and 15-indicator R&amp;D progression.</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <label class="hint oa-toggle" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
@@ -133,13 +171,13 @@
       </div>
       <div id="pausedBanner" class="alert err" style="margin-top:10px;" hidden></div>
       <div class="stats-grid">
-        <div class="stat"><b id="stDocs">0</b><span>Library documents<span class="ptag" tabindex="0">i<span class="ptip"><b>Library documents.</b> The total documents in the knowledge library across all scientific fields — the denominator of the recognition progress bar below.</span></span></span></div>
-        <div class="stat"><b id="stAnalyzed">0</b><span>Documents analyzed<span class="ptag" tabindex="0">i<span class="ptip"><b>Documents analyzed.</b> Documents the discovery engine has fully processed (entities, relations and patterns extracted). Progress % = analyzed ÷ library documents.</span></span></span></div>
-        <div class="stat"><b id="stCandidates">0</b><span>Candidate patterns<span class="ptag" tabindex="0">i<span class="ptip"><b>Candidate patterns.</b> Patterns raised so far. Each starts as Candidate and moves through your review: Approve → Testing → Active, or Reject. Every state change is recorded in patterns.db.</span></span></span></div>
-        <div class="stat"><b id="stEntities">0</b><span>Entities mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Entities mapped.</b> Scientific entities (concepts, materials, methods, quantities) extracted from analyzed documents and stored in the pattern_entities table — the nodes of a pattern's evidence graph.</span></span></span></div>
-        <div class="stat"><b id="stRelations">0</b><span>Relations mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Relations mapped.</b> Directed links between mapped entities, stored in pattern_relations — the edges that let a pattern state HOW things connect, not just that they do.</span></span></span></div>
+        <div class="stat"><b id="stDocs">0</b><span>Library documents<span class="ptag" tabindex="0">i<span class="ptip"><b>Library documents.</b> The total documents in the knowledge library across all scientific fields.</span></span></span></div>
+        <div class="stat"><b id="stAnalyzed">0</b><span>Documents analyzed<span class="ptag" tabindex="0">i<span class="ptip"><b>Documents analyzed.</b> Documents processed by the continuous pattern discovery engine.</span></span></span></div>
+        <div class="stat"><b id="stCandidates">0</b><span>New patterns discovered<span class="ptag" tabindex="0">i<span class="ptip"><b>New patterns discovered.</b> Total patterns discovered and tracked in patterns.db.</span></span></span></div>
+        <div class="stat"><b id="stEntities">0</b><span>Entities mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Entities mapped.</b> Scientific entities extracted from analyzed documents.</span></span></span></div>
+        <div class="stat"><b id="stRelations">0</b><span>Relations mapped<span class="ptag" tabindex="0">i<span class="ptip"><b>Relations mapped.</b> Directed links between mapped entities.</span></span></span></div>
       </div>
-      <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Recognition progress.</b> Driven by the 15 R&amp;D Indicators across 5 stages (Front Matter, Introduction &amp; Framework, Methodology &amp; System Design, Theoretical Testing &amp; Evaluation, Back Matter).</span></span> — <span id="overallPct">0.0%</span></div>
+      <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>Recognition progress.</b> Driven by the 15 R&amp;D Indicators across 5 stages and continuous library analysis.</span></span> — <span id="overallPct">0.0%</span></div>
       <div class="lp-track"><div class="lp-fill" id="overallFill"></div></div>
       <div class="lp-label" id="overallLabel">Waiting for status…</div>
     </div>
@@ -161,7 +199,7 @@
     <div class="card">
       <h2>User-requested pattern discovery</h2>
       <div class="mode-pill">Manual &middot; targeted discovery active</div>
-      <div class="hint">State your custom query or hypothesis below and select up to <b>3 Sentinel Domains / Scientific Fields</b> from the dropdown lists to scope single-domain or cross-domain pattern discovery. Sentinari searches the knowledge library for matching documents, prioritizes them against the §74l crisis &amp; threat lexicon, extracts entities, relations and candidate patterns, and develops their 15 R&amp;D indicators.</div>
+      <div class="hint">State your custom query or hypothesis below and select up to <b>3 Sentinel Domains / Scientific Fields</b> from the dropdown lists to scope single-domain or cross-domain pattern discovery.</div>
       <div class="row" style="margin-top:10px;">
         <input type="text" id="manualTopic" placeholder="State your custom pattern query or research topic (e.g. 'Patterns linking drought resilience to crop genetics')" style="flex:1 1 100%; width:100%;">
       </div>
@@ -189,9 +227,25 @@
       <div id="futureRequests" class="future-requests"></div>
     </div>
 
-    <div class="containers" id="containersGrid">
-      <div class="container-card"><span class="muted">Loading containers…</span></div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2 style="margin:0;">New Patterns Discovered (Concertina &middot; 8 per page)</h2>
+        <div class="hint" id="concertinaSummaryLabel">Click any concertina row below to expand its full hypothesis, source datasets, 15 R&amp;D indicators, and unified R&amp;D Paper.</div>
+      </div>
+      <div class="row">
+        <select id="viewModeSelect" style="min-width:210px;">
+          <option value="patterns" selected>View: Individual Patterns (8 / page)</option>
+          <option value="containers">View: Field Containers (8 / page)</option>
+        </select>
+        <button type="button" id="btnExpandAll">Expand Page</button>
+        <button type="button" id="btnCollapseAll">Collapse Page</button>
+      </div>
     </div>
+
+    <div class="containers" id="containersGrid">
+      <div class="container-card"><span class="muted">Loading discovered patterns…</span></div>
+    </div>
+    <div id="paginationBar" class="pager-bar" hidden></div>
   </main>
 </div>
 
@@ -201,6 +255,12 @@
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const pctText = (v) => `${(Number(v) || 0).toFixed(1)}%`;
   const fmtInt = (v) => new Intl.NumberFormat().format(Number(v) || 0);
+
+  const PAGE_SIZE = 8;
+  let currentPage = 1;
+  let viewMode = 'patterns'; // 'patterns' | 'containers'
+  let allContainers = [];
+  let allFlatPatterns = [];
 
   const alertBox = $('pageAlert');
   const showAlert = (msg, ok) => {
@@ -229,11 +289,13 @@
       const data = await api('/api/patterns/discovery-status');
       $('stDocs').textContent = fmtInt(data.library_documents);
       $('stAnalyzed').textContent = fmtInt(data.documents_analyzed);
-      $('stCandidates').textContent = fmtInt(data.candidate_patterns);
+      $('stCandidates').textContent = fmtInt(data.total_patterns || data.candidate_patterns);
       const indDone = Number(data.completed_indicators || 0);
       const indTotal = Number(data.total_indicators || 0);
+      const dState = data.daemon || {};
+      const daemonNote = dState.running ? ' · Continuous Discovery Daemon ACTIVE' : '';
       setBar($('overallFill'), $('overallLabel'), data.percent,
-        `${fmtInt(indDone)} of ${fmtInt(indTotal)} R&D indicators developed (${pctText(data.percent)}) · ${fmtInt(data.documents_analyzed)} of ${fmtInt(data.library_documents)} library datasets scanned`);
+        `${fmtInt(indDone)} of ${fmtInt(indTotal)} R&D indicators developed (${pctText(data.percent)}) · ${fmtInt(data.documents_analyzed)} of ${fmtInt(data.library_documents)} library datasets analyzed${daemonNote}`);
       $('overallPct').textContent = pctText(data.percent);
       const sw = $('recognitionSwitch');
       if (sw) sw.checked = data.recognition_enabled !== false;
@@ -273,7 +335,7 @@
     }
   });
 
-  function patternCard(p) {
+  function patternInnerBody(p) {
     const status = String(p.status || 'candidate');
     let fields = [];
     try { fields = JSON.parse(p.fields_involved || '[]'); } catch (_) { fields = []; }
@@ -310,36 +372,69 @@
          </div>`
       : '';
     const benefitsBlock = p.has_benefits
-      ? `<div class="benefits"><div class="benefits-title">Potential benefits<span class="ptag" tabindex="0">i<span class="ptip"><b>Potential benefits.</b> Generated by analyzing the pattern's own evidence with the local engine: what the pattern could enable, why it matters, and the measured inputs (evidence depth, sources, graph mass) that feed its dimension levels.</span></span></div>${esc(p.benefits)}</div>`
+      ? `<div class="benefits"><div class="benefits-title">Potential benefits</div>${esc(p.benefits)}</div>`
       : `<div class="actions"><button type="button" data-role="benefits" data-id="${p.id}">Analyze benefits</button></div><div class="benefits" data-role="benefits-slot-${p.id}" hidden></div>`;
     return `
-      <div class="pattern-item">
-        <div class="pt">${esc(p.title)}</div>
-        <div class="meta-pills">
-          <span class="meta-pill status-${esc(status)}">${esc(STATUS_LABELS[status] || status)}</span>
-          <span class="meta-pill">${esc(p.pattern_type || 'general')}</span>
-          <span class="meta-pill"><span class="confidence-track"><span class="confidence-fill" style="width:${conf}%"></span></span>${conf}% confidence<span class="ptag" tabindex="0">i<span class="ptip"><b>Confidence.</b> The extraction pipeline's confidence (0–100%) that this pattern is real, from the evidence it was found in. It also feeds the Assessment Matrix: higher confidence lowers the Risk level and lifts Knowledge, Intelligence and Decision.</span></span></span>
-          ${fields.map((f) => `<span class="meta-pill">${esc(f)}</span>`).join('')}
-        </div>
-        <div class="statement">${esc(p.statement)}</div>
-        ${sourcesBlock}
-        ${indicatorsBlock}
-        ${benefitsBlock}
-        <div class="report-actions">
-          <button type="button" data-role="pattern-report" data-id="${p.id}">View Report (HTML)</button>
-          <button type="button" class="pdf" data-role="pattern-report" data-id="${p.id}" data-format="pdf">Report PDF</button>
-          <button type="button" data-role="rd-paper" data-id="${p.id}">View / Generate R&amp;D Paper (${indDone}/${indTotal})</button>
-          ${indDone < indTotal ? `<button type="button" data-role="advance-indicators" data-id="${p.id}">Develop R&amp;D Indicators</button>` : ''}
-        </div>
-        <div class="actions">
-          <button type="button" class="approve" data-role="review" data-decision="approve" data-id="${p.id}" ${status === 'approved' ? 'disabled' : ''}>Approve</button>
-          <button type="button" class="reject" data-role="review" data-decision="reject" data-id="${p.id}" ${status === 'rejected' ? 'disabled' : ''}>Reject</button>
-          <button type="button" class="activate" data-role="review" data-decision="activate" data-id="${p.id}" ${status === 'active' ? 'disabled' : ''}>Activate</button>
-        </div>
+      <div class="meta-pills">
+        <span class="meta-pill status-${esc(status)}">${esc(STATUS_LABELS[status] || status)}</span>
+        <span class="meta-pill">${esc(p.pattern_type || 'general')}</span>
+        <span class="meta-pill"><span class="confidence-track"><span class="confidence-fill" style="width:${conf}%"></span></span>${conf}% confidence</span>
+        ${fields.map((f) => `<span class="meta-pill">${esc(f)}</span>`).join('')}
+      </div>
+      <div class="statement">${esc(p.statement)}</div>
+      ${sourcesBlock}
+      ${indicatorsBlock}
+      ${benefitsBlock}
+      <div class="report-actions">
+        <a class="btn-link" href="/api/patterns/rd-paper/${encodeURIComponent(p.id)}/report" target="_blank" rel="noopener">&#128196; Open Unified R&amp;D Paper (${indDone}/${indTotal})</a>
+        <a class="btn-link secondary" href="/api/patterns/${encodeURIComponent(p.id)}/rd-paper.pdf">&#11015; R&amp;D Paper PDF</a>
+        <button type="button" data-role="pattern-report" data-id="${p.id}">Container Report (HTML)</button>
+        <button type="button" class="pdf" data-role="pattern-report" data-id="${p.id}" data-format="pdf">Container PDF</button>
+        ${indDone < indTotal ? `<button type="button" data-role="advance-indicators" data-id="${p.id}">Develop R&amp;D Indicators</button>` : ''}
+      </div>
+      <div class="actions">
+        <button type="button" class="approve" data-role="review" data-decision="approve" data-id="${p.id}" ${status === 'approved' ? 'disabled' : ''}>Approve</button>
+        <button type="button" class="reject" data-role="review" data-decision="reject" data-id="${p.id}" ${status === 'rejected' ? 'disabled' : ''}>Reject</button>
+        <button type="button" class="activate" data-role="review" data-decision="activate" data-id="${p.id}" ${status === 'active' ? 'disabled' : ''}>Activate</button>
       </div>`;
   }
 
-  function containerCard(c) {
+  function patternConcertinaCard(p, indexOnPage) {
+    const status = String(p.status || 'candidate');
+    let fields = [];
+    try { fields = JSON.parse(p.fields_involved || '[]'); } catch (_) { fields = []; }
+    const fieldLabel = fields.length ? fields.map((f) => f.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())).join(' + ') : 'Interdisciplinary';
+    const conf = Math.round((Number(p.confidence) || 0) * 100);
+    const ind = p.rd_indicators || {};
+    const indDone = Number(ind.completed_indicators || 0);
+    const indTotal = Number(ind.total_indicators || 15);
+    const isCross = fields.length >= 2;
+    return `
+      <details class="concertina${isCross ? ' combination' : ''}" ${indexOnPage === 0 ? 'open' : ''}>
+        <summary class="concertina-head">
+          <div class="c-left">
+            <span class="c-chev">&#9656;</span>
+            <div class="c-title-wrap">
+              <div class="c-title">#${esc(p.id)} &middot; ${esc(p.title)}${isCross ? '<span class="cross-pill">Cross-field</span>' : ''}</div>
+              <div class="c-sub">
+                <span><b>${esc(fieldLabel)}</b></span>
+                <span>&middot; ${conf}% confidence</span>
+                <span>&middot; R&amp;D Indicators: <b>${indDone}/${indTotal}</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="c-right" onclick="event.stopPropagation();">
+            <span class="meta-pill status-${esc(status)}">${esc(STATUS_LABELS[status] || status)}</span>
+            <a class="btn-link" href="/api/patterns/rd-paper/${encodeURIComponent(p.id)}/report" target="_blank" rel="noopener">Open R&amp;D Paper</a>
+          </div>
+        </summary>
+        <div class="concertina-body">
+          ${patternInnerBody(p)}
+        </div>
+      </details>`;
+  }
+
+  function containerConcertinaCard(c, indexOnPage) {
     const name = c.fields.length ? c.fields.map((f) => f.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())).join(' + ') : 'Unassigned';
     const liveJob = liveJobs[c.container_key] || liveJobs['all'];
     const livePct = liveJob ? Number(liveJob.percent) || 0 : 0;
@@ -353,20 +448,93 @@
         ? `${fmtInt(indDone)} of ${fmtInt(indTotal)} R&D indicators complete across ${c.pattern_count} pattern${c.pattern_count === 1 ? '' : 's'} · ${fmtInt(c.analyzed_docs)} of ${fmtInt(c.library_docs)} library datasets scanned`
         : 'No library documents in this field yet — load datasets or upload documents to feed discovery.');
     return `
-      <div class="container-card${c.is_combination ? ' combination' : ''}">
-        <div class="container-title">${esc(name)}${c.is_combination ? '<span class="cross-pill">Cross-field</span>' : ''}</div>
-        <div class="hint" style="margin-top:3px;">${c.is_combination ? 'Pattern bridging several scientific fields.' : 'Patterns discovered within this scientific field.'} · <b>${c.pattern_count}</b> pattern${c.pattern_count === 1 ? '' : 's'}</div>
-        <div class="progress-head">New pattern recognition in progress<span class="ptag" tabindex="0">i<span class="ptip"><b>5-Stage (15-Indicator) R&amp;D Maturity.</b> Measures completion of the 15 R&amp;D Paper indicators (1. Front Matter, 2. Intro &amp; Framework, 3. Methodology &amp; System Design, 4. Theoretical Testing &amp; Matrix Results, 5. Back Matter) across all patterns in this container.</span></span> — <span>${barPct.toFixed(1)}%</span></div>
-        <div class="lp-track"><div class="lp-fill${liveJob ? ' active' : ''}" style="width:${Math.max(0, Math.min(100, barPct))}%"></div></div>
-        <div class="lp-label">${esc(barLabel)}</div>
-        <div class="report-actions">
-          <button type="button" data-role="container-report" data-key="${esc(c.container_key)}">View Report (HTML)</button>
-          <button type="button" class="pdf" data-role="container-report" data-key="${esc(c.container_key)}" data-format="pdf">Report PDF</button>
+      <details class="concertina${c.is_combination ? ' combination' : ''}" ${indexOnPage === 0 ? 'open' : ''}>
+        <summary class="concertina-head">
+          <div class="c-left">
+            <span class="c-chev">&#9656;</span>
+            <div class="c-title-wrap">
+              <div class="c-title">${esc(name)}${c.is_combination ? '<span class="cross-pill">Cross-field</span>' : ''}</div>
+              <div class="c-sub">
+                <span><b>${c.pattern_count}</b> pattern${c.pattern_count === 1 ? '' : 's'}</span>
+                <span>&middot; R&amp;D Maturity: <b>${barPct.toFixed(1)}%</b> (${fmtInt(indDone)}/${fmtInt(indTotal)} indicators)</span>
+                <span>&middot; ${fmtInt(c.analyzed_docs)}/${fmtInt(c.library_docs)} datasets analyzed</span>
+              </div>
+            </div>
+          </div>
+          <div class="c-right" onclick="event.stopPropagation();">
+            <button type="button" data-role="container-report" data-key="${esc(c.container_key)}">View Report (HTML)</button>
+            <button type="button" class="pdf" data-role="container-report" data-key="${esc(c.container_key)}" data-format="pdf">Report PDF</button>
+          </div>
+        </summary>
+        <div class="concertina-body">
+          <div class="progress-head" style="margin-top:0;">New pattern recognition in progress — <span>${barPct.toFixed(1)}%</span></div>
+          <div class="lp-track"><div class="lp-fill${liveJob ? ' active' : ''}" style="width:${Math.max(0, Math.min(100, barPct))}%"></div></div>
+          <div class="lp-label">${esc(barLabel)}</div>
+          ${c.patterns.map((p) => `<div class="pattern-item"><div class="pt">#${esc(p.id)} &middot; ${esc(p.title)}</div>${patternInnerBody(p)}</div>`).join('') || '<div class="muted" style="margin-top:8px;">No patterns yet for this container.</div>'}
         </div>
-        <div class="storage-note">Archive: new patterns are recorded in <code>patterns</code>, <code>pattern_evidence</code>, <code>pattern_entities</code>, <code>pattern_relations</code>, and synchronized with the 5-Section R&amp;D Validation Paper.</div>
-        ${c.patterns.map(patternCard).join('') || '<div class="muted" style="margin-top:8px;">No patterns yet for this container.</div>'}
-      </div>`;
+      </details>`;
   }
+
+  function renderPaginatedList() {
+    const grid = $('containersGrid');
+    const pager = $('paginationBar');
+    const items = viewMode === 'patterns' ? allFlatPatterns : allContainers;
+    const noun = viewMode === 'patterns' ? 'pattern' : 'field container';
+
+    if (!items.length) {
+      grid.innerHTML = '<div class="container-card"><span class="muted">No patterns recorded yet. Start recognition above after loading datasets into your fields — Sentinari will raise new patterns here as they form.</span></div>';
+      if (pager) pager.hidden = true;
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    const pageSlice = items.slice(startIdx, startIdx + PAGE_SIZE);
+
+    if (viewMode === 'patterns') {
+      grid.innerHTML = pageSlice.map((p, idx) => patternConcertinaCard(p, idx)).join('');
+    } else {
+      grid.innerHTML = pageSlice.map((c, idx) => containerConcertinaCard(c, idx)).join('');
+    }
+
+    if (pager) {
+      pager.hidden = false;
+      const fromNum = startIdx + 1;
+      const toNum = Math.min(items.length, startIdx + pageSlice.length);
+      let pageButtons = `<button type="button" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>&laquo; Prev</button>`;
+      for (let pNum = 1; pNum <= totalPages; pNum++) {
+        pageButtons += `<button type="button" data-page="${pNum}" class="${pNum === currentPage ? 'active-page' : ''}">${pNum}</button>`;
+      }
+      pageButtons += `<button type="button" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>Next &raquo;</button>`;
+      pager.innerHTML = `
+        <div class="pager-info">Showing <b>${fromNum}&ndash;${toNum}</b> of <b>${items.length}</b> ${noun}${items.length === 1 ? '' : 's'} (Page ${currentPage} of ${totalPages} &middot; 8 per page)</div>
+        <div class="pager-btns">${pageButtons}</div>
+      `;
+    }
+  }
+
+  $('paginationBar')?.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-page]');
+    if (!btn || btn.disabled) return;
+    currentPage = Number(btn.dataset.page) || 1;
+    renderPaginatedList();
+  });
+
+  $('viewModeSelect')?.addEventListener('change', (ev) => {
+    viewMode = ev.target.value === 'containers' ? 'containers' : 'patterns';
+    currentPage = 1;
+    renderPaginatedList();
+  });
+
+  $('btnExpandAll')?.addEventListener('click', () => {
+    document.querySelectorAll('#containersGrid details.concertina').forEach((d) => { d.open = true; });
+  });
+  $('btnCollapseAll')?.addEventListener('click', () => {
+    document.querySelectorAll('#containersGrid details.concertina').forEach((d) => { d.open = false; });
+  });
 
   let liveJobs = {};
   async function loadWorkspace() {
@@ -382,12 +550,21 @@
         setBar($('liveFill'), $('liveLabel'), allJob.percent, `${allJob.message || 'Developing R&D indicators…'}`);
         $('livePct').textContent = `${(Number(allJob.percent) || 0).toFixed(1)}%`;
       }
-      const grid = $('containersGrid');
-      if (!data.containers.length) {
-        grid.innerHTML = '<div class="container-card"><span class="muted">No patterns recorded yet. Start recognition above after loading datasets into your fields — Sentinari will raise new patterns here as they form.</span></div>';
-      } else {
-        grid.innerHTML = data.containers.map(containerCard).join('');
-      }
+      allContainers = Array.isArray(data.containers) ? data.containers : [];
+      const seenIds = new Set();
+      const flat = [];
+      allContainers.forEach((c) => {
+        (c.patterns || []).forEach((p) => {
+          if (!seenIds.has(p.id)) {
+            seenIds.add(p.id);
+            flat.push(p);
+          }
+        });
+      });
+      flat.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+      allFlatPatterns = flat;
+      renderPaginatedList();
+
       const st = data.stats || {};
       $('stEntities').textContent = fmtInt(st.pattern_entities || 0);
       $('stRelations').textContent = fmtInt(st.pattern_relations || 0);
@@ -409,6 +586,8 @@
       if (!busy) { clearInterval(pollTimer); pollTimer = null; }
     }, 4000);
   }
+  // Continuous status refresh every 7s so continuous background document analysis updates live
+  setInterval(() => { loadStatus(); }, 7000);
 
   async function startDiscovery() {
     const rawField = $('fieldInput').value.trim().toLowerCase().replace(/\s+/g, '-');
@@ -508,6 +687,11 @@
     ensurePolling();
   }
 
+  $('btnCloseMatrix')?.addEventListener('click', () => {
+    const drawer = $('inlineMatrixDrawer');
+    if (drawer) drawer.hidden = true;
+  });
+
   document.addEventListener('click', async (event) => {
     const btn = event.target.closest('button[data-role]');
     if (!btn) return;
@@ -518,7 +702,8 @@
         const data = await api(`/api/patterns/${id}/benefits`);
         const slot = document.querySelector(`[data-role="benefits-slot-${id}"]`);
         if (slot) {
-          slot.hidden = false;            slot.innerHTML = `<div class="benefits-title">Potential benefits<span class="ptag" tabindex="0">i<span class="ptip"><b>Potential benefits.</b> Generated by analyzing the pattern's own evidence with the local engine: what the pattern could enable, why it matters, and the measured inputs (evidence depth, sources, graph mass) that feed its dimension levels.</span></span></div>${esc(data.benefits)}`;
+          slot.hidden = false;
+          slot.innerHTML = `<div class="benefits-title">Potential benefits</div>${esc(data.benefits)}`;
         }
         btn.remove();
       } catch (error) {
@@ -534,25 +719,21 @@
       if (fmt === 'pdf') { window.location.href = url; }
       else { window.open(url, '_blank', 'noopener'); }
     } else if (btn.dataset.role === 'assessment-matrix') {
-      window.open('/api/patterns/assessment-matrix', '_blank', 'noopener');
-    } else if (btn.dataset.role === 'rd-paper') {
-      btn.disabled = true; btn.textContent = 'Generating…';
-      try {
-        const r = await api('/api/patterns/future-requests/rd-paper', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pattern_id: Number(id), note: '' }),
-        });
-        showAlert(r.message || 'R&D paper request logged as future work.', true);
-        btn.textContent = 'R&D paper ✓ logged';
-        await loadFutureRequests();
-        await loadWorkspace();
-        await loadStatus();
-        // §79: open the generated validation paper (math computed from the pattern's record).
-        window.open(`/api/patterns/rd-paper/${encodeURIComponent(id)}/report`, '_blank', 'noopener');
-      } catch (error) {
-        btn.disabled = false; btn.textContent = 'Open 5-Section R&D Paper';
-        showAlert(error.message, false);
+      const drawer = $('inlineMatrixDrawer');
+      const frame = $('inlineMatrixFrame');
+      if (drawer && frame) {
+        drawer.hidden = !drawer.hidden;
+        if (!drawer.hidden && !frame.getAttribute('src')) {
+          frame.setAttribute('src', '/api/patterns/assessment-matrix');
+        }
+        if (!drawer.hidden) {
+          drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } else {
+        window.open('/api/patterns/assessment-matrix', '_blank', 'noopener');
       }
+    } else if (btn.dataset.role === 'rd-paper') {
+      window.open(`/api/patterns/rd-paper/${encodeURIComponent(id)}/report`, '_blank', 'noopener');
     } else if (btn.dataset.role === 'advance-indicators') {
       btn.disabled = true; btn.textContent = 'Developing R&D Indicators…';
       try {

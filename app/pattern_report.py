@@ -205,42 +205,148 @@ def _apa_reference(doc: dict[str, Any], fallback_title: str = "", fallback_url: 
         # APA style for software/datasets without personal authors: org/owner as author.
         owner = source_url.split("github.com/")[1].split("/")[0] if "github.com/" in source_url.lower() else title.split("/")[0]
         byline = f"{owner.title() if owner else title}. "
+    elif not byline:
+        field_lbl = str(doc.get("scientific_field") or "").replace("-", " ").strip().title()
+        byline = f"Sentinel {field_lbl} Corpus. " if field_lbl else "Sentinel Scientific Corpus. "
 
     head = f"{byline}({year})."
     title_part = f" {title}" + (f" {bracket}" if bracket else "") + "."
     source_part = f" {publisher}." if publisher and not platform else (f" {platform}." if platform else "")
     url_part = ""
     if source_url:
-        if "doi.org/" in source_url.lower():
-            url_part = f" {source_url}"
-        else:
-            url_part = f" {source_url}"
+        url_part = f" {source_url}"
+    elif doc.get("id"):
+        url_part = f" /api/skill-review/documents/{int(doc['id'])}/download"
     reference = f"{head}{title_part}{source_part}{url_part}".replace("  ", " ").strip()
     return reference
 
 
-def _citations_for_pattern(pattern: dict[str, Any]) -> list[str]:
-    """APA 7th works-cited entries for a pattern's evidence documents."""
-    refs: OrderedDict[str, str] = OrderedDict()
-    for item in pattern.get("evidence") or []:
-        doc_id = int((item or {}).get("document_id") or 0)
+def _citation_items_for_pattern(
+    pattern: dict[str, Any],
+    *,
+    include_field_sources: bool = True,
+    max_items: int = 10,
+) -> list[dict[str, Any]]:
+    """Return structured APA 7th works-cited items for a pattern (direct evidence + corroborating field corpus)."""
+    from .db import library_connection
+    from .sentinel_domains import sanitize_pattern_fields
+
+    items_out: list[dict[str, Any]] = []
+    seen_refs: set[str] = set()
+    seen_doc_ids: set[int] = set()
+
+    for ev in pattern.get("evidence") or []:
+        doc_id = int((ev or {}).get("document_id") or 0)
         doc = _library_doc(doc_id) if doc_id else {}
         if not doc:
             doc = {
-                "title": str((item or {}).get("document_title") or ""),
-                "source_url": str((item or {}).get("source_url") or ""),
-                "source_type": "",
+                "id": doc_id,
+                "title": str((ev or {}).get("document_title") or ""),
+                "source_url": str((ev or {}).get("source_url") or ""),
+                "source_type": "library document",
                 "authors": "",
-                "publisher": "",
-                "published_date": "",
+                "publisher": "Sentinel Scientific Knowledge Library",
+                "published_date": str(pattern.get("discovered_at") or "2026"),
             }
         if not doc.get("title") and not doc.get("source_url"):
             continue
-        ref = _apa_reference(doc, fallback_title=str((item or {}).get("document_title") or ""), fallback_url=str((item or {}).get("source_url") or ""))
+        if doc_id > 0:
+            seen_doc_ids.add(doc_id)
+        ref = _apa_reference(
+            doc,
+            fallback_title=str((ev or {}).get("document_title") or ""),
+            fallback_url=str((ev or {}).get("source_url") or ""),
+        )
         key = ref.lower()
-        if ref and key not in refs:
-            refs[key] = ref
-    return list(refs.values())
+        if ref and key not in seen_refs:
+            seen_refs.add(key)
+            url = str(doc.get("source_url") or (f"/api/skill-review/documents/{doc_id}/download" if doc_id else "")).strip()
+            items_out.append(
+                {
+                    "document_id": doc_id,
+                    "title": str(doc.get("title") or "Evidence Dataset"),
+                    "source_url": url,
+                    "scientific_field": str(doc.get("scientific_field") or ""),
+                    "role": "Primary Pattern Evidence",
+                    "full_reference": ref,
+                }
+            )
+
+    if include_field_sources and len(items_out) < max(4, max_items):
+        fields = sanitize_pattern_fields(
+            pattern.get("fields_involved"),
+            fallback_text=f"{pattern.get('title') or ''} {pattern.get('statement') or ''}",
+        )
+        if not fields:
+            fields = _load_fields(str(pattern.get("fields_involved") or "[]"))
+        try:
+            with library_connection("gemma") as conn:
+                for f_slug in (fields or [""])[:3]:
+                    if f_slug:
+                        rows = conn.execute(
+                            """
+                            SELECT id, title, authors, publisher, published_date, source_url, source_type, scientific_field, module, topic
+                            FROM documents
+                            WHERE LOWER(COALESCE(scientific_field, '')) = LOWER(?)
+                              AND COALESCE(title, '') <> ''
+                            ORDER BY CASE WHEN COALESCE(authors, '') <> '' THEN 0 ELSE 1 END,
+                                     CASE WHEN COALESCE(source_url, '') <> '' THEN 0 ELSE 1 END,
+                                     id DESC
+                            LIMIT 5
+                            """,
+                            (f_slug,),
+                        ).fetchall()
+                    else:
+                        rows = conn.execute(
+                            """
+                            SELECT id, title, authors, publisher, published_date, source_url, source_type, scientific_field, module, topic
+                            FROM documents
+                            WHERE COALESCE(title, '') <> ''
+                            ORDER BY id DESC
+                            LIMIT 4
+                            """
+                        ).fetchall()
+                    for r in rows:
+                        d = dict(r)
+                        did = int(d.get("id") or 0)
+                        if did in seen_doc_ids:
+                            continue
+                        seen_doc_ids.add(did)
+                        ref = _apa_reference(d)
+                        key = ref.lower()
+                        if ref and key not in seen_refs:
+                            seen_refs.add(key)
+                            url = str(d.get("source_url") or (f"/api/skill-review/documents/{did}/download" if did else "")).strip()
+                            items_out.append(
+                                {
+                                    "document_id": did,
+                                    "title": str(d.get("title") or f"Dataset #{did}"),
+                                    "source_url": url,
+                                    "scientific_field": str(d.get("scientific_field") or f_slug),
+                                    "role": "Corroborating Field Dataset",
+                                    "full_reference": ref,
+                                }
+                            )
+                            if len(items_out) >= max_items:
+                                break
+                    if len(items_out) >= max_items:
+                        break
+        except Exception:
+            pass
+
+    for idx, item in enumerate(items_out, start=1):
+        item["citation_key"] = f"[{idx}]"
+    return items_out[:max_items]
+
+
+def _citations_for_pattern(pattern: dict[str, Any], *, include_field_sources: bool = True) -> list[str]:
+    """APA 7th works-cited entries for a pattern's evidence and corroborating field datasets."""
+    return [
+        str(item.get("full_reference") or "")
+        for item in _citation_items_for_pattern(pattern, include_field_sources=include_field_sources)
+        if item.get("full_reference")
+    ]
+
 
 
 # ---------------------------------------------------------------------------

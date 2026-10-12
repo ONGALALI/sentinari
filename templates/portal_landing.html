@@ -412,7 +412,7 @@
       <div class="nav-links">
         <a href="#architecture">Architecture</a>
         <a href="#domains">Domains</a>
-        <a href="#governance">Article V</a>
+        <a href="/ui/patterns">New Patterns (<span id="navPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
         <a href="/ui/chat">Research Chat</a>
         <a href="/ui/start" class="btn-launch">Launch Studio &rarr;</a>
       </div>
@@ -437,17 +437,26 @@
         </p>
         <div class="cta-group">
           <a href="/ui/chat" class="btn-primary">Open Research Console</a>
+          <a href="/ui/patterns" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
           <a href="/ui/start" class="btn-secondary">Operator Start Studio</a>
         </div>
       </section>
 
       <!-- Live Telemetry Matrix -->
       <section class="telemetry-grid">
+        <a href="/ui/patterns" class="stat-card" style="text-decoration:none;border-color:rgba(99, 102, 241, 0.45);">
+          <div class="stat-label">
+            <span class="stat-dot" style="background:#818cf8;box-shadow:0 0 8px #818cf8;"></span> New Pattern Discoveries
+          </div>
+          <div class="stat-value" id="portalPatternsCount">{{PATTERNS_COUNT}}</div>
+          <div class="stat-sub" id="portalPatternsSub">{{ANALYZED_COUNT}} datasets analyzed &bull; 15-Indicator R&amp;D Papers</div>
+        </a>
+
         <div class="stat-card">
           <div class="stat-label">
             <span class="stat-dot"></span> Curated Works
           </div>
-          <div class="stat-value">14,789</div>
+          <div class="stat-value" id="portalDocsCount">{{DOCS_COUNT}}</div>
           <div class="stat-sub">Peer-reviewed papers, patents, repositories</div>
         </div>
 
@@ -574,6 +583,7 @@
     <div class="container">
       <div class="footer-links">
         <a href="/ui/start">Studio Start</a>
+        <a href="/ui/patterns">New Pattern Discoveries</a>
         <a href="/ui/chat">Research Chat</a>
         <a href="/ui/admin">Admin Console</a>
         <a href="/health">Health Status</a>
@@ -582,5 +592,38 @@
       <p>&copy; 2026 Sentinari &bull; Inspirari Research Initiative &bull; Powered by Google Cloud Platform</p>
     </div>
   </footer>
+  <script>
+  (() => {
+    const fmt = (n) => new Intl.NumberFormat().format(Number(n) || 0);
+    async function refreshPortalTelemetry() {
+      try {
+        const res = await fetch('/api/patterns/discovery-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const totalPats = Number(data.total_patterns || data.candidate_patterns || 0);
+        const docsTotal = Number(data.library_documents || 0);
+        const docsAnalyzed = Number(data.documents_analyzed || 0);
+        if (totalPats > 0) {
+          const pEl = document.getElementById('portalPatternsCount');
+          const nEl = document.getElementById('navPatternsCount');
+          const cEl = document.getElementById('ctaPatternsCount');
+          if (pEl) pEl.textContent = fmt(totalPats);
+          if (nEl) nEl.textContent = fmt(totalPats);
+          if (cEl) cEl.textContent = fmt(totalPats);
+        }
+        if (docsTotal > 0) {
+          const dEl = document.getElementById('portalDocsCount');
+          if (dEl) dEl.textContent = fmt(docsTotal);
+        }
+        const subEl = document.getElementById('portalPatternsSub');
+        if (subEl) {
+          subEl.innerHTML = `${fmt(docsAnalyzed)} datasets analyzed &bull; 15-Indicator R&amp;D Papers`;
+        }
+      } catch (_) {}
+    }
+    refreshPortalTelemetry();
+    setInterval(refreshPortalTelemetry, 10000);
+  })();
+  </script>
 </body>
 </html>

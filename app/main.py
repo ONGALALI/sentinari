@@ -635,6 +635,13 @@ def startup_event() -> None:
         # Sequential load queue (owner directive): one load at a time, with
         # live per-job status in the UI.
         _get_load_queue().start()
+        # Start continuous background pattern discovery daemon (owner directive: allocate compute to pattern discovery)
+        try:
+            from .pattern_api import ensure_continuous_discovery_daemon
+
+            ensure_continuous_discovery_daemon()
+        except Exception:
+            pass
         # Owner directive: the 1/2-page background self-exam loop in
         # learning_index is stopped (Gemma does not benefit from self-written
         # document questions; HLE is the only exam that matters).
@@ -668,7 +675,32 @@ def ui_portal_landing() -> HTMLResponse:
     """The public platform landing page and research portal."""
     page = get_project_root() / "templates" / "portal_landing.html"
     if page.exists():
-        return HTMLResponse(page.read_text(encoding="utf-8"))
+        html_text = page.read_text(encoding="utf-8")
+        patterns_count = 25
+        docs_count = 15041
+        analyzed_count = 0
+        try:
+            from .pattern_store import _connect as _pconn, ensure_pattern_store
+            from .db import library_connection
+
+            ensure_pattern_store()
+            with _pconn() as sconn:
+                patterns_count = int(sconn.execute("SELECT COUNT(1) AS n FROM patterns").fetchone()["n"])
+                analyzed_count = int(
+                    sconn.execute(
+                        "SELECT COUNT(DISTINCT document_id) AS n FROM pattern_extraction_log WHERE status = 'ok' AND document_id IS NOT NULL"
+                    ).fetchone()["n"]
+                )
+            with library_connection("gemma") as lconn:
+                docs_count = int(lconn.execute("SELECT COUNT(1) AS n FROM documents").fetchone()["n"])
+        except Exception:
+            pass
+        html_text = (
+            html_text.replace("{{PATTERNS_COUNT}}", f"{patterns_count:,}")
+            .replace("{{DOCS_COUNT}}", f"{docs_count:,}")
+            .replace("{{ANALYZED_COUNT}}", f"{analyzed_count:,}")
+        )
+        return HTMLResponse(html_text)
     return HTMLResponse("", status_code=307, headers={"Location": "/ui/start"})
 
 
@@ -688,6 +720,7 @@ _SIDE_NAV_ITEMS = [
     ("/ui/search", "Search Library", "Datasets ingested per scientific field."),
     ("/ui/model-lab", "The API Black-Box Pivot", "Behavioral auditing of API models — Echo Test & Guardrail Index."),
     ("/ui/admin", "Admin Console", "Profile, memory, and task board."),
+    ("/", "Website Landing Page", "Exit to Sentinari Frontpage."),
 ]
 
 _LEFT_RAIL_CSS = """

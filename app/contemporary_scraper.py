@@ -627,8 +627,11 @@ def scrape_contemporary_sources(
     lanes: list[str] | None = None,
     max_per_lane: int = 3,
     ingest_to_library: bool = True,
+    synthesize: bool = True,
 ) -> dict[str, Any]:
-    """Run the multi-lane contemporary scraper, optionally ingest into the library, and synthesize."""
+    """Run the multi-lane contemporary scraper in parallel, optionally ingest into the library, and synthesize."""
+    from concurrent.futures import ThreadPoolExecutor
+
     clean_query = str(query or "").strip()
     if not clean_query:
         raise ValueError("Query matter is required for contemporary scraping.")
@@ -650,16 +653,23 @@ def scrape_contemporary_sources(
     per_lane = max(1, min(6, int(max_per_lane or 3)))
 
     all_items: list[dict[str, Any]] = []
-    if "openalex" in wanted_lanes:
-        all_items.extend(_scrape_openalex_contemporary(search_q, max_results=per_lane))
-    if "arxiv" in wanted_lanes:
-        all_items.extend(_scrape_arxiv_contemporary(search_q, max_results=per_lane))
-    if "crossref" in wanted_lanes:
-        all_items.extend(_scrape_crossref_contemporary(search_q, max_results=per_lane))
-    if "europepmc" in wanted_lanes or "pubmed" in wanted_lanes:
-        all_items.extend(_scrape_europepmc_contemporary(search_q, max_results=per_lane))
-    if "web" in wanted_lanes or "news" in wanted_lanes:
-        all_items.extend(_scrape_contemporary_web_and_news(search_q, max_results=per_lane))
+    tasks: list[Any] = []
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        if "arxiv" in wanted_lanes:
+            tasks.append(ex.submit(_scrape_arxiv_contemporary, search_q, per_lane))
+        if "crossref" in wanted_lanes:
+            tasks.append(ex.submit(_scrape_crossref_contemporary, search_q, per_lane))
+        if "europepmc" in wanted_lanes or "pubmed" in wanted_lanes:
+            tasks.append(ex.submit(_scrape_europepmc_contemporary, search_q, per_lane))
+        if "web" in wanted_lanes or "news" in wanted_lanes:
+            tasks.append(ex.submit(_scrape_contemporary_web_and_news, search_q, per_lane))
+        if "openalex" in wanted_lanes:
+            tasks.append(ex.submit(_scrape_openalex_contemporary, search_q, per_lane))
+        for fut in tasks:
+            try:
+                all_items.extend(fut.result(timeout=10) or [])
+            except Exception:
+                pass
 
     # Deduplicate by normalized title
     deduped: list[dict[str, Any]] = []
@@ -686,7 +696,7 @@ def scrape_contemporary_sources(
             query=clean_query,
         )
 
-    synthesis = synthesize_contemporary_insights(clean_query, deduped, clean_fields)
+    synthesis = synthesize_contemporary_insights(clean_query, deduped, clean_fields) if synthesize else ""
 
     return {
         "ok": True,
@@ -698,3 +708,120 @@ def scrape_contemporary_sources(
         "items": deduped,
         "synthesis": synthesis,
     }
+
+
+def search_contemporary_candidates(
+    query: str,
+    *,
+    field: str = "",
+    limit: int = 8,
+    page: int = 1,
+) -> dict[str, Any]:
+    """Return scraped contemporary articles, preprints, and recent journals formatted
+    as review candidates (`source_type = 'contemporary'`) for the unified Playground scan.
+    """
+    clean_query = str(query or "").strip()
+    if not clean_query:
+        return {"ok": True, "candidates": [], "count": 0}
+    res = scrape_contemporary_sources(
+        clean_query,
+        fields=[field] if field else [],
+        lanes=["arxiv", "crossref", "europepmc", "web", "openalex"],
+        max_per_lane=max(2, min(5, (int(limit or 8) // 2) + 1)),
+        ingest_to_library=False,
+        synthesize=False,
+    )
+    items = list(res.get("items") or [])
+    candidates: list[dict[str, Any]] = []
+    for idx, it in enumerate(items):
+        url = str(it.get("url") or "").strip()
+        title = str(it.get("title") or "Contemporary Article").strip()
+        if not url:
+            slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
+            url = f"https://scholar.google.com/scholar?q={quote_plus(title)}#{slug}-{idx}"
+        lane_label = str(it.get("lane") or "Contemporary Source").strip()
+        pub_label = str(it.get("publisher") or "").strip()
+        pub_date = str(it.get("published_date") or "").strip()
+        year_match = re.search(r"\b(20\d{2})\b", pub_date)
+        year_val = int(year_match.group(1)) if year_match else datetime.now(timezone.utc).year
+        summary = str(it.get("summary") or "").strip()
+        c_field = str(it.get("scientific_field") or field or "physics")
+        c_domain = str(it.get("domain") or "")
+        candidates.append(
+            {
+                "source_type": "contemporary",
+                "source_url": url,
+                "title": title,
+                "description": f"[{lane_label}] {summary}"[:1000],
+                "abstract": summary[:2000],
+                "authors": str(it.get("authors") or "Contemporary Research Contributors"),
+                "journal": f"{lane_label}" + (f" · {pub_label}" if pub_label and pub_label != lane_label else ""),
+                "contemporary_lane": lane_label,
+                "publisher": pub_label,
+                "published_date": pub_date,
+                "year": year_val,
+                "is_oa": True,
+                "has_full_text": True,
+                "scientific_field": c_field,
+                "field_slug": c_field,
+                "domain_slug": c_domain,
+                "target_persona": "gemma",
+                "license": "open-contemporary",
+            }
+        )
+    if page > 1 and len(candidates) > limit:
+        start = (page - 1) * max(1, limit // 2)
+        candidates = candidates[start : start + limit]
+    else:
+        candidates = candidates[:limit]
+    return {"ok": True, "candidates": candidates, "count": len(candidates)}
+
+
+def load_contemporary_candidate_into_field(
+    candidate: dict[str, Any],
+    field_slug: str,
+) -> dict[str, Any]:
+    """Ingest a single scraped contemporary candidate into a Sentinel field."""
+    from . import load_progress
+
+    title = str(candidate.get("title") or "Contemporary Source").strip()
+    url = str(candidate.get("source_url") or candidate.get("url") or "").strip()
+    summary = str(candidate.get("abstract") or candidate.get("description") or "").strip()
+    # If full article text snippet is available on the live web page, enrich the summary
+    load_progress.emit("download", f"Scraping full contemporary article text for \"{title[:60]}\"...")
+    extra_body = _fetch_article_body_snippet(url, timeout=8) if url else ""
+    if extra_body and extra_body[:100] not in summary:
+        full_summary = f"{summary}\n\n--- Scraped Contemporary Article Body Excerpt ---\n{extra_body}"
+    else:
+        full_summary = summary
+
+    item = {
+        "lane": str(candidate.get("contemporary_lane") or candidate.get("journal") or "Scraped Contemporary Source"),
+        "source_type": "contemporary-article",
+        "title": title,
+        "authors": str(candidate.get("authors") or "Contemporary Contributors"),
+        "publisher": str(candidate.get("publisher") or candidate.get("journal") or "Contemporary Venue"),
+        "published_date": str(candidate.get("published_date") or candidate.get("year") or ""),
+        "url": url,
+        "summary": full_summary if len(full_summary) >= 60 else f"{title}. {full_summary} (Contemporary scraped record from {url}).",
+        "scientific_field": field_slug,
+    }
+    load_progress.emit("embed", f"Ingesting contemporary source \"{title[:60]}\" into {field_slug}...")
+    records = ingest_contemporary_items([item], requested_fields=[field_slug], query=title)
+    if not records:
+        return {"ok": False, "error": item.get("ingest_error") or "Contemporary source ingestion failed."}
+    rec = records[0]
+    doc_id = int(rec.get("document_id") or 0)
+    return {
+        "ok": True,
+        "field_slug": str(rec.get("scientific_field") or field_slug),
+        "domain_slug": str(rec.get("domain") or ""),
+        "ingested": 1,
+        "ingested_files": 1,
+        "ingested_chunks": int(rec.get("chunks") or 1),
+        "document_ids": [doc_id],
+        "items": [{"ok": True, "document_id": doc_id, "title": title}],
+        "title": title,
+        "source_url": url,
+    }
+

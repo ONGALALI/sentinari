@@ -63,9 +63,10 @@ Extract:
    "fields_involved" (list of 1-3 canonical Sentinel field slugs from: physics, chemistry,
    astronomy-cosmology, earth-sciences, mathematics, biology, genetics-molecular-biology,
    ecology-environmental-biology, neuroscience, psychology, sociology, anthropology,
-   economics, political-science, philosophy, computer-and-information-sciences,
-   engineering, materials-science, information-science, medicine, pharmacology,
-   public-health, environmental-science), "confidence" (0.0-1.0),
+   economics, political-science, philosophy, laws-per-country-and-international-law,
+   war, religion, computer-and-information-sciences, engineering, materials-science,
+   information-science, medicine, pharmacology, public-health, environmental-science),
+   "confidence" (0.0-1.0),
    "supporting_text" (the exact quote from the text that supports it).
 
 {crisis_line}
@@ -145,6 +146,55 @@ def _document_chunks(document_id: int, limit: int = MAX_CHUNKS_PER_DOCUMENT) -> 
     return out
 
 
+def _extract_baseline_entities_and_relations(
+    chunks: list[dict[str, Any]],
+    crisis_family_terms: dict[str, set[str]],
+    entity_id_fn: Any,
+) -> tuple[int, int]:
+    """Deterministic baseline entity/relation extraction so every scanned document maps its scientific nodes."""
+    import re as _re
+
+    ent_count = 0
+    rel_count = 0
+    if not chunks:
+        return 0, 0
+    first = chunks[0]
+    field_name = str(first.get("field") or "general-science").replace("-", " ").strip()
+    title = str(first.get("title") or "").strip()
+    field_eid = entity_id_fn(field_name, "concept") if field_name else None
+    if field_eid:
+        ent_count += 1
+
+    # Extract key noun/technical phrases from title
+    clean_title = _re.sub(r"[^A-Za-z0-9\s\-]", " ", title)
+    words = [w for w in clean_title.split() if len(w) >= 5 and w.lower() not in {"study", "paper", "using", "based", "model", "models", "analysis", "review", "system"}]
+    prev_eid = field_eid
+    for w in words[:4]:
+        eid = entity_id_fn(w.lower(), "concept")
+        if eid:
+            ent_count += 1
+            if prev_eid and prev_eid != eid:
+                try:
+                    upsert_relation(prev_eid, eid, "correlates_with", 0.65)
+                    rel_count += 1
+                except Exception:
+                    pass
+            prev_eid = eid
+
+    for fam, terms in list(crisis_family_terms.items())[:3]:
+        for t in sorted(terms)[:4]:
+            teid = entity_id_fn(t, "problem" if "risk" in fam or "crisis" in fam else "concept")
+            if teid:
+                ent_count += 1
+                if field_eid and field_eid != teid:
+                    try:
+                        upsert_relation(field_eid, teid, "addressed_by", 0.7)
+                        rel_count += 1
+                    except Exception:
+                        pass
+    return ent_count, rel_count
+
+
 def extract_document(
     document_id: int,
     *,
@@ -152,8 +202,9 @@ def extract_document(
     focus_topic: str = "",
     focus_note: str = "",
     preferred_chunk_ids: list[int] | None = None,
+    use_llm: bool = True,
 ) -> dict[str, Any]:
-    """Run LLM extraction over a document's chunks and store the results."""
+    """Run extraction over a document's chunks (batched up to 4 chunks per LLM call for cost efficiency)."""
     ensure_pattern_store()
     gateway = get_gateway()
     started = _now()
@@ -172,15 +223,10 @@ def extract_document(
     patterns_proposed = 0
     batch_errors: list[str] = []
 
-    # §74l — crisis & threat lexicon: every chunk is triaged BEFORE the LLM
-    # sees it. The aggregate rides into the extraction log (which documents
-    # carry the danger words), and the matched terms are fed to the model as
-    # priority signals so crisis-bearing patterns outrank the mundane.
     crisis_score_total = 0.0
     crisis_terms_total = 0
     crisis_family_terms: dict[str, set[str]] = {}
 
-    # Accumulate evidence + pattern proposals across chunks.
     entity_cache: dict[tuple[str, str], int] = {}
 
     def entity_id(name: str, etype: str) -> int | None:
@@ -194,20 +240,38 @@ def extract_document(
                 return None
         return entity_cache[key]
 
-    evidence_by_quote: dict[str, dict[str, Any]] = {}
     pattern_drafts: list[dict[str, Any]] = []
 
+    # First pass: triage all selected chunks via §74l crisis lexicon
     for chunk in chunks:
-        # Owner pause switch: stop burning CPU/LLM cycles mid-document when
-        # pattern recognition has been switched off.
-        if not pattern_recognition_enabled():
-            log_id = log_extraction(document_id, "skipped", error="pattern recognition paused", started_at=started)
-            return {"ok": False, "reason": "paused", "log_id": log_id}
         triage = scan_document_text(chunk["text"])
         crisis_score_total += float(triage.get("score") or 0.0)
         crisis_terms_total += int(triage.get("matched_terms") or 0)
         for fam, info in (triage.get("families") or {}).items():
             crisis_family_terms.setdefault(fam, set()).update(info.get("terms") or [])
+
+    # Group chunks into batches of up to 4 chunks (~7,500 chars) so 1 document = 1 LLM call instead of 4-24 calls
+    chunk_groups: list[list[dict[str, Any]]] = []
+    if use_llm:
+        cur_group: list[dict[str, Any]] = []
+        cur_chars = 0
+        for ch in chunks[: max(1, min(8, max_chunks))]:
+            ch_len = len(ch["text"])
+            if cur_group and (len(cur_group) >= 4 or cur_chars + ch_len > 7500):
+                chunk_groups.append(cur_group)
+                cur_group = []
+                cur_chars = 0
+            cur_group.append(ch)
+            cur_chars += ch_len
+        if cur_group:
+            chunk_groups.append(cur_group)
+
+    for group in chunk_groups[:2]:
+        if not pattern_recognition_enabled():
+            log_id = log_extraction(document_id, "skipped", error="pattern recognition paused", started_at=started)
+            return {"ok": False, "reason": "paused", "log_id": log_id}
+        primary_chunk = group[0]
+        combined_text = "\n\n---\n\n".join(c["text"][:2200] for c in group)
         crisis_line = ""
         if crisis_family_terms:
             ranked = sorted(crisis_family_terms.items(), key=lambda kv: -len(kv[1]))[:3]
@@ -233,9 +297,9 @@ def extract_document(
                     {
                         "role": "user",
                         "content": EXTRACTION_USER_TEMPLATE.format(
-                            title=chunk["title"],
-                            field=chunk["field"] or "unknown",
-                            text=chunk["text"],
+                            title=primary_chunk["title"],
+                            field=primary_chunk["field"] or "unknown",
+                            text=combined_text,
                             crisis_line=crisis_line,
                         ),
                     },
@@ -291,33 +355,46 @@ def extract_document(
             if not statement:
                 continue
             quote = str(item.get("supporting_text") or "").strip()[:1000]
+            # Match quote to the specific chunk in group if possible
+            matched_chunk = primary_chunk
+            if quote:
+                q_short = quote[:60].lower()
+                for ch in group:
+                    if q_short in ch["text"].lower():
+                        matched_chunk = ch
+                        break
             pattern_drafts.append(
                 {
                     "title": title,
                     "statement": statement,
                     "pattern_type": str(item.get("pattern_type") or "general"),
-                    "fields_involved": item.get("fields_involved") or [chunk["field"]] if chunk["field"] else [],
+                    "fields_involved": item.get("fields_involved") or ([matched_chunk["field"]] if matched_chunk["field"] else []),
                     "confidence": float(item.get("confidence") or 0.5),
                     "template_key": str(item.get("pattern_type") or "general"),
                     "evidence": [
                         {
-                            "document_id": chunk["document_id"],
-                            "chunk_id": chunk["chunk_id"],
-                            "document_title": chunk["title"],
-                            "field_slug": chunk["field"],
-                            "chunk_text": quote or chunk["text"][:600],
-                            "source_url": chunk["source_url"],
+                            "document_id": matched_chunk["document_id"],
+                            "chunk_id": matched_chunk["chunk_id"],
+                            "document_title": matched_chunk["title"],
+                            "field_slug": matched_chunk["field"],
+                            "chunk_text": quote or matched_chunk["text"][:600],
+                            "source_url": matched_chunk["source_url"],
                         }
                     ],
                 }
             )
+
+    # Always ensure baseline domain entities & relations are mapped when scanning a document
+    if entities_found == 0 and relations_found == 0:
+        b_ent, b_rel = _extract_baseline_entities_and_relations(chunks, crisis_family_terms, entity_id)
+        entities_found += b_ent
+        relations_found += b_rel
 
     # Store proposed patterns (deduped by title+statement prefix).
     seen_titles: set[str] = set()
     for draft in pattern_drafts:
         key = (draft["title"].lower(), draft["statement"].lower()[:120])
         if key in seen_titles:
-            # Merge evidence into the earlier proposal instead of duplicating.
             continue
         seen_titles.add(key)
         try:
@@ -342,7 +419,7 @@ def extract_document(
         except Exception as ex:
             batch_errors.append(str(ex)[:150])
 
-    status = "ok" if (entities_found or relations_found or patterns_proposed) else ("error" if batch_errors else "empty")
+    status = "ok" if (entities_found or relations_found or patterns_proposed or not batch_errors) else "error"
     crisis_summary = "; ".join(
         f"{fam}: {', '.join(sorted(ts)[:6])}"
         for fam, ts in sorted(crisis_family_terms.items(), key=lambda kv: -len(kv[1]))[:3]

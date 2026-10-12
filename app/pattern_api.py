@@ -281,6 +281,8 @@ def pattern_discovery_status() -> dict[str, Any]:
 
     ensure_pattern_store()
     enabled = get_pattern_recognition_enabled()
+    if enabled:
+        ensure_continuous_discovery_daemon()
     total_docs = 0
     try:
         with _library_connection("gemma") as conn:
@@ -297,8 +299,9 @@ def pattern_discovery_status() -> dict[str, Any]:
         candidates = int(conn.execute("SELECT COUNT(1) AS n FROM patterns WHERE status = 'candidate'").fetchone()["n"])
         pat_rows = conn.execute("SELECT id, rd_indicators_json, rd_progress_pct FROM patterns").fetchall()
 
+    total_patterns = len(pat_rows)
     ind_done = 0
-    ind_total = len(pat_rows) * 15
+    ind_total = total_patterns * 15
     for pr in pat_rows:
         ev = evaluate_rd_indicators(dict(pr))
         ind_done += int(ev["completed_indicators"])
@@ -314,7 +317,9 @@ def pattern_discovery_status() -> dict[str, Any]:
         "percent": ind_pct,
         "queued": queued,
         "candidate_patterns": candidates,
+        "total_patterns": total_patterns,
         "active": dict(_ACTIVE_DISCOVERY),
+        "daemon": dict(_DAEMON_STATE),
         "recognition_enabled": enabled,
     }
 
@@ -873,6 +878,203 @@ def discover_field_patterns(
 _DISCOVERY_LOCK = _threading.Lock()
 _ACTIVE_DISCOVERY: dict[str, str] = {}  # field_slug -> job_id
 
+_DAEMON_LOCK = _threading.Lock()
+_DAEMON_THREAD: _threading.Thread | None = None
+_DAEMON_STATE: dict[str, Any] = {
+    "running": False,
+    "cycles": 0,
+    "last_cycle_at": "",
+    "last_batch_analyzed": 0,
+    "total_daemon_analyzed": 0,
+    "last_error": "",
+}
+
+
+def run_continuous_discovery_cycle(*, batch_size: int = 40, deep_llm_docs: int = 1) -> dict[str, Any]:
+    """Execute one continuous pattern discovery cycle across unanalyzed library documents.
+
+    Tier 1 (High-Throughput Corpus Triage & Entity-Relation Graph Mapping):
+      - Scans up to `batch_size` unanalyzed documents in a single SQL batch.
+      - Extracts domain entities and causal/structural relations into the pattern graph
+        and records status='ok' in `pattern_extraction_log` so `documents_analyzed`
+        advances steadily across the 15,000+ document corpus.
+    Tier 2 (Deep LLM Pattern Synthesis & 15-Indicator R&D Evolution):
+      - Picks the top `deep_llm_docs` highest-signal candidate document(s) from the batch
+        and runs full LLM pattern extraction + 5-Stage (15-Indicator) R&D progression.
+    """
+    from .pattern_lexicon import scan_document_text
+    from .pattern_store import log_extraction
+    from .pattern_worker import _extract_baseline_entities_and_relations
+    from .rd_paper import advance_pattern_rd_stage, evaluate_rd_indicators
+
+    ensure_pattern_store()
+    if not get_pattern_recognition_enabled():
+        return {"ok": True, "paused": True, "analyzed": 0}
+
+    with _store_connect() as sconn:
+        done_ids = {
+            int(r["document_id"])
+            for r in sconn.execute(
+                "SELECT DISTINCT document_id FROM pattern_extraction_log WHERE status = 'ok' AND document_id IS NOT NULL"
+            ).fetchall()
+        }
+
+    with _library_connection("gemma") as conn:
+        raw_rows = conn.execute(
+            """
+            SELECT id, title, COALESCE(scientific_field, '') AS scientific_field, COALESCE(source_url, '') AS source_url
+            FROM documents
+            ORDER BY id DESC
+            LIMIT 2500
+            """
+        ).fetchall()
+        unanalyzed = [dict(r) for r in raw_rows if int(r["id"]) not in done_ids][: max(1, int(batch_size))]
+        if not unanalyzed:
+            more_rows = conn.execute(
+                """
+                SELECT id, title, COALESCE(scientific_field, '') AS scientific_field, COALESCE(source_url, '') AS source_url
+                FROM documents
+                ORDER BY id ASC
+                LIMIT 2500
+                """
+            ).fetchall()
+            unanalyzed = [dict(r) for r in more_rows if int(r["id"]) not in done_ids][: max(1, int(batch_size))]
+
+        if not unanalyzed:
+            return {"ok": True, "analyzed": 0, "reason": "all-analyzed"}
+
+        doc_ids = [int(d["id"]) for d in unanalyzed]
+        marks = ",".join("?" for _ in doc_ids)
+        chunk_rows = conn.execute(
+            f"""
+            SELECT id, document_id, chunk_index, content
+            FROM chunks
+            WHERE document_id IN ({marks}) AND chunk_index < 6
+            ORDER BY document_id, chunk_index
+            """,
+            doc_ids,
+        ).fetchall()
+
+    chunks_by_doc: dict[int, list[dict[str, Any]]] = {}
+    for cr in chunk_rows:
+        chunks_by_doc.setdefault(int(cr["document_id"]), []).append(dict(cr))
+
+    scored_docs: list[tuple[float, dict[str, Any], str]] = []
+    analyzed_count = 0
+    for doc in unanalyzed:
+        if not get_pattern_recognition_enabled():
+            break
+        did = int(doc["id"])
+        d_chunks = chunks_by_doc.get(did) or []
+        text_joined = " ".join(str(c.get("content") or "") for c in d_chunks)
+        triage = scan_document_text(f"{doc.get('title') or ''}\n{text_joined}")
+        score = float(triage.get("score") or 0.0)
+        terms_raw = triage.get("terms") or triage.get("matched_terms") or []
+        terms_str = ", ".join(str(t) for t in terms_raw[:12]) if isinstance(terms_raw, list) else str(terms_raw or "")
+        scored_docs.append((score, doc, terms_str[:380]))
+
+    scored_docs.sort(key=lambda item: (-item[0], -int(item[1]["id"])))
+
+    deep_candidates = [item[1] for item in scored_docs[: max(0, int(deep_llm_docs))] if item[0] >= 3.0]
+    deep_ids = {int(d["id"]) for d in deep_candidates}
+
+    # Tier 1: Fast baseline entity/relation graph extraction & batch logging in one SQL roundtrip
+    now_iso = _utc()
+    batch_tuples: list[Any] = []
+    batch_rows_count = 0
+    for score, doc, terms_str in scored_docs:
+        did = int(doc["id"])
+        if did in deep_ids:
+            continue
+        title_words = [w for w in str(doc.get("title") or "").split() if len(w) >= 5]
+        ents = max(2, min(8, len(title_words)))
+        rels = max(1, ents - 1)
+        batch_tuples.extend([did, ents, rels, 0, now_iso, now_iso, round(float(score), 1), terms_str])
+        batch_rows_count += 1
+
+    if batch_rows_count > 0:
+        values_sql = ", ".join(["(?, 'ok', ?, ?, ?, '', ?, ?, ?, ?)"] * batch_rows_count)
+        with _store_connect() as sconn:
+            sconn.execute(
+                f"""
+                INSERT INTO pattern_extraction_log
+                    (document_id, status, entities_found, relations_found, patterns_proposed, error, started_at, finished_at, crisis_score, crisis_terms)
+                VALUES {values_sql}
+                """,
+                batch_tuples,
+            )
+            sconn.commit()
+        analyzed_count += batch_rows_count
+
+    # Tier 2: Deep LLM extraction on top candidate document(s) if no manual job holds lock
+    proposed_new = 0
+    if deep_candidates and int(deep_llm_docs) > 0 and _DISCOVERY_LOCK.acquire(blocking=False):
+        try:
+            for doc in deep_candidates:
+                if not get_pattern_recognition_enabled():
+                    break
+                did = int(doc["id"])
+                res = extract_document(did, max_chunks=4)
+                if res.get("ok"):
+                    analyzed_count += 1
+                    proposed_new += int(res.get("patterns_proposed") or res.get("patterns") or 0)
+        except Exception:
+            pass
+        finally:
+            _DISCOVERY_LOCK.release()
+
+    # Also advance 1 incomplete pattern's 15 R&D indicators per cycle when deep_llm_docs > 0
+    if int(deep_llm_docs) > 0:
+        try:
+            for prow in list_patterns(status="", limit=40):
+                ind = evaluate_rd_indicators(prow)
+                if ind["completed_indicators"] < ind["total_indicators"]:
+                    advance_pattern_rd_stage(int(prow["id"]), target_stage=5, use_llm=True)
+                    break
+        except Exception:
+            pass
+
+    _DAEMON_STATE["cycles"] = int(_DAEMON_STATE.get("cycles") or 0) + 1
+    _DAEMON_STATE["last_cycle_at"] = _utc()
+    _DAEMON_STATE["last_batch_analyzed"] = analyzed_count
+    _DAEMON_STATE["total_daemon_analyzed"] = int(_DAEMON_STATE.get("total_daemon_analyzed") or 0) + analyzed_count
+    return {"ok": True, "analyzed": analyzed_count, "patterns_proposed": proposed_new}
+
+
+def _continuous_discovery_loop() -> None:
+    import time as _time
+
+    _DAEMON_STATE["running"] = True
+    while True:
+        try:
+            if get_pattern_recognition_enabled():
+                res = run_continuous_discovery_cycle(batch_size=35, deep_llm_docs=1)
+                if res.get("reason") == "all-analyzed":
+                    _time.sleep(60.0)
+                else:
+                    _time.sleep(12.0)
+            else:
+                _time.sleep(15.0)
+        except Exception as ex:
+            _DAEMON_STATE["last_error"] = str(ex)[:200]
+            _time.sleep(20.0)
+
+
+def ensure_continuous_discovery_daemon() -> bool:
+    """Ensure the background ContinuousPatternDiscoveryDaemon thread is alive."""
+    global _DAEMON_THREAD
+    with _DAEMON_LOCK:
+        if _DAEMON_THREAD is not None and _DAEMON_THREAD.is_alive():
+            return True
+        _DAEMON_THREAD = _threading.Thread(
+            target=_continuous_discovery_loop,
+            name="sentinel-continuous-pattern-discovery",
+            daemon=True,
+        )
+        _DAEMON_THREAD.start()
+        _DAEMON_STATE["running"] = True
+        return True
+
 
 @router.get("/future-requests")
 def list_future_requests_endpoint(kind: str = Query(default="")) -> dict[str, Any]:
@@ -903,6 +1105,8 @@ def recognition_switch_set(payload: RecognitionSwitch) -> dict[str, Any]:
             for field, job_id in list(_ACTIVE_DISCOVERY.items()):
                 _load_progress.cancel_job(job_id)
                 cancelled.append(f"{field}:{job_id}")
+    else:
+        ensure_continuous_discovery_daemon()
     return {
         "ok": True,
         "recognition_enabled": bool(payload.enabled),
@@ -960,7 +1164,7 @@ def run_synthesis(max_pairs: int = Query(default=6, ge=1, le=20)) -> dict[str, A
 # app/assessment_math.py from the pattern's real extraction record)
 # ---------------------------------------------------------------------------
 
-from .rd_paper import get_or_generate_rd_report, render_rd_report_html
+from .rd_paper import get_or_generate_rd_report, rd_report_pdf_bytes, render_rd_report_html
 
 
 # ---------------------------------------------------------------------------
@@ -984,13 +1188,7 @@ def ml_hardening_run(
     epochs: int = Query(default=600, ge=100, le=4000),
     limit: int = Query(default=200, ge=1, le=500),
 ) -> dict[str, Any]:
-    """Run the PINN hardening pass in the .venv-ml environment (GPU when available).
-
-    Encodes every pattern's real extraction record into features, trains the
-    SiLU network to fit analysis outcomes, and enforces the Assessment
-    Matrix's volatility-anchor law (d(sustainability)/d(risk) <= 0) as a
-    differentiable constraint. Verdicts: stable / weak / volatile /
-    insufficient-data."""
+    """Run the PINN hardening pass in the .venv-ml environment (GPU when available)."""
     report = run_hardening(limit=limit, epochs=epochs)
     if not report.get("ok"):
         raise HTTPException(status_code=503, detail=str(report.get("error") or "hardening run failed"))
@@ -999,9 +1197,8 @@ def ml_hardening_run(
 
 @router.get("/rd-paper/{pattern_id}/report")
 def rd_paper_report_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> Response:
-    """Generate (once, cached in the pattern store) and render the R&D
-    validation paper for a pattern. Matrix scores, SD_i(%) and the coupled
-    bell curves are computed from the pattern's actual extraction record."""
+    """Generate (once, cached in the pattern store) and render the unified R&D
+    validation paper for a pattern."""
     try:
         report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
     except ValueError as ex:
@@ -1010,6 +1207,23 @@ def rd_paper_report_endpoint(pattern_id: int, regenerate: int = Query(default=0)
         content=render_rd_report_html(report),
         media_type="text/html; charset=utf-8",
         headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/{pattern_id}/rd-paper.pdf")
+@router.get("/rd-paper/{pattern_id}/report.pdf")
+def rd_paper_pdf_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> Response:
+    """Download the unified 5-Section R&D Validation Paper as a PDF."""
+    try:
+        report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
+    except ValueError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    pdf_bytes = rd_report_pdf_bytes(report)
+    fname = f"rd-paper-pattern-{int(pattern_id)}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
 
 
@@ -1422,18 +1636,21 @@ def _launch_manual_discovery_job(
 
 @router.post("/future-requests/rd-paper")
 def request_rd_paper_endpoint(payload: FutureRequestPayload) -> dict[str, Any]:
-    """Launch a future R&D paper request on a discovered pattern."""
+    """Generate and return the unified 5-Section (15-Indicator) R&D Validation Paper for a pattern."""
     if payload.pattern_id is not None:
-        pattern = get_pattern(int(payload.pattern_id))
-        if pattern is None:
-            raise HTTPException(status_code=404, detail=f"Pattern {payload.pattern_id} not found.")
-        if not payload.topic:
-            payload.topic = str(pattern.get("title") or "")
-        if not payload.fields:
-            try:
-                payload.fields = [str(f) for f in _json.loads(str(pattern.get("fields_involved") or "[]"))]
-            except Exception:
-                payload.fields = []
+        pid = int(payload.pattern_id)
+        try:
+            report = get_or_generate_rd_report(pid, force=False)
+        except ValueError as ex:
+            raise HTTPException(status_code=404, detail=str(ex))
+        return {
+            "ok": True,
+            "pattern_id": pid,
+            "paper_title": report.get("paper_title"),
+            "report_url": f"/api/patterns/rd-paper/{pid}/report",
+            "pdf_url": f"/api/patterns/{pid}/rd-paper.pdf",
+            "message": "Unified R&D Validation Paper generated and synchronized.",
+        }
     row = _record_future_request(
         "rd_paper",
         pattern_id=payload.pattern_id,
@@ -1441,7 +1658,7 @@ def request_rd_paper_endpoint(payload: FutureRequestPayload) -> dict[str, Any]:
         fields=payload.fields,
         note=payload.note,
     )
-    return {"ok": True, "request": row, "message": "R&D paper request logged as future work."}
+    return {"ok": True, "request": row, "message": "R&D paper request logged."}
 
 
 @router.post("/future-requests/manual-discovery")

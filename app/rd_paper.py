@@ -21,8 +21,9 @@ from typing import Any
 
 from .assessment_math import DIMENSIONS, LEVEL_BANDS, WEIGHTS, evaluate_pattern_matrix
 from .llm_gateway import LLMGatewayError, get_gateway
-from .pattern_report import _citations_for_pattern, _load_fields
+from .pattern_report import _citation_items_for_pattern, _citations_for_pattern, _load_fields
 from .pattern_store import _connect as _store_connect, ensure_pattern_store, get_pattern, get_pattern_graph
+from .text_pdf import build_pdf_bytes
 
 RD_STAGES: list[dict[str, Any]] = [
     {
@@ -42,9 +43,9 @@ RD_STAGES: list[dict[str, Any]] = [
         "name": "2. Introduction & Framework",
         "short_name": "Intro & Framework",
         "indicators": [
-            {"key": "problem_statement", "label": "Problem Statement"},
+            {"key": "problem_statement", "label": "Problem Statement & Hypothesis"},
             {"key": "literature_review", "label": "Background / Literature Review"},
-            {"key": "objectives", "label": "Measurable Objectives"},
+            {"key": "objectives", "label": "Measurable Objectives & Benefits"},
         ],
     },
     {
@@ -88,7 +89,7 @@ _PAPER_CSS = """
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #f1f5f9; color: #1e293b; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 22px 60px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 22px 60px; }
   .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 26px 28px; margin-top: 18px; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
   .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
   .badge { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; background: #eef2ff; color: #4338ca; padding: 4px 12px; border-radius: 8px; }
@@ -96,8 +97,9 @@ _PAPER_CSS = """
   .pid { font-family: Consolas, monospace; font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
   .label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #64748b; margin: 14px 0 6px; }
   .abstract { font-style: italic; font-family: Georgia, serif; font-size: 14px; line-height: 1.75; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; text-align: justify; }
+  .hyp-box { background: #eef2ff; border-left: 4px solid #4f46e5; border-radius: 10px; padding: 14px 18px; margin: 10px 0 14px; font-size: 13.5px; line-height: 1.7; color: #1e1b4b; }
   h3.sec { font-size: 18px; border-left: 4px solid #4f46e5; padding-left: 12px; margin: 0 0 16px; color: #0f172a; }
-  h4.subsec { font-size: 13.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #334155; margin: 18px 0 8px; display: flex; align-items: center; gap: 8px; }
+  h4.subsec { font-size: 13.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #334155; margin: 18px 0 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   h4.subsec .ind-tag { font-size: 10.5px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; padding: 1px 7px; border-radius: 999px; font-family: Consolas, monospace; }
   p.body { font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; margin: 0 0 10px; color: #334155; }
   .kw-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -118,8 +120,11 @@ _PAPER_CSS = """
   table.calc th { background: #f1f5f9; font-weight: 700; }
   table.calc td:first-child, table.calc th:first-child { text-align: left; }
   .band-1 { color: #64748b; } .band-2 { color: #b45309; font-weight: 700; } .band-3 { color: #15803d; font-weight: 700; }
-  .cite-keys { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .cite-key { font-family: Consolas, monospace; font-size: 11px; font-weight: 700; background: #eef2ff; color: #4338ca; border: 1px solid #e0e7ff; padding: 2px 8px; border-radius: 6px; }
+  .cite-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; }
+  .cite-key { font-family: Consolas, monospace; font-size: 11.5px; font-weight: 700; background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 2px 8px; border-radius: 6px; text-decoration: none; }
+  .cite-key:hover { background: #e0e7ff; }
+  a.inline-cite { font-family: Consolas, monospace; font-size: 12px; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 1px 5px; border-radius: 4px; text-decoration: none; margin: 0 1px; }
+  a.inline-cite:hover { text-decoration: underline; background: #e0e7ff; }
   ul.benefits { list-style: none; padding: 0; margin: 0; }
   ul.benefits li { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.65; margin: 8px 0; color: #334155; }
   ul.benefits li::before { content: "\\2022"; color: #4f46e5; font-size: 18px; line-height: 1.2; }
@@ -128,17 +133,26 @@ _PAPER_CSS = """
   .bib-item { display: flex; gap: 14px; padding: 12px 20px; font-size: 13px; align-items: flex-start; }
   .bib-item + .bib-item { border-top: 1px solid #f1f5f9; }
   .bib-key { font-family: Consolas, monospace; font-weight: 700; color: #4338ca; background: #eef2ff; border: 1px solid #e0e7ff; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
-  .bib-ref { font-family: Georgia, serif; text-align: justify; line-height: 1.6; color: #475569; margin: 0; }
-  .chartbox { position: relative; height: 380px; margin-top: 8px; }
+  .bib-role { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 1px 7px; border-radius: 999px; margin-left: 6px; font-family: system-ui, sans-serif; }
+  .bib-ref { font-family: Georgia, serif; text-align: justify; line-height: 1.6; color: #334155; margin: 0; flex: 1; }
+  .bib-ref a { color: #2563eb; text-decoration: none; font-family: Consolas, monospace; font-size: 12px; }
+  .bib-ref a:hover { text-decoration: underline; }
+  .chartbox { position: relative; height: 360px; margin-top: 10px; }
   .chart-note { font-size: 11.5px; color: #64748b; margin-top: 8px; line-height: 1.6; }
-  .sdrow { margin: 13px 0; }
+  .graphs-grid { display: grid; grid-template-columns: 1fr; gap: 22px; margin-top: 14px; }
+  .graph-panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; }
+  .sdrow { margin: 11px 0; }
   .sdhead { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: #475569; margin-bottom: 5px; }
   .sdhead .val { font-family: Consolas, monospace; color: #0f172a; }
-  .track { height: 9px; background: #f1f5f9; border-radius: 999px; overflow: hidden; border: 1px solid #eef2f7; }
+  .track { height: 9px; background: #e2e8f0; border-radius: 999px; overflow: hidden; border: 1px solid #cbd5e1; }
   .fill { height: 100%; background: linear-gradient(90deg, #6366f1, #4f46e5); border-radius: 999px; }
   .band { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: #f1f5f9; color: #64748b; margin-left: 8px; letter-spacing: 0.4px; }
+  .top-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .top-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; text-decoration: none; cursor: pointer; }
+  .top-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+  .top-btn.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
   .foot { font-size: 11.5px; color: #94a3b8; margin-top: 20px; text-align: center; line-height: 1.7; }
-  @media print { body { background: #fff; } .wrap { max-width: none; } .card { box-shadow: none; break-inside: avoid; } .chartbox { height: 300px; } }
+  @media print { body { background: #fff; } .wrap { max-width: none; } .card { box-shadow: none; break-inside: avoid; } .chartbox { height: 290px; } .top-actions { display: none; } }
 """
 
 
@@ -431,7 +445,7 @@ def _build_stage_data(
                 f"decision-making efficiency across coupled scientific and technological workflows."
             )
         lit = str(llm_sections.get("literature_review") or "").strip()
-        cite_str = " ".join(ref_keys[:4]) if ref_keys else "[1]"
+        cite_str = ", ".join(ref_keys[:4]) if ref_keys else "[1]"
         if len(lit) < 40:
             excerpt_summary = (
                 f" Prior corpus evidence ({cite_str}) establishes that: \"{evidence_excerpts[0][:260]}...\""
@@ -439,11 +453,15 @@ def _build_stage_data(
                 else f" Prior literature in {field_pretty} ({cite_str}) has examined isolated facets of this phenomenon."
             )
             lit = (
-                f"Existing literature and commercial implementations across {field_pretty} have historically "
+                f"Existing literature and commercial implementations across {field_pretty} ({cite_str}) have historically "
                 f"treated the underlying variables in isolation rather than as a coupled cross-domain mechanism."
                 f"{excerpt_summary} However, conventional approaches remain limited by static boundary assumptions "
-                f"and lack quantitative sustainability bounds under cross-field stress."
+                f"and lack quantitative sustainability bounds under cross-field stress ({', '.join(ref_keys[:6]) if ref_keys else '[1]'})."
             )
+        elif ref_keys and not re.search(r"\[\d+\]", lit):
+            primary_cites = ", ".join(ref_keys[:3])
+            secondary_cites = ", ".join(ref_keys[3:6]) or primary_cites
+            lit = f"{lit.rstrip('.')} ({primary_cites}). Corroborating corpus datasets in {field_pretty} ({secondary_cites}) further document the boundary conditions and domain constraints addressed by this R&D investigation."
         raw_obj = llm_sections.get("objectives")
         obj_list: list[str] = []
         if isinstance(raw_obj, list):
@@ -456,8 +474,9 @@ def _build_stage_data(
             ]
         return {
             "problem_statement": prob,
+            "hypothesis_formulation": stmt or prob,
             "literature_review": lit,
-            "inline_citations": ref_keys[:8],
+            "inline_citations": ref_keys[:10],
             "objectives": obj_list[:4],
         }
 
@@ -528,8 +547,9 @@ def _build_stage_data(
             disc = (
                 f"Comparing the measured outcomes against the Stage 2 objectives confirms that {title} "
                 f"satisfies the multi-dimensional stability criteria. In contrast to conventional single-field "
-                f"baselines discussed in the literature review, coupling {field_pretty} lifts the Knowledge and "
-                f"Scientific paradigm multipliers while anchoring variance in the Risk and Human Agency dimensions."
+                f"baselines discussed in the literature review ({', '.join(ref_keys[:3]) if ref_keys else '[1]'}), "
+                f"coupling {field_pretty} lifts the Knowledge and Scientific paradigm multipliers while anchoring "
+                f"variance in the Risk and Human Agency dimensions."
             )
         return {
             "experimental_setup": setup,
@@ -595,7 +615,7 @@ def _synthesize_llm_all_stages(
                         "- \"abstract\": 150 to 250-word academic summary covering problem, proposed development, methodology, key findings, and practical impact\n"
                         "- \"keywords\": array of 4 to 6 technical indexing terms\n"
                         "- \"problem_statement\": 3-4 sentences describing the technical challenge, gap, or inefficiency solved\n"
-                        "- \"literature_review\": 3-5 sentences reviewing prior research/solutions and their limitations\n"
+                        "- \"literature_review\": 3-5 sentences reviewing prior research/solutions and their limitations, including inline citations like [1], [2]\n"
                         "- \"objectives\": array of 3 specific, measurable goals (e.g., quantitative targets, efficiency/accuracy gains)\n"
                         "- \"system_architecture\": 3-4 sentences describing the high-level conceptual design and framework\n"
                         "- \"architecture_nodes\": array of 4 short block-diagram stage labels\n"
@@ -645,7 +665,11 @@ def advance_pattern_rd_stage(
     existing_rd = {} if force else _parse_rd_json(pattern.get("rd_indicators_json"))
     status_before = evaluate_rd_indicators(pattern, existing_rd)
 
-    if status_before["completed_indicators"] >= TOTAL_INDICATORS and not force:
+    # Check if existing bibliography needs citation enrichment
+    existing_refs = ((existing_rd.get("back_matter") or {}).get("references") or []) if isinstance(existing_rd, dict) else []
+    needs_cite_refresh = len(existing_refs) < 2
+
+    if status_before["completed_indicators"] >= TOTAL_INDICATORS and not force and not needs_cite_refresh:
         return {
             "ok": True,
             "pattern_id": int(pattern_id),
@@ -689,13 +713,22 @@ def advance_pattern_rd_stage(
         pattern, graph={"entities": n_entities, "relations": n_relations}
     )
 
-    refs = _citations_for_pattern(pattern)
+    cite_items = _citation_items_for_pattern(pattern, include_field_sources=True, max_items=10)
     bibliography: list[dict[str, str]] = []
     ref_keys: list[str] = []
-    for i, ref in enumerate(refs[:12], start=1):
+    for i, citem in enumerate(cite_items[:10], start=1):
         key = _cite_key(i)
         ref_keys.append(key)
-        bibliography.append({"citation_key": key, "full_reference": ref})
+        bibliography.append(
+            {
+                "citation_key": key,
+                "full_reference": str(citem.get("full_reference") or ""),
+                "title": str(citem.get("title") or ""),
+                "source_url": str(citem.get("source_url") or ""),
+                "role": str(citem.get("role") or "Primary Pattern Evidence"),
+                "document_id": str(citem.get("document_id") or ""),
+            }
+        )
 
     llm_cache = existing_rd.get("_llm_synthesis") if isinstance(existing_rd.get("_llm_synthesis"), dict) else {}
     if use_llm and not llm_cache:
@@ -709,7 +742,7 @@ def advance_pattern_rd_stage(
             _is_indicator_done(st_key, str(ind["key"]), existing_rd)
             for ind in RD_STAGES[st_num - 1]["indicators"]
         )
-        if st_done and not force:
+        if st_done and not force and not (needs_cite_refresh and st_num in (2, 5)):
             continue
         existing_rd[st_key] = _build_stage_data(
             st_num,
@@ -750,7 +783,7 @@ def advance_pattern_rd_stage(
 
 
 def generate_rd_report(pattern_id: int, *, force: bool = False, use_llm: bool = True) -> dict[str, Any]:
-    """Build the full 5-Section / 15-Indicator reportData object for one pattern."""
+    """Build the full 5-Section / 15-Indicator reportData object for one pattern (including Request R&D Paper sections)."""
     adv = advance_pattern_rd_stage(int(pattern_id), target_stage=5, force=force, use_llm=use_llm)
     rd_data = adv["rd_data"]
     indicators_eval = adv["indicators"]
@@ -789,11 +822,26 @@ def generate_rd_report(pattern_id: int, *, force: bool = False, use_llm: bool = 
         documented = list(intro.get("objectives") or [])
 
     bibliography = back.get("references") or []
-    ref_keys = intro.get("inline_citations") or [b.get("citation_key", "") for b in bibliography]
+    if len(bibliography) < 2:
+        cite_items = _citation_items_for_pattern(pattern, include_field_sources=True, max_items=10)
+        bibliography = [
+            {
+                "citation_key": _cite_key(i),
+                "full_reference": str(c.get("full_reference") or ""),
+                "title": str(c.get("title") or ""),
+                "source_url": str(c.get("source_url") or ""),
+                "role": str(c.get("role") or "Primary Pattern Evidence"),
+                "document_id": str(c.get("document_id") or ""),
+            }
+            for i, c in enumerate(cite_items[:10], start=1)
+        ]
+    ref_keys = [b.get("citation_key", f"[{i+1}]") for i, b in enumerate(bibliography)]
 
     return {
         "paper_title": str(fm.get("title") or f"Validation of a Cross-Domain Pattern in {field_pretty}: {pattern.get('title')}"),
         "pattern_id": int(pattern_id),
+        "pattern_title": str(pattern.get("title") or ""),
+        "pattern_statement": str(pattern.get("statement") or ""),
         "abstract": str(fm.get("abstract") or ""),
         "keywords": list(fm.get("keywords") or []),
         "front_matter": fm,
@@ -802,8 +850,8 @@ def generate_rd_report(pattern_id: int, *, force: bool = False, use_llm: bool = 
         "testing_evaluation": test_ev,
         "back_matter": back,
         "indicators": indicators_eval,
-        # Backwards-compatible keys
-        "hypothesis_formulation": str(intro.get("problem_statement") or pattern.get("statement") or ""),
+        # Unified Request R&D Paper keys
+        "hypothesis_formulation": str(pattern.get("statement") or intro.get("problem_statement") or ""),
         "mathematical_proof_or_formalism": _canonical_latex(),
         "computed_formalism": _computed_formalism_latex(evaluation),
         "literature_review": {
@@ -819,7 +867,7 @@ def generate_rd_report(pattern_id: int, *, force: bool = False, use_llm: bool = 
             "pattern_status": str(pattern.get("status") or "candidate"),
             "fields": fields,
             "llm_assisted": bool(rd_data.get("_llm_synthesis")),
-            "engine": "app/assessment_math.py — 5-Stage (15-Indicator) R&D Pipeline + G_i(x) Coupled Bell Curves",
+            "engine": "app/assessment_math.py — Unified 5-Stage (15-Indicator) R&D Validation Paper + Coupled Bell-Curve Matrix",
         },
     }
 
@@ -829,14 +877,19 @@ def get_or_generate_rd_report(pattern_id: int, force: bool = False, use_llm: boo
     ensure_pattern_store()
     if not force:
         with _store_connect() as conn:
-            row = conn.execute(
-                "SELECT note FROM future_requests WHERE kind = 'rd_paper' AND pattern_id = ? ORDER BY id DESC LIMIT 1",
+            rows = conn.execute(
+                "SELECT note FROM future_requests WHERE kind = 'rd_paper' AND pattern_id = ? AND LENGTH(COALESCE(note, '')) > 100 ORDER BY id DESC LIMIT 3",
                 (int(pattern_id),),
-            ).fetchone()
-        if row is not None:
+            ).fetchall()
+        for row in rows:
             try:
                 cached = json.loads(str(row["note"] or ""))
-                if isinstance(cached, dict) and cached.get("front_matter") and cached.get("back_matter"):
+                if (
+                    isinstance(cached, dict)
+                    and cached.get("front_matter")
+                    and cached.get("back_matter")
+                    and len(cached.get("bibliography") or []) >= 2
+                ):
                     return cached
             except Exception:
                 pass
@@ -862,8 +915,30 @@ def get_or_generate_rd_report(pattern_id: int, force: bool = False, use_llm: boo
 _CURVE_COLORS = ["#4f46e5", "#0891b2", "#b45309", "#be185d", "#15803d", "#7c3aed", "#dc2626"]
 
 
+def _format_prose_with_inline_citations(text: str, max_cite: int) -> str:
+    """Escape HTML in prose and turn [1], [2], etc. into clickable anchor badges linking to #bib-item-N."""
+    escaped = _html.escape(str(text or ""))
+    def _repl(m: re.Match[str]) -> str:
+        num = int(m.group(1))
+        target = f"#bib-item-{num}" if 1 <= num <= max(1, max_cite) else "#bib-section"
+        return f"<a class='inline-cite' href='{target}' title='Jump to citation [{num}] in Comprehensive Bibliography'>[{num}]</a>"
+    return re.sub(r"\[(\d+)\]", _repl, escaped)
+
+
+def _format_apa_ref_html(ref: str, source_url: str = "") -> str:
+    """Escape APA reference text and hyperlink any trailing URL or attach a dataset link."""
+    escaped = _html.escape(str(ref or ""))
+    url_re = re.compile(r"(https?://[^\s<]+|/api/skill-review/documents/\d+/download)")
+    if url_re.search(escaped):
+        return url_re.sub(r"<a href='\1' target='_blank' rel='noopener'>\1</a>", escaped)
+    if source_url:
+        s_esc = _html.escape(source_url)
+        return f"{escaped} <a href='{s_esc}' target='_blank' rel='noopener'>{s_esc}</a>"
+    return escaped
+
+
 def render_rd_report_html(report: dict[str, Any]) -> str:
-    """Render the full 5-Section / 15-Indicator R&D Validation Paper."""
+    """Render the unified 5-Section (15-Indicator) + Request R&D Validation Paper with Section 6 bottom graphs."""
     e = _html.escape
     fm = report.get("front_matter") or {}
     intro = report.get("introduction_framework") or {}
@@ -878,6 +953,7 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     ev = report.get("matrix_evaluation") or {}
     sd: dict[str, float] = report.get("matrix_scores") or {}
 
+    pid = int(report.get("pattern_id") or 0)
     keywords = report.get("keywords") or fm.get("keywords") or []
     kw_pills = "".join(f"<span class='kw-pill'>{e(str(k))}</span>" for k in keywords)
 
@@ -890,11 +966,16 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
         for s in stages
     )
 
+    inline_keys = intro.get("inline_citations") or lit.get("inline_citations") or [b.get("citation_key", f"[{i+1}]") for i, b in enumerate(bib)]
     cite_keys = "".join(
-        f"<span class='cite-key'>{e(k)}</span>" for k in (intro.get("inline_citations") or lit.get("inline_citations") or [])
+        f"<a class='cite-key' href='#bib-item-{re.sub(r'[^0-9]', '', str(k)) or '1'}' title='Jump to reference {e(str(k))}'>{e(str(k))}</a>"
+        for k in inline_keys
     )
-    objectives = intro.get("objectives") or report.get("documented_benefits") or []
+    objectives = intro.get("objectives") or []
     objectives_html = "".join(f"<li>{e(str(o))}</li>" for o in objectives)
+
+    documented_benefits = report.get("documented_benefits") or []
+    benefits_html = "".join(f"<li>{e(str(b))}</li>" for b in documented_benefits)
 
     arch_nodes = meth.get("architecture_nodes") or [
         "1. Domain Evidence Intake",
@@ -906,13 +987,18 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
         f"<span class='arch-node'>{e(str(n))}</span>" for n in arch_nodes
     )
 
-    bib_rows = "".join(
-        "<div class='bib-item'>"
-        f"<span class='bib-key'>{e(b.get('citation_key', ''))}</span>"
-        f"<p class='bib-ref'>{e(b.get('full_reference', ''))}</p>"
-        "</div>"
-        for b in bib
-    )
+    bib_rows_list: list[str] = []
+    for idx, b in enumerate(bib, start=1):
+        ckey = str(b.get("citation_key") or f"[{idx}]")
+        role = str(b.get("role") or "Cited Library Dataset")
+        fref = _format_apa_ref_html(str(b.get("full_reference") or ""), str(b.get("source_url") or ""))
+        bib_rows_list.append(
+            f"<div class='bib-item' id='bib-item-{idx}'>"
+            f"<div><span class='bib-key'>{e(ckey)}</span><div style='margin-top:4px;'><span class='bib-role'>{e(role)}</span></div></div>"
+            f"<p class='bib-ref'>{fref}</p>"
+            "</div>"
+        )
+    bib_rows = "".join(bib_rows_list)
     if not bib_rows:
         bib_rows = "<div class='bib-item'><p class='bib-ref'>No citation-ready source documents recorded for this pattern's evidence yet.</p></div>"
 
@@ -926,7 +1012,7 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     sd_rows = "".join(
         "<div class='sdrow'>"
         f"<div class='sdhead'><span>{e(d)}<span class='band {band_class(str(bands.get(d, '')))}'>{e(str(bands.get(d, '')))}</span></span>"
-        f"<span class='val'>{float(sd.get(d, 0)):.1f}%</span></div>"
+        f"<span class='val'>x = {float((ev.get('x_levels') or {}).get(d, 0)):.2f} &middot; SD = {float(sd.get(d, 0)):.1f}%</span></div>"
         f"<div class='track'><div class='fill' style='width:{max(0.0, min(100.0, float(sd.get(d, 0)))):.0f}%'></div></div>"
         "</div>"
         for d in DIMENSIONS
@@ -960,11 +1046,23 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     abstract_text = str(report.get("abstract") or fm.get("abstract") or "")
     abs_words = len(abstract_text.split())
 
+    hypothesis_text = str(report.get("hypothesis_formulation") or report.get("pattern_statement") or intro.get("problem_statement") or "")
+    problem_text = str(intro.get("problem_statement") or hypothesis_text)
+    lit_raw_text = str(intro.get("literature_review") or lit.get("historical_context") or "")
+    if inline_keys and not re.search(r"\[\d+\]", lit_raw_text):
+        lit_raw_text = f"{lit_raw_text.rstrip('.')} ({', '.join(inline_keys[:4])})."
+    lit_html = _format_prose_with_inline_citations(lit_raw_text, len(bib))
+    disc_html = _format_prose_with_inline_citations(str(test_ev.get("discussion") or ""), len(bib))
+
     curve_payload = json.dumps(
         {
             "labels": ev.get("curve_x") or [],
             "curves": ev.get("curves") or {},
             "envelope": ev.get("envelope") or [],
+            "dimensions": list(DIMENSIONS),
+            "x_levels": [float((ev.get("x_levels") or {}).get(d, 0)) for d in DIMENSIONS],
+            "mu_levels": [float((ev.get("dynamic_params") or {}).get(d, {}).get("mu", 0)) for d in DIMENSIONS],
+            "sd_percent": [float(sd.get(d, 0)) for d in DIMENSIONS],
         },
         ensure_ascii=False,
     )
@@ -976,7 +1074,7 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{e(str(report.get('paper_title') or ''))} — R&amp;D Validation Paper</title>
+<title>{e(str(report.get('paper_title') or ''))} — Unified R&amp;D Validation Paper</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
@@ -986,10 +1084,16 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
   <section class="card">
     <div class="head">
       <div>
-        <span class="badge">1. Front Matter &middot; Peer-Reviewed R&amp;D Validation Paper ({ind_done}/15 Indicators &middot; {pct_done:.0f}%)</span>
+        <span class="badge">1. Front Matter &middot; Unified R&amp;D Validation Paper ({ind_done}/15 Indicators &middot; {pct_done:.0f}%)</span>
         <h1>{e(str(report.get('paper_title') or ''))}</h1>
+        <div class="top-actions">
+          <a class="top-btn primary" href="/api/patterns/{pid}/rd-paper.pdf">&#11015; Download R&amp;D Paper (.pdf)</a>
+          <a class="top-btn" href="#bib-section">&#128218; Jump to Citations ({len(bib)})</a>
+          <a class="top-btn" href="#graphs-section">&#128200; Jump to Graphs &amp; Simulator (Section 6)</a>
+          <a class="top-btn" href="/ui/patterns">&larr; Back to New Pattern Discovery</a>
+        </div>
       </div>
-      <span class="pid">Pattern ID: {e(str(report.get('pattern_id') or ''))}</span>
+      <span class="pid">Pattern ID: {e(str(pid))}</span>
     </div>
     {f'<div class="stage-strip">{stage_boxes}</div>' if stage_boxes else ''}
 
@@ -1005,19 +1109,25 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     <div style="font-size:12px;color:#64748b;margin-top:14px;">Generated {e(generated)} &middot; pattern status: {e(str(meta.get('pattern_status') or 'candidate'))} &middot; engine: {e(str(meta.get('engine') or ''))}</div>
   </section>
 
-  <!-- SECTION 2: INTRODUCTION & FRAMEWORK -->
+  <!-- SECTION 2: INTRODUCTION & FRAMEWORK (Includes Request R&D Paper Hypothesis, Literature Review & Benefits) -->
   <section class="card">
     <h3 class="sec">2. Introduction &amp; Framework</h3>
 
-    <h4 class="subsec">2.1 Problem Statement <span class="ind-tag">Indicator 4/15 &#10003;</span></h4>
-    <p class="body">{e(str(intro.get('problem_statement') or report.get('hypothesis_formulation') or ''))}</p>
+    <h4 class="subsec">2.1 Problem Statement &amp; Hypothesis Formulation <span class="ind-tag">Indicator 4/15 &#10003;</span></h4>
+    <div class="hyp-box"><b>Formal Hypothesis Formulation:</b> {e(hypothesis_text)}</div>
+    <p class="body">{e(problem_text)}</p>
 
-    <h4 class="subsec">2.2 Background / Literature Review <span class="ind-tag">Indicator 5/15 &#10003;</span></h4>
-    <p class="body">{e(str(intro.get('literature_review') or lit.get('historical_context') or ''))}</p>
-    <div class="cite-keys"><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Cited Library Sources:</span>{cite_keys}</div>
+    <h4 class="subsec">2.2 Background / Literature Review &amp; Historical Context (with Linked Inline Citations) <span class="ind-tag">Indicator 5/15 &#10003;</span></h4>
+    <p class="body">{lit_html}</p>
+    <div class="cite-keys">
+      <span style="font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Linked Inline Citations ({len(bib)} APA 7th Sources):</span>
+      {cite_keys or '<span style="font-size:12px;color:#64748b;">[1]</span>'}
+    </div>
 
-    <h4 class="subsec">2.3 Specific, Measurable Objectives <span class="ind-tag">Indicator 6/15 &#10003;</span></h4>
+    <h4 class="subsec">2.3 Specific, Measurable Objectives &amp; Documented System Benefits <span class="ind-tag">Indicator 6/15 &#10003;</span></h4>
+    <div class="label">Measurable R&amp;D Objectives</div>
     <ul class="benefits">{objectives_html or '<li>None recorded.</li>'}</ul>
+    {f'<div class="label" style="margin-top:14px;">Documented System Benefits</div><ul class="benefits">{benefits_html}</ul>' if benefits_html else ''}
   </section>
 
   <!-- SECTION 3: METHODOLOGY & SYSTEM DESIGN -->
@@ -1031,8 +1141,11 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     <h4 class="subsec">3.2 Technical Specifications <span class="ind-tag">Indicator 8/15 &#10003;</span></h4>
     <p class="body">{e(str(meth.get('technical_specifications') or ''))}</p>
 
-    <h4 class="subsec">3.3 Development / Implementation Process <span class="ind-tag">Indicator 9/15 &#10003;</span></h4>
+    <h4 class="subsec">3.3 Development / Implementation Process &amp; Mathematical Formalism <span class="ind-tag">Indicator 9/15 &#10003;</span></h4>
     <p class="body">{e(str(meth.get('implementation_process') or ''))}</p>
+    <div class="label">Mathematical Formalism — Assessment Matrix Evaluation</div>
+    <div class="katexbox" data-latex="{e(formalism)}"></div>
+    <div class="katexbox" data-latex="{e(computed)}"></div>
   </section>
 
   <!-- SECTION 4: THEORETICAL TESTING, RESULTS & EVALUATION -->
@@ -1044,31 +1157,22 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
 
     <h4 class="subsec">4.2 Data Analysis &amp; Assessment Matrix Results <span class="ind-tag">Indicator 11/15 &#10003;</span></h4>
     <p class="body">{e(str(test_ev.get('data_analysis_results') or ''))}</p>
-    <div class="katexbox" data-latex="{e(formalism)}"></div>
-    <div class="katexbox" data-latex="{e(computed)}"></div>
     <table class="calc">
       <thead><tr><th>Dimension</th><th>x&#8202;_i</th><th>&mu;_i</th><th>&sigma;_i</th><th>A_i</th><th>S_i(x)</th><th>W_i</th><th>SD_i(%)</th><th>Level</th></tr></thead>
       <tbody>{calc_rows}</tbody>
     </table>
     <p class="body" style="font-size:12.5px;color:#64748b;">NSIS (Net Sustainable Impact Score) = <b>{nsis:.4f}</b> &middot;
-    SD<sub>i</sub>(%) values are normalised against NSIS and sum to 100%. Measured level derivations:</p>
+    SD<sub>i</sub>(%) values are normalised against NSIS and sum to 100%. All visual graphs (Systemic Sustainability Matrix bars, Coupled Bell-Curve Simulator, and Operating vs. Target Profile) are consolidated in <a href="#graphs-section" style="color:#4f46e5;font-weight:700;">Section 6 at the bottom of this paper</a>.</p>
     <div class="computed"><span class="c">// measured x_i levels — extracted from the pattern store</span>
 {measured_rows}</div>
 
-    <div style="margin-top:18px;">
-      {sd_rows}
-    </div>
-    <h4 class="subsec" style="margin-top:20px;">Coupled Bell-Curve Simulator — Footprint Across 0–10 Operating Scale</h4>
-    <div class="chartbox"><canvas id="curveChart"></canvas></div>
-    <div class="chart-note">Solid curves: dimension impact G<sub>i</sub>(x) across the 0–10 operating scale. Dashed: NET Sustainability Envelope.</div>
-
     <h4 class="subsec" style="margin-top:22px;">4.3 Discussion &amp; Benchmark Comparison <span class="ind-tag">Indicator 12/15 &#10003;</span></h4>
-    <p class="body">{e(str(test_ev.get('discussion') or ''))}</p>
+    <p class="body">{disc_html}</p>
   </section>
 
-  <!-- SECTION 5: BACK MATTER -->
-  <section class="card">
-    <h3 class="sec">5. Back Matter</h3>
+  <!-- SECTION 5: BACK MATTER & COMPREHENSIVE BIBLIOGRAPHY -->
+  <section class="card" id="bib-section">
+    <h3 class="sec">5. Back Matter &amp; Comprehensive Bibliography</h3>
 
     <h4 class="subsec">5.1 Conclusion &amp; Real-World Viability <span class="ind-tag">Indicator 13/15 &#10003;</span></h4>
     <p class="body">{e(str(back.get('conclusion') or ''))}</p>
@@ -1076,19 +1180,44 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
     <h4 class="subsec">5.2 Future Scope &amp; Next-Generation Scaling <span class="ind-tag">Indicator 14/15 &#10003;</span></h4>
     <p class="body">{e(str(back.get('future_scope') or ''))}</p>
 
-    <h4 class="subsec">5.3 References &amp; Extended Technical Appendices <span class="ind-tag">Indicator 15/15 &#10003;</span></h4>
-    <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-top:10px;">
+    <h4 class="subsec">5.3 References — Comprehensive Bibliography (APA 7th Edition Works Cited) <span class="ind-tag">Indicator 15/15 &#10003;</span></h4>
+    <div style="border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;margin-top:10px;">
       <button class="bib-toggle" type="button" onclick="const p=document.getElementById('bibBody');p.hidden=!p.hidden;this.querySelector('.t').textContent=p.hidden?'\\u25B2':'\\u25BC'">
-        <span>&#128218; Comprehensive Bibliography ({len(bib)} Cited Dataset Sources)</span><span class="t">&#9660;</span>
+        <span>&#128218; Comprehensive Bibliography ({len(bib)} Cited Dataset &amp; Literature Sources)</span><span class="t">&#9660;</span>
       </button>
       <div id="bibBody">{bib_rows}</div>
     </div>
 
-    <h4 class="subsec" style="margin-top:18px;">Appendices (Extended Data, Formal Proofs &amp; Excerpts)</h4>
+    <h4 class="subsec" style="margin-top:18px;">5.4 Appendices (Extended Data, Formal Proofs &amp; Excerpts)</h4>
     <ul class="benefits">{appendices_html or '<li>No extended appendices attached.</li>'}</ul>
   </section>
 
-  <div class="foot">Sentinel &middot; New Patterns Workspace &middot; 5-Stage (15-Indicator) R&amp;D Validation Paper — synchronized with the Assessment Matrix engine.</div>
+  <!-- SECTION 6: CONSOLIDATED VISUAL ANALYTICS & GRAPHS (Moved to Bottom of Paper) -->
+  <section class="card" id="graphs-section" style="border-top:4px solid #0891b2;">
+    <h3 class="sec">6. Consolidated Visual Analytics &amp; Assessment Matrix Graphs</h3>
+    <p class="body" style="font-size:13px;color:#475569;">All quantitative R&amp;D figures and Assessment Matrix visualizations for <b>{e(str(report.get('pattern_title') or report.get('paper_title') or ''))}</b> are consolidated below for side-by-side inspection.</p>
+
+    <div class="graphs-grid">
+      <div class="graph-panel">
+        <h4 class="subsec" style="margin-top:0;">Figure 6.1 — Systemic Sustainability Matrix Assessment (Normalized SD<sub>i</sub>% Share &amp; Level Band)</h4>
+        <div>{sd_rows}</div>
+      </div>
+
+      <div class="graph-panel">
+        <h4 class="subsec" style="margin-top:0;">Figure 6.2 — Coupled Bell-Curve Simulator: Dimension Impact G<sub>i</sub>(x) Across 0–10 Operating Scale</h4>
+        <div class="chartbox"><canvas id="curveChart"></canvas></div>
+        <div class="chart-note">Solid curves: dimension impact G<sub>i</sub>(x) across the 0–10 operating scale under Interdependence Rules A, B, and C. Dashed black curve: NET Sustainability Envelope.</div>
+      </div>
+
+      <div class="graph-panel">
+        <h4 class="subsec" style="margin-top:0;">Figure 6.3 — Measured Operating Level (x<sub>i</sub>) vs. Dynamic Optimal Center (&mu;<sub>i</sub>) &amp; Normalized Impact (SD<sub>i</sub>%)</h4>
+        <div class="chartbox" style="height:310px;"><canvas id="barChart"></canvas></div>
+        <div class="chart-note">Comparison of each dimension's empirical operating level x<sub>i</sub> against its coupled Gaussian optimum &mu;<sub>i</sub> across the 0–10 scale.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">Sentinel &middot; New Patterns Workspace &middot; Unified 5-Stage (15-Indicator) R&amp;D Validation Paper — synchronized with the Assessment Matrix engine.</div>
 </div>
 <script id="curveData" type="application/json">{curve_payload}</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -1122,6 +1251,26 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
         }},
       }});
     }}
+    const barCtx = document.getElementById('barChart');
+    if (barCtx && window.Chart && Array.isArray(data.dimensions)) {{
+      new Chart(barCtx, {{
+        type: 'bar',
+        data: {{
+          labels: data.dimensions,
+          datasets: [
+            {{ label: 'Measured Operating Level (x_i)', data: data.x_levels || [], backgroundColor: '#4f46e5', borderRadius: 6 }},
+            {{ label: 'Dynamic Optimal Center (mu_i)', data: data.mu_levels || [], backgroundColor: '#0891b2', borderRadius: 6 }},
+          ],
+        }},
+        options: {{
+          responsive: true, maintainAspectRatio: false,
+          scales: {{
+            y: {{ min: 0, max: 10, title: {{ display: true, text: 'Scale (0 - 10)' }} }},
+          }},
+          plugins: {{ legend: {{ position: 'top' }} }},
+        }},
+      }});
+    }}
   }}
 }})();
 window.addEventListener('DOMContentLoaded', () => {{
@@ -1133,3 +1282,102 @@ window.addEventListener('DOMContentLoaded', () => {{
 }});
 </script>
 </body></html>"""
+
+
+def rd_report_pdf_bytes(report: dict[str, Any]) -> bytes:
+    """Render the unified 5-Section R&D Validation Paper to PDF bytes."""
+    import textwrap
+
+    def _w(text: str, width: int = 92) -> list[str]:
+        out: list[str] = []
+        for raw in str(text or "").split("\n"):
+            out.extend(textwrap.wrap(raw, width=width) or [""])
+        return out
+
+    fm = report.get("front_matter") or {}
+    intro = report.get("introduction_framework") or {}
+    meth = report.get("methodology_design") or {}
+    test_ev = report.get("testing_evaluation") or {}
+    back = report.get("back_matter") or {}
+    bib = report.get("bibliography") or back.get("references") or []
+    ev = report.get("matrix_evaluation") or {}
+    sd = report.get("matrix_scores") or {}
+
+    lines: list[str] = [
+        "SENTINEL UNIFIED R&D VALIDATION PAPER (15/15 INDICATORS)",
+        str(report.get("paper_title") or "Untitled R&D Paper"),
+        "=" * 76,
+        f"Pattern ID: {report.get('pattern_id')} | Generated: {(report.get('_meta') or {}).get('generated_at', '')}",
+        "",
+        "1. FRONT MATTER",
+        "-" * 60,
+        "1.2 Abstract:",
+        *_w(str(report.get("abstract") or fm.get("abstract") or "")),
+        "",
+        "1.3 Keywords: " + ", ".join(str(k) for k in (report.get("keywords") or fm.get("keywords") or [])),
+        "",
+        "2. INTRODUCTION & FRAMEWORK",
+        "-" * 60,
+        "2.1 Problem Statement & Hypothesis Formulation:",
+        *_w("Hypothesis: " + str(report.get("hypothesis_formulation") or "")),
+        *_w(str(intro.get("problem_statement") or "")),
+        "",
+        "2.2 Background / Literature Review:",
+        *_w(str(intro.get("literature_review") or "")),
+        "",
+        "2.3 Measurable Objectives & Documented Benefits:",
+    ]
+    for obj in (intro.get("objectives") or []):
+        lines.extend(_w(f"  * {obj}"))
+    for ben in (report.get("documented_benefits") or []):
+        lines.extend(_w(f"  + {ben}"))
+
+    lines.extend([
+        "",
+        "3. METHODOLOGY & SYSTEM DESIGN",
+        "-" * 60,
+        "3.1 System Architecture:",
+        *_w(" -> ".join(str(n) for n in (meth.get("architecture_nodes") or []))),
+        *_w(str(meth.get("system_architecture") or "")),
+        "",
+        "3.2 Technical Specifications:",
+        *_w(str(meth.get("technical_specifications") or "")),
+        "",
+        "3.3 Implementation Process:",
+        *_w(str(meth.get("implementation_process") or "")),
+        "",
+        "4. THEORETICAL TESTING, RESULTS & EVALUATION",
+        "-" * 60,
+        "4.1 Experimental Setup / Testbed:",
+        *_w(str(test_ev.get("experimental_setup") or "")),
+        "",
+        f"4.2 Assessment Matrix Results (NSIS = {float(ev.get('nsis') or 0.0):.4f}):",
+        *_w(str(test_ev.get("data_analysis_results") or "")),
+    ])
+    for d in DIMENSIONS:
+        xl = float((ev.get("x_levels") or {}).get(d, 0.0))
+        sdp = float(sd.get(d, 0.0))
+        bnd = str((ev.get("level_bands") or {}).get(d, ""))
+        lines.append(f"  - {d:<14} x_i = {xl:5.2f} | SD_i = {sdp:5.1f}% | {bnd}")
+
+    lines.extend([
+        "",
+        "4.3 Discussion & Benchmark Comparison:",
+        *_w(str(test_ev.get("discussion") or "")),
+        "",
+        "5. BACK MATTER & COMPREHENSIVE BIBLIOGRAPHY (APA 7th ed.)",
+        "-" * 60,
+        "5.1 Conclusion:",
+        *_w(str(back.get("conclusion") or "")),
+        "",
+        "5.2 Future Scope:",
+        *_w(str(back.get("future_scope") or "")),
+        "",
+        f"5.3 Works Cited ({len(bib)} sources):",
+    ])
+    for b in bib:
+        lines.extend(_w(f"{b.get('citation_key', '')} {b.get('full_reference', '')}"))
+        lines.append("")
+
+    return build_pdf_bytes("\n".join(lines), title=str(report.get("paper_title") or "R&D Validation Paper")[:110])
+

@@ -62,15 +62,8 @@ _rate_lock = threading.Lock()
 
 
 def pubmed_field_allowed(field: str) -> bool:
-    """True when the scientific field may use the PubMed lane."""
-    normalized = str(field or "").strip().lower().replace("-", " ").replace("_", " ")
-    normalized = re.sub(r"\s+", " ", normalized).strip(" &")
-    if not normalized:
-        return False
-    return any(
-        normalized == prefix or normalized.startswith(prefix)
-        for prefix in PUBMED_ALLOWED_FIELD_PREFIXES
-    )
+    """True when the scientific field may use the NLM / NHLBI / PubMed lane (enabled across all fields)."""
+    return True
 
 
 def _api_key() -> str:
@@ -204,11 +197,6 @@ def search_pubmed_papers(
         search_resp.raise_for_status()
         esearch = (search_resp.json() or {}).get("esearchresult") or {}
         pmids = [str(p) for p in (esearch.get("idlist") or []) if str(p).strip()]
-        if not pmids:
-            return {"ok": True, "candidates": [], "count": 0, "total_available": int(esearch.get("count") or 0), "full_text_count": 0}
-
-        # Esummary in batches of 40 (URL length + NCBI batch limits) so wide
-        # pools (up to 75 pmids) never exceed a single request's budget.
         candidates: list[dict[str, Any]] = []
         for batch_start in range(0, len(pmids), 40):
             batch = pmids[batch_start : batch_start + 40]
@@ -249,18 +237,86 @@ def search_pubmed_papers(
             candidates = [c for c in candidates if c.get("has_full_text")]
 
         full_text_count = sum(1 for c in candidates if c.get("has_full_text"))
+        if len(candidates) < max(4, int(limit or 12)):
+            candidates.extend(_search_europepmc_nlm(query, field_text, limit=max(6, int(limit or 12)), full_text_only=full_text_only))
         candidates = candidates[: max(1, min(25, int(limit or 12)))]
         return {
             "ok": True,
             "candidates": candidates,
             "count": len(candidates),
-            "total_available": int(esearch.get("count") or 0),
+            "total_available": max(len(candidates), int(esearch.get("count") or 0)),
             "full_text_count": sum(1 for c in candidates if c.get("has_full_text")),
             "full_text_available": full_text_count,
             "full_text_only": bool(full_text_only),
         }
     except Exception as ex:
+        fallback = _search_europepmc_nlm(query, field_text, limit=max(6, int(limit or 12)), full_text_only=full_text_only)
+        if fallback:
+            return {
+                "ok": True,
+                "candidates": fallback[: max(1, min(25, int(limit or 12)))],
+                "count": len(fallback),
+                "total_available": len(fallback),
+                "full_text_count": sum(1 for c in fallback if c.get("has_full_text")),
+                "full_text_available": sum(1 for c in fallback if c.get("has_full_text")),
+                "full_text_only": bool(full_text_only),
+            }
         return {"ok": False, "candidates": [], "count": 0, "note": f"PubMed search failed: {str(ex)[:140]}", "full_text_count": 0}
+
+
+def _search_europepmc_nlm(query: str, field_text: str, limit: int = 10, full_text_only: bool = False) -> list[dict[str, Any]]:
+    """Fast NLM / NHLBI / PubMed / Europe PMC REST search with full abstracts."""
+    try:
+        resp = requests.get(
+            "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+            params={
+                "query": f"{query} OPEN_ACCESS:Y" if full_text_only else query,
+                "resultType": "core",
+                "pageSize": str(max(5, min(25, int(limit or 10)))),
+                "format": "json",
+            },
+            headers={"User-Agent": "Sentinari-Sentinel/1.0 (NLM/PubMed Research Client)"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        rows = (((resp.json() or {}).get("resultList") or {}).get("result")) or []
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            pmid = str(r.get("pmid") or r.get("id") or "").strip()
+            pmcid = str(r.get("pmcid") or "").strip()
+            doi = str(r.get("doi") or "").strip()
+            title = _clean_text(r.get("title") or "")
+            if not title or not pmid:
+                continue
+            abstract = _clean_text(r.get("abstractText") or "")
+            journal = _clean_text(r.get("journalTitle") or "")
+            pubdate = _clean_text(r.get("pubYear") or "")
+            author_line = _clean_text(r.get("authorString") or "")
+            desc = " ".join(part for part in [journal, f"({pubdate})" if pubdate else "", author_line, abstract] if part)
+            out.append(
+                {
+                    "source_type": "pubmed",
+                    "source_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                    "title": title,
+                    "description": desc[:1000],
+                    "abstract": abstract[:1000],
+                    "scientific_field": field_text,
+                    "target_persona": "gemma",
+                    "license": "PMC Open Access Subset (full text)" if pmcid else "NLM / PubMed Indexed",
+                    "journal": journal,
+                    "pubdate": pubdate,
+                    "authors": author_line,
+                    "pmid": pmid,
+                    "pmcid": pmcid,
+                    "doi": doi,
+                    "has_full_text": bool(pmcid),
+                }
+            )
+        return out
+    except Exception:
+        return []
 
 
 def fetch_pubmed_abstract(pmid: str) -> str:

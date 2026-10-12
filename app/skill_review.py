@@ -26,11 +26,13 @@ router = APIRouter(prefix="/api/skill-review", tags=["Skill Review"])
 class FindRequest(BaseModel):
     query: str = Field(min_length=2, max_length=200)
     scientific_field: str = Field(default="", max_length=200)
-    limit: int = Field(default=12, ge=1, le=25)
+    limit: int = Field(default=15, ge=1, le=50)
     min_citations: int = Field(default=0, ge=0, le=100000)
     from_year: int | None = Field(default=None, ge=1500, le=2100)
     pubmed_full_text_only: bool = Field(default=False)
     fresh_only: bool = Field(default=False)
+    batch_page: int = Field(default=1, ge=1, le=50)
+    clear_previous_pending: bool = Field(default=True)
 
 
 def _root() -> Path:
@@ -69,13 +71,6 @@ def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any]
     """Stable identity key for a candidate, so the same dataset arriving
     under different URLs (DOI link vs landing page vs PMC mirror; repo URL
     with/without trailing path; case differences) maps to ONE row.
-
-    Identity choices:
-      openalex    -> doi:<doi> when known, else openalex:<W-id>, else URL
-      github      -> https://github.com/<owner>/<repo> (lowercased, trimmed)
-      huggingface -> hf:<dataset id>
-      other       -> normalized URL (scheme+host lowercased, trailing / and
-                     common tracking fragments removed)
     """
     metadata = metadata if isinstance(metadata, dict) else {}
     stype = str(source_type or "").strip().lower()
@@ -106,14 +101,13 @@ def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any]
         return f"url:{_norm_url(url)}"
 
     if stype == "pubmed":
-        # PubMed identity: PMID (canon), DOI (shared with OpenAlex), or PMC id.
         doi = str((metadata or {}).get("doi") or "").strip().lower()
         if not doi:
             m = re.search(r"doi\.org/(10\.[^/?#]+(?:/[^/?#]+)*)", url, re.I)
             if m:
                 doi = m.group(1).strip().lower().rstrip(".")
         if doi:
-            return f"doi:{doi}"  # Same DOI as an OpenAlex candidate = SAME paper, one row.
+            return f"doi:{doi}"
         m = re.search(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)", url, re.I)
         if m:
             return f"pmid:{m.group(1)}"
@@ -136,23 +130,42 @@ def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any]
             return f"hf:{dataset}"
         return f"url:{_norm_url(url)}"
 
-    if stype == "oecd":
-        agency = str(metadata.get("agency") or "oecd").lower()
-        dataset = str(metadata.get("dataset") or "").lower()
+    if stype in {"oecd", "eurostat", "imf", "ecb", "bis", "undata", "worldbank"}:
+        agency = str(metadata.get("agency") or metadata.get("provider") or stype).lower()
+        dataset = str(metadata.get("dataset") or metadata.get("indicator") or "").lower()
         if dataset:
-            return f"oecd:{agency}:{dataset}"
+            return f"{stype}:{agency}:{dataset}"
         return f"url:{_norm_url(url)}"
+
+    if stype in {"contemporary", "contemporary-journal", "contemporary-article", "contemporary-preprint"}:
+        key = _norm_url(url)
+        if key and "scholar.google.com" not in key:
+            return f"contemporary:{key}"
+        return f"contemporary:title:{re.sub(r'[^a-z0-9]+', '-', str(title or '').strip().lower()).strip('-')[:80]}"
 
     key = _norm_url(url)
     return f"url:{key}" if key else f"title:{str(title or '').strip().lower()}"
 
 
+_ensured_schema_target: str | None = None
+
+
+def _schema_target_key() -> str:
+    from .db import _get_pg_url, resolve_db_path
+
+    pg = _get_pg_url()
+    return f"pg:{pg}" if pg else f"sqlite:{resolve_db_path()}"
+
+
 def _ensure_schema() -> None:
-    # Long write window + retries: this runs at first endpoint hit, possibly
-    # during a startup digestion storm on the same database.
+    global _ensured_schema_target
+    target = _schema_target_key()
+    if _ensured_schema_target == target:
+        return
     for _attempt in range(6):
         try:
             _ensure_schema_once()
+            _ensured_schema_target = target
             return
         except sqlite3.OperationalError as ex:
             if "locked" not in str(ex).lower() or _attempt == 5:
@@ -214,7 +227,6 @@ def _ensure_schema_body(conn: Any) -> None:
                     conn.rollback()
         conn.commit()
 
-        # One-time backfill: give legacy rows their identity key.
         needs_backfill = conn.execute(
             "SELECT COUNT(1) AS n FROM skill_review_candidates WHERE IFNULL(identity_key, '') = ''"
         ).fetchone()[0]
@@ -240,10 +252,6 @@ def _ensure_schema_body(conn: Any) -> None:
                 )
             conn.commit()
 
-        # Collapse legacy duplicates among reviewable rows. Loaded and
-        # rejected rows are never touched; within each identity keep the
-        # most-advanced review status (approve > test > pending), oldest id
-        # as tiebreak.
         conn.execute(
             """
             DELETE FROM skill_review_candidates
@@ -260,7 +268,6 @@ def _ensure_schema_body(conn: Any) -> None:
             """
         )
         conn.commit()
-        # The safety net: one reviewable row per dataset identity, ever.
         conn.execute(
             """
             CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_review_identity
@@ -270,9 +277,6 @@ def _ensure_schema_body(conn: Any) -> None:
         )
         conn.commit()
 
-        # One-time upgrade: PubMed rows whose identity fell back to pmid:*
-        # get their DOI identity (shared with OpenAlex) once top-level
-        # metadata is available.
         pm_rows = conn.execute(
             "SELECT id, source_type, source_url, metadata_json FROM skill_review_candidates"
             " WHERE source_type = 'pubmed' AND identity_key LIKE 'pmid:%'"
@@ -282,8 +286,6 @@ def _ensure_schema_body(conn: Any) -> None:
                 pm_meta = json.loads(str(pm_row["metadata_json"] or "{}"))
             except Exception:
                 pm_meta = {}
-            # Legacy rows may carry the ids nested under _metadata (pre-flatten
-            # storage); new rows have them at the top level.
             nested = pm_meta.get("_metadata") if isinstance(pm_meta.get("_metadata"), dict) else {}
             doi = str(pm_meta.get("doi") or nested.get("doi") or "").strip().lower()
             upgraded = f"doi:{doi}" if doi else ""
@@ -307,14 +309,16 @@ class DiscoveryRequest(BaseModel):
 def list_candidates(
     status: str = Query(default="pending"),
     scientific_field: str = Query(default=""),
+    query: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=200),
 ) -> dict[str, Any]:
     """Stored candidates for the review panel, paginated (§76).
 
-    OpenAlex rows sort first (owner directive), then newest discovery.
-    ``total``/``pages`` let the UI draw page numbers covering ALL datasets
-    found — not just the rows on this page.
+    Official scientific & statistical sources (OpenAlex, NLM/PubMed, World Bank,
+    Eurostat, IMF, ECB, BIS, UN Data, OECD) sort ahead of GitHub and Hugging Face
+    (which are always moved to the last), preserving the current query's
+    priority-interleaved insertion order (`id ASC`).
     """
     _ensure_schema()
     from .sentinel_domains import resolve_domain_or_field_filter
@@ -326,6 +330,11 @@ def list_candidates(
         placeholders = ",".join("?" for _ in field_slugs)
         where += f" AND REPLACE(LOWER(scientific_field), ' ', '-') IN ({placeholders})"
         args.extend(field_slugs)
+    clean_q = str(query or "").strip().lower()
+    if clean_q:
+        where += " AND (LOWER(metadata_json) LIKE ? OR LOWER(title) LIKE ? OR LOWER(description) LIKE ?)"
+        like_q = f"%{clean_q}%"
+        args.extend([like_q, like_q, like_q])
     with get_connection() as conn:
         total = int(conn.execute(f"SELECT COUNT(1) AS n FROM skill_review_candidates WHERE {where}", args).fetchone()["n"])
         pages = max(1, (total + page_size - 1) // page_size)
@@ -334,8 +343,12 @@ def list_candidates(
             f"""
             SELECT * FROM skill_review_candidates
             WHERE {where}
-            ORDER BY CASE LOWER(source_type) WHEN 'openalex' THEN 0 ELSE 1 END,
-                     discovered_at DESC, id DESC
+            ORDER BY CASE
+                         WHEN LOWER(source_type) = 'huggingface' THEN 2
+                         WHEN LOWER(source_type) = 'github' THEN 1
+                         ELSE 0
+                     END ASC,
+                     id ASC
             LIMIT ? OFFSET ?
             """,
             (*args, page_size, (current - 1) * page_size),
@@ -344,7 +357,6 @@ def list_candidates(
     for row in rows:
         item = dict(row)
         if str(item.get("source_type") or "") == "pubmed":
-            # Surface PubMed ids at the top level for the PMC availability pill.
             try:
                 meta = json.loads(str(item.get("metadata_json") or "{}"))
             except Exception:
@@ -851,27 +863,35 @@ def _precision_score(candidate: dict[str, Any], terms: list[str], phrase: str) -
 
 @router.post("/find")
 def find_candidates(payload: FindRequest) -> dict[str, Any]:
-    """Search GitHub, Hugging Face, and OpenAlex at the same time.
+    """Search OpenAlex, NLM/PubMed, World Bank, Eurostat, IMF, ECB, BIS, UN Data,
+    OECD, GitHub, and Hugging Face at the same time.
 
-    Every candidate found is stored server-side (status='pending') so the
-    lineup survives page refreshes, and the stored rows (with their DB ids)
-    are returned for Approve / Reject / Test / Load / Preview / Download.
+    Official scientific & statistical sources are interleaved at the front so
+    OpenAlex, NLM/NHLBI/PubMed, World Bank, Eurostat, IMF, ECB, BIS, UN Data,
+    and OECD appear right on Page 1, while GitHub and Hugging Face are moved
+    to the very last.
     """
     _ensure_schema()
     from .sentinel_domains import sanitize_field_and_domain
 
     headers = {"User-Agent": "SMI-Skill-Review/1.0"}
     query = payload.query.strip()
+    batch_page = max(1, int(payload.batch_page or 1))
     canon_field, canon_domain = sanitize_field_and_domain(payload.scientific_field, fallback_text=query)
     field_text = canon_field or payload.scientific_field.strip()
-   
+
     def _github_search() -> list[dict[str, Any]]:
         try:
             resp = requests.get(
                 "https://api.github.com/search/repositories",
-                params={"q": f"{query} in:name,description", "per_page": payload.limit, "sort": "best-match"},
+                params={
+                    "q": f"{query} in:name,description",
+                    "per_page": payload.limit,
+                    "page": batch_page,
+                    "sort": "best-match",
+                },
                 headers=headers,
-                timeout=25,
+                timeout=20,
             )
             if resp.status_code != 200:
                 return []
@@ -891,6 +911,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         "target_persona": "gemma",
                         "license": str(license_data.get("spdx_id") or "") if isinstance(license_data, dict) else "",
                         "stars": int(item.get("stargazers_count") or 0),
+                        "search_query": query.lower(),
                     }
                 )
             return out
@@ -899,17 +920,22 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
 
     def _huggingface_search() -> list[dict[str, Any]]:
         try:
+            fetch_n = min(100, payload.limit * batch_page)
             resp = requests.get(
                 "https://huggingface.co/api/datasets",
-                params={"search": query, "limit": payload.limit, "full": "false"},
+                params={"search": query, "limit": fetch_n, "full": "false"},
                 headers=headers,
-                timeout=25,
+                timeout=20,
             )
             if resp.status_code != 200:
                 return []
             items = resp.json()
+            if not isinstance(items, list):
+                return []
+            start_idx = (batch_page - 1) * payload.limit
+            sliced = items[start_idx : start_idx + payload.limit]
             out = []
-            for item in items if isinstance(items, list) else []:
+            for item in sliced:
                 if not isinstance(item, dict) or not item.get("id"):
                     continue
                 out.append(
@@ -922,6 +948,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         "target_persona": "gemma",
                         "license": "",
                         "downloads": int(item.get("downloads") or 0),
+                        "search_query": query.lower(),
                     }
                 )
             return out
@@ -935,65 +962,103 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             result = search_openalex_works(
                 query,
                 field=field_text,
-                limit=payload.limit,
+                limit=min(25, payload.limit * batch_page),
                 min_citations=payload.min_citations,
                 from_year=payload.from_year,
             )
-            return list(result.get("candidates") or [])
+            cands = list(result.get("candidates") or [])
+            if batch_page > 1 and len(cands) > payload.limit:
+                cands = cands[(batch_page - 1) * max(1, payload.limit // 2) :]
+            for c in cands:
+                c["search_query"] = query.lower()
+            return cands
         except Exception:
             return []
 
     def _pubmed_search() -> list[dict[str, Any]]:
-        # Medical-fields gate runs first — no point opening a lane that must
-        # return nothing.
         try:
-            from .pubmed_worker import pubmed_field_allowed, search_pubmed_papers
+            from .pubmed_worker import search_pubmed_papers
 
-            if not pubmed_field_allowed(field_text):
-                return []
             result = search_pubmed_papers(
                 query,
                 field=field_text,
-                limit=payload.limit,
+                limit=min(25, payload.limit * batch_page),
                 from_year=payload.from_year,
                 full_text_only=bool(payload.pubmed_full_text_only),
             )
             if not result.get("ok"):
                 return []
-            return list(result.get("candidates") or [])
+            cands = list(result.get("candidates") or [])
+            if batch_page > 1 and len(cands) > payload.limit:
+                cands = cands[(batch_page - 1) * max(1, payload.limit // 2) :]
+            for c in cands:
+                c["search_query"] = query.lower()
+            return cands
         except Exception:
             return []
 
     def _worldbank_search() -> list[dict[str, Any]]:
-        # §74k — the Finance Industry challenge: World Bank / IMF / OECD
-        # official time-series datasets via the public DBnomics REST API.
-        # One candidate = one whole dataset; the load slices it by query.
         try:
             from .worldbank_worker import search_dbnomics_datasets
 
-            result = search_dbnomics_datasets(query, field=field_text, limit=max(2, min(10, payload.limit)))
-            return list(result.get("candidates") or [])
+            result = search_dbnomics_datasets(query, field=field_text, limit=max(4, min(15, payload.limit)))
+            cands = list(result.get("candidates") or [])
+            for c in cands:
+                c["search_query"] = query.lower()
+            return cands
         except Exception:
             return []
 
     def _oecd_search() -> list[dict[str, Any]]:
-        # Official OECD SDMX REST API statistical dataflows.
         try:
             from .oecd_worker import search_oecd_datasets
 
-            result = search_oecd_datasets(query, field=field_text, limit=max(2, min(10, payload.limit)))
-            return list(result.get("candidates") or [])
+            result = search_oecd_datasets(query, field=field_text, limit=max(3, min(10, payload.limit)))
+            cands = list(result.get("candidates") or [])
+            for c in cands:
+                c["search_query"] = query.lower()
+            return cands
         except Exception:
             return []
 
-    # All sources at the same time. A shared deadline keeps one slow lane
-    # (OpenAlex and NCBI can crawl) from holding the whole search hostage —
-    # whichever lanes have answered when the deadline passes are what's shown.
-    # The pool is shut down WITHOUT waiting: a lane still running past the
-    # deadline keeps its thread but must not block the response.
+    def _intl_stat_search(provider_key: str) -> list[dict[str, Any]]:
+        try:
+            from .intl_stats_worker import search_intl_stat_provider
+
+            result = search_intl_stat_provider(
+                provider_key,
+                query,
+                field=field_text,
+                limit=max(3, min(8, payload.limit)),
+                page=batch_page,
+            )
+            cands = list(result.get("candidates") or [])
+            for c in cands:
+                c["search_query"] = query.lower()
+            return cands
+        except Exception:
+            return []
+
+    def _contemporary_search() -> list[dict[str, Any]]:
+        try:
+            from .contemporary_scraper import search_contemporary_candidates
+
+            result = search_contemporary_candidates(
+                query,
+                field=field_text,
+                limit=max(4, min(10, payload.limit)),
+                page=batch_page,
+            )
+            cands = list(result.get("candidates") or [])
+            for c in cands:
+                c["search_query"] = query.lower()
+            return cands
+        except Exception:
+            return []
+
     import time as _search_time
 
-    _search_deadline = _search_time.monotonic() + 75.0
+    _search_deadline = _search_time.monotonic() + 55.0
 
     def _lane_result(future: Any) -> list[dict[str, Any]]:
         remaining = _search_deadline - _search_time.monotonic()
@@ -1002,28 +1067,37 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    pool = ThreadPoolExecutor(max_workers=6)
+    pool = ThreadPoolExecutor(max_workers=12)
     try:
-        github_future = pool.submit(_github_search)
-        hf_future = pool.submit(_huggingface_search)
         openalex_future = pool.submit(_openalex_search)
         pubmed_future = pool.submit(_pubmed_search)
         worldbank_future = pool.submit(_worldbank_search)
+        eurostat_future = pool.submit(_intl_stat_search, "eurostat")
+        imf_future = pool.submit(_intl_stat_search, "imf")
+        ecb_future = pool.submit(_intl_stat_search, "ecb")
+        bis_future = pool.submit(_intl_stat_search, "bis")
+        undata_future = pool.submit(_intl_stat_search, "undata")
         oecd_future = pool.submit(_oecd_search)
+        contemp_future = pool.submit(_contemporary_search)
+        github_future = pool.submit(_github_search)
+        hf_future = pool.submit(_huggingface_search)
         candidates = [
-            *_lane_result(github_future),
-            *_lane_result(hf_future),
             *_lane_result(openalex_future),
             *_lane_result(pubmed_future),
             *_lane_result(worldbank_future),
+            *_lane_result(eurostat_future),
+            *_lane_result(imf_future),
+            *_lane_result(ecb_future),
+            *_lane_result(bis_future),
+            *_lane_result(undata_future),
             *_lane_result(oecd_future),
+            *_lane_result(contemp_future),
+            *_lane_result(github_future),
+            *_lane_result(hf_future),
         ]
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
 
-    # Owner directive: rejected datasets must never reappear in later searches.
-    # The persisted identity cache is loaded here and applied after the
-    # normalization loop below (identities don't exist until then).
     try:
         from .pattern_store import rejected_identities as _rejected_identities
 
@@ -1031,15 +1105,13 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
     except Exception:
         _rejected = set()
 
-    # Normalize the unique key every source needs before storage.
     for item in candidates:
-        # Flatten PubMed's nested metadata (pmid/pmcid/doi) to the top level so
-        # identity resolution and the load lane see them directly.
         extra = item.get("_metadata") if isinstance(item.get("_metadata"), dict) else {}
         for k in ("pmid", "pmcid", "doi"):
             if extra.get(k) and not item.get(k):
                 item[k] = str(extra[k])
         item.pop("_metadata", None)
+        item["search_query"] = query.lower()
         source_url = str(item.get("source_url") or "").strip()
         if not source_url and str(item.get("source_type") or "") == "openalex":
             source_url = str(
@@ -1057,10 +1129,6 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             str(item.get("title") or ""),
         )
 
-    # In-batch dedupe: the same work can appear twice in one search response
-    # (e.g. DOI and landing-page variants); keep the first occurrence. This
-    # is also where the rejected-identity cache is enforced — identities
-    # exist by now, so a rejected work is dropped before it can be stored.
     unique_candidates: list[dict[str, Any]] = []
     seen_identities: set[str] = set()
     duplicate_count = 0
@@ -1076,18 +1144,114 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             seen_identities.add(identity)
         unique_candidates.append(item)
 
-    stored_ids: dict[str, int] = {}
+    # Whole-string precision gate BEFORE DB insertion so dropped imprecise
+    # candidates never pollute skill_review_candidates.
+    # Official statistical catalogues, NLM/PubMed E-utilities matches, and
+    # Scraped Contemporary Sources are already scoped by their upstream search
+    # engines and kept intact.
+    _EXEMPT_SOURCES = {"worldbank", "oecd", "eurostat", "imf", "ecb", "bis", "undata", "pubmed", "contemporary"}
+    terms = _precision_terms(query)
+    phrase = _normalize_for_match(query)
+    scored: list[dict[str, Any]] = []
+    precision_dropped = 0
+    for item in unique_candidates:
+        st_low = str(item.get("source_type") or "").lower()
+        if st_low in _EXEMPT_SOURCES:
+            item["_precision_tier"] = 0
+            item["_precision_hits"] = len(terms)
+            scored.append(item)
+            continue
+        tier, hits = _precision_score(item, terms, phrase)
+        item["_precision_tier"] = tier
+        item["_precision_hits"] = hits
+        if hits >= len(terms) - (0 if len(terms) <= 2 else 1):
+            scored.append(item)
+        else:
+            precision_dropped += 1
+
+    if payload.fresh_only:
+        ranked: list[dict[str, Any]] = []
+        for tier in sorted({int(c.get("_precision_tier") or 0) for c in scored}):
+            ranked.extend(_novelty_rank([c for c in scored if int(c.get("_precision_tier") or 0) == tier]))
+        scored = ranked
+    else:
+        scored.sort(key=lambda c: int(c.get("_precision_tier") or 0))
+
+    # Interleave primary scientific, official statistical, and Scraped
+    # Contemporary Sources at the front so Page 1 shows OpenAlex, NLM/PubMed,
+    # World Bank, Eurostat, IMF, ECB, BIS, UN Data, OECD, and Scraped
+    # Contemporary Sources together, while moving all GitHub and Hugging Face
+    # results to the very last!
+    by_source: dict[str, list[dict[str, Any]]] = {}
+    for c in scored:
+        st_low = str(c.get("source_type") or "").lower()
+        by_source.setdefault(st_low, []).append(c)
+
+    primary_quotas = [
+        ("openalex", 3),
+        ("pubmed", 2),
+        ("worldbank", 2),
+        ("eurostat", 2),
+        ("imf", 2),
+        ("ecb", 2),
+        ("bis", 2),
+        ("undata", 2),
+        ("oecd", 2),
+        ("contemporary", 4),
+    ]
+    interleaved_primary: list[dict[str, Any]] = []
+    while any(by_source.get(st) for st, _q in primary_quotas):
+        for st, quota in primary_quotas:
+            bucket = by_source.get(st) or []
+            for _ in range(quota):
+                if bucket:
+                    interleaved_primary.append(bucket.pop(0))
+
+    tail_sources = [
+        *(by_source.get("github") or []),
+        *(by_source.get("huggingface") or []),
+    ]
+    ordered_candidates = [*interleaved_primary, *tail_sources]
+
     loaded_skipped = 0
+    final_candidates: list[dict[str, Any]] = []
     with get_connection() as conn:
-        # The DB is the second layer of the rejected-never-returns guarantee:
-        # any legacy rows still carrying status='reject' are skipped too.
+        # When starting a new discovery query (batch_page == 1), clear stale
+        # un-reviewed `pending` candidates from previous queries so pagination
+        # only flows through the current query's candidate pool.
+        if payload.clear_previous_pending and batch_page == 1:
+            conn.execute("DELETE FROM skill_review_candidates WHERE status = 'pending'")
+
         _known_rejected = _rejected | {
             str(r["identity_key"])
             for r in conn.execute(
                 "SELECT identity_key FROM skill_review_candidates WHERE status = 'reject' AND identity_key IS NOT NULL AND identity_key != ''"
             ).fetchall()
         }
-        for item in unique_candidates:
+
+        all_identities = [str(c.get("_identity") or "") for c in ordered_candidates if c.get("_identity")]
+        existing_by_identity: dict[str, dict[str, Any]] = {}
+        if all_identities:
+            marks_id = ",".join("?" for _ in all_identities)
+            for r in conn.execute(
+                f"SELECT id, identity_key, status FROM skill_review_candidates WHERE identity_key IN ({marks_id})",
+                all_identities,
+            ).fetchall():
+                existing_by_identity[str(r["identity_key"])] = dict(r)
+
+        all_urls = [str(c.get("source_url") or "") for c in ordered_candidates if c.get("source_url")]
+        existing_by_url: dict[str, dict[str, Any]] = {}
+        if all_urls:
+            marks_url = ",".join("?" for _ in all_urls)
+            for r in conn.execute(
+                f"SELECT id, source_url, status FROM skill_review_candidates WHERE source_url IN ({marks_url})",
+                all_urls,
+            ).fetchall():
+                existing_by_url[str(r["source_url"])] = dict(r)
+
+        for item in ordered_candidates:
+            item.pop("_precision_tier", None)
+            item.pop("_precision_hits", None)
             identity = str(item.get("_identity") or "")
             if identity and identity in _known_rejected:
                 duplicate_count += 1
@@ -1101,33 +1265,41 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             item["field_slug"] = eff_field
             if item_domain:
                 item["domain_slug"] = item_domain
-            existing = conn.execute(
-                "SELECT id, status FROM skill_review_candidates WHERE identity_key = ?",
-                (identity,),
-            ).fetchone() if identity else None
+            existing = existing_by_identity.get(identity) if identity else None
             if existing is not None:
-                item["id"] = int(existing["id"])
-                item["already_loaded"] = str(existing["status"]) == "loaded"
-                item["previously_rejected"] = str(existing["status"]) == "reject"
-                if str(existing["status"]) in ("pending", "approve", "test"):
-                    conn.execute(
-                        "UPDATE skill_review_candidates SET description = ?, scientific_field = ?, license = ?, metadata_json = ? WHERE id = ?",
-                        (
-                            str(item.get("description") or item.get("abstract") or "")[:1000],
-                            eff_field,
-                            str(item.get("license") or ""),
-                            json.dumps(item, ensure_ascii=True)[:6000],
-                            int(existing["id"]),
-                        ),
-                    )
-                else:
-                    # Loaded or rejected: never resurrect. (Owner directive,
-                    # §34: loaded datasets are additionally dropped from the
-                    # visible lineup by the final sweep below, so fresh
-                    # searches surface only genuinely new material.)
+                st_val = str(existing["status"])
+                if st_val == "loaded":
+                    loaded_skipped += 1
+                    continue
+                if st_val == "reject":
                     duplicate_count += 1
+                    continue
+                item["id"] = int(existing["id"])
+                item["already_loaded"] = False
+                item["previously_rejected"] = False
+                conn.execute(
+                    "UPDATE skill_review_candidates SET description = ?, scientific_field = ?, license = ?, metadata_json = ?, discovered_at = datetime('now') WHERE id = ?",
+                    (
+                        str(item.get("description") or item.get("abstract") or "")[:1000],
+                        eff_field,
+                        str(item.get("license") or ""),
+                        json.dumps(item, ensure_ascii=True)[:6000],
+                        int(existing["id"]),
+                    ),
+                )
+                final_candidates.append(item)
                 continue
             try:
+                s_url = str(item.get("source_url") or "")
+                url_existing = existing_by_url.get(s_url) if s_url else None
+                if url_existing is not None:
+                    if str(url_existing["status"]) == "loaded":
+                        loaded_skipped += 1
+                        continue
+                    if str(url_existing["status"]) == "reject":
+                        duplicate_count += 1
+                        continue
+                    conn.execute("DELETE FROM skill_review_candidates WHERE id = ?", (int(url_existing["id"]),))
                 cur = conn.execute(
                     """
                     INSERT INTO skill_review_candidates
@@ -1137,7 +1309,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                     """,
                     (
                         str(item.get("source_type") or "github"),
-                        str(item.get("source_url") or ""),
+                        s_url,
                         str(item.get("title") or "Untitled candidate"),
                         str(item.get("description") or item.get("abstract") or "")[:1000],
                         eff_field,
@@ -1147,90 +1319,20 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                         identity,
                     ),
                 )
-                # Attach the new row id so the response's cards carry working
-                # Approve / Reject / Load buttons without a page refresh.
                 item["id"] = int(cur.lastrowid or 0)
                 item["already_loaded"] = False
                 item["previously_rejected"] = False
-            except sqlite3.IntegrityError:
+                final_candidates.append(item)
+            except Exception:
                 duplicate_count += 1
-                row = conn.execute(
-                    "SELECT id, status FROM skill_review_candidates WHERE identity_key = ?",
-                    (identity,),
-                ).fetchone()
-                if row is not None:
-                    item["id"] = int(row["id"])
-                    item["already_loaded"] = str(row["status"]) == "loaded"
         conn.commit()
-    candidates = unique_candidates
-
-    # Owner directive (§34): datasets already loaded + parsed into the
-    # library must not reappear in fresh searches — they crowd out new
-    # discoveries. The storage loop above already refuses to resurrect
-    # them; this final sweep drops any that slip through, so the lineup
-    # contains only genuinely new material.
-    visible: list[dict[str, Any]] = []
-    for item in candidates:
-        if item.get("already_loaded") is True:
-            loaded_skipped += 1
-            continue
-        visible.append(item)
-    candidates = visible
-
-    # §74n — whole-string precision gate. Candidates must carry the ENTIRE
-    # search string: every content word (the exact phrase ranks first). A
-    # single missing word is tolerated only on wide searches (3+ terms);
-    # anything looser is the field-broadening the owner outlawed. Narrowed
-    # here, at the one chokepoint every lane flows through.
-    terms = _precision_terms(query)
-    phrase = _normalize_for_match(query)
-    scored: list[dict[str, Any]] = []
-    precision_dropped = 0
-    for item in candidates:
-        if str(item.get("source_type") or "").lower() in {"worldbank", "oecd"}:
-            # §76 World Bank / OECD exemption (official statistics catalogue entries)
-            # must be listed): DBnomics rows are official-statistics catalogue
-            # entries — their identifiers and descriptions ("OECD/DSD_…") can
-            # never carry a scientific free-text query, so the whole-string
-            # law structurally dropped 100% of that lane. The lane's own
-            # DBnomics search already scoped them to the query; keep them.
-            item["_precision_tier"] = 0
-            item["_precision_hits"] = len(terms)
-            scored.append(item)
-            continue
-        tier, hits = _precision_score(item, terms, phrase)
-        item["_precision_tier"] = tier
-        item["_precision_hits"] = hits
-        if hits >= len(terms) - (0 if len(terms) <= 2 else 1):
-            scored.append(item)
-        else:
-            precision_dropped += 1
-    candidates = scored
-
-    if payload.fresh_only:
-        # Owner directive (§35): Fresh-discoveries mode — novelty (citations,
-        # recency) now orders candidates INSIDE each precision tier, so a
-        # field heavyweight can never float above a whole-string match.
-        ranked: list[dict[str, Any]] = []
-        for tier in sorted({int(c.get("_precision_tier") or 0) for c in candidates}):
-            ranked.extend(_novelty_rank([c for c in candidates if int(c.get("_precision_tier") or 0) == tier]))
-        candidates = ranked
-    else:
-        # Default mode: precision tier leads; the stable sort preserves each
-        # lane's own relevance order within a tier.
-        candidates.sort(key=lambda c: int(c.get("_precision_tier") or 0))
-    # Owner directive (§76): OpenAlex is the primary R&D source — its
-    # datasets are listed FIRST, ahead of every other lane. Stable sort, so
-    # precision/novelty order inside each group is preserved.
-    candidates.sort(key=lambda c: 0 if str(c.get("source_type") or "").lower() == "openalex" else 1)
-    for item in candidates:
-        item.pop("_precision_tier", None)
-        item.pop("_precision_hits", None)
+    candidates = final_candidates
 
     return {
         "ok": True,
         "query": query,
         "field": field_text,
+        "batch_page": batch_page,
         "fresh_only": bool(payload.fresh_only),
         "count": len(candidates),
         "duplicates_skipped": duplicate_count,
@@ -1246,12 +1348,18 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
                 else "No candidate carried the entire search string — precision kept nothing rather than diluting into the field."
             ),
         },
-        "github_count": sum(1 for c in candidates if c["source_type"] == "github"),
-        "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "openalex_count": sum(1 for c in candidates if c["source_type"] == "openalex"),
         "pubmed_count": sum(1 for c in candidates if c["source_type"] == "pubmed"),
         "worldbank_count": sum(1 for c in candidates if c["source_type"] == "worldbank"),
+        "eurostat_count": sum(1 for c in candidates if c["source_type"] == "eurostat"),
+        "imf_count": sum(1 for c in candidates if c["source_type"] == "imf"),
+        "ecb_count": sum(1 for c in candidates if c["source_type"] == "ecb"),
+        "bis_count": sum(1 for c in candidates if c["source_type"] == "bis"),
+        "undata_count": sum(1 for c in candidates if c["source_type"] == "undata"),
         "oecd_count": sum(1 for c in candidates if c["source_type"] == "oecd"),
+        "contemporary_count": sum(1 for c in candidates if c["source_type"] == "contemporary"),
+        "github_count": sum(1 for c in candidates if c["source_type"] == "github"),
+        "huggingface_count": sum(1 for c in candidates if c["source_type"] == "huggingface"),
         "pubmed_fulltext_count": sum(
             1 for c in candidates
             if c.get("source_type") == "pubmed" and (c.get("has_full_text") or str(c.get("pmcid") or ""))
@@ -1492,9 +1600,18 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
         "github": "GitHub",
         "huggingface": "Hugging Face",
         "openalex": "OpenAlex",
-        "pubmed": "PubMed",
-        "worldbank": "World Bank (DBnomics)",
+        "pubmed": "NLM / NHLBI / PubMed",
+        "worldbank": "World Bank (Official Indicators & DBnomics)",
+        "eurostat": "Eurostat (European Union Statistics SDMX 2.1)",
+        "imf": "IMF (International Monetary Fund Finances)",
+        "ecb": "ECB (European Central Bank Financial Data)",
+        "bis": "BIS (Bank for International Settlements)",
+        "undata": "UN Data (United Nations Statistical Division)",
         "oecd": "OECD (Official Statistics)",
+        "contemporary": "Scraped Contemporary Sources",
+        "contemporary-journal": "Scraped Contemporary Sources",
+        "contemporary-article": "Scraped Contemporary Sources",
+        "contemporary-preprint": "Scraped Contemporary Sources",
     }
     _source_label = _SOURCE_LABELS.get(source_type, source_type or "the source")
     load_progress.emit_meta(
@@ -1519,7 +1636,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
         result = ingest_huggingface_dataset_to_field(field, dataset.strip("/"), config_name="default", split="train", rows=50)
         result["source_type"] = "huggingface"
     elif source_type == "pubmed":
-        load_progress.stage("download", "Fetching the paper from PubMed Central (open access) or PubMed...")
+        load_progress.stage("download", "Fetching the paper from PubMed Central (open access) or NLM PubMed...")
         from .pubmed_worker import load_pubmed_papers_into_field
 
         result = load_pubmed_papers_into_field(
@@ -1535,9 +1652,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
         )
         result["source_type"] = "pubmed"
     elif source_type == "worldbank":
-        # §74k — DBnomics/World Bank time-series lane: slice the dataset by
-        # the owner's discovery query and digest one readable factbook.
-        load_progress.stage("download", "Fetching the dataset slice from DBnomics (World Bank, IMF, OECD, ECB)...")
+        load_progress.stage("download", "Fetching the dataset from World Bank Official API / DBnomics...")
         from .worldbank_worker import load_dbnomics_dataset_into_field
 
         result = load_dbnomics_dataset_into_field(
@@ -1545,10 +1660,33 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             {
                 "provider": str(metadata.get("provider") or "WB"),
                 "dataset": str(metadata.get("dataset") or ""),
+                "indicator": str(metadata.get("indicator") or ""),
+                "title": str(candidate.get("title") or ""),
+                "description": str(candidate.get("description") or ""),
+                "source_url": str(candidate.get("source_url") or ""),
                 "query": str(metadata.get("query") or ""),
             },
         )
         result["source_type"] = "worldbank"
+    elif source_type in {"eurostat", "imf", "ecb", "bis", "undata"}:
+        load_progress.stage("download", f"Fetching observations from {_source_label}...")
+        from .intl_stats_worker import load_intl_stat_dataset_into_field
+
+        result = load_intl_stat_dataset_into_field(
+            field,
+            source_type,
+            {
+                "agency": str(metadata.get("agency") or source_type.upper()),
+                "dataset": str(metadata.get("dataset") or ""),
+                "indicator": str(metadata.get("indicator") or ""),
+                "version": str(metadata.get("version") or "1.0"),
+                "title": str(candidate.get("title") or ""),
+                "description": str(candidate.get("description") or ""),
+                "source_url": str(candidate.get("source_url") or ""),
+                "query": str(metadata.get("query") or ""),
+            },
+        )
+        result["source_type"] = source_type
     elif source_type == "oecd":
         load_progress.stage("download", "Fetching OECD SDMX observations and structure...")
         from .oecd_worker import load_oecd_dataset_into_field
@@ -1563,6 +1701,13 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             },
         )
         result["source_type"] = "oecd"
+    elif source_type in {"contemporary", "contemporary-journal", "contemporary-article", "contemporary-preprint"}:
+        load_progress.stage("download", "Scraping and ingesting Contemporary Source article/journal...")
+        from .contemporary_scraper import load_contemporary_candidate_into_field
+
+        merged_cand = {**metadata, **candidate}
+        result = load_contemporary_candidate_into_field(merged_cand, field)
+        result["source_type"] = "contemporary"
     else:
         load_progress.stage("download", "Fetching the work from OpenAlex (PDF, landing page, or record)...")
         work = {

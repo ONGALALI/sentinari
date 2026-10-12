@@ -84,15 +84,22 @@ def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 45) -> d
 # Discovery — one candidate per dataset
 # ----------------------------------------------------------------------
 def search_dbnomics_datasets(query: str, field: str = "", limit: int = 10) -> dict[str, Any]:
-    """Full-text search over every DBnomics provider (World Bank, IMF, ...)."""
+    """Full-text search over World Bank Official API v2 + DBnomics providers."""
+    out: list[dict[str, Any]] = []
+    try:
+        from .intl_stats_worker import search_worldbank_direct
+
+        out.extend(search_worldbank_direct(query, field=field, limit=max(3, min(6, int(limit or 10)))))
+    except Exception:
+        pass
     try:
         payload = _get(
             f"{DBNOMICS_API_BASE}/search",
             {"q": query, "limit": max(1, min(25, int(limit or 10)))},
-            timeout=25,
+            timeout=15,
         )
         docs = ((payload.get("results") or {}).get("docs")) or []
-        out: list[dict[str, Any]] = []
+        seen_urls = {str(x.get("source_url") or "") for x in out}
         for d in docs:
             if not isinstance(d, dict):
                 continue
@@ -100,14 +107,17 @@ def search_dbnomics_datasets(query: str, field: str = "", limit: int = 10) -> di
             provider = str(d.get("provider_code") or "").strip()
             if not code or not provider:
                 continue
+            url = f"https://db.nomics.world/{provider}/{code}"
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
             name = str(d.get("name") or code)
             nb_series = int(d.get("nb_series") or 0)
-            # Provider descriptions carry HTML fragments — strip to plain text.
             desc = re.sub(r"<[^>]+>", " ", str(d.get("description") or "")).strip()
             out.append(
                 {
                     "source_type": "worldbank",
-                    "source_url": f"https://db.nomics.world/{provider}/{code}",
+                    "source_url": url,
                     "title": f"{provider}/{code} — {name}",
                     "description": (
                         f"Official time-series dataset ({nb_series:,} series) redistributed by "
@@ -119,14 +129,12 @@ def search_dbnomics_datasets(query: str, field: str = "", limit: int = 10) -> di
                     "provider": provider,
                     "dataset": code,
                     "nb_series": nb_series,
-                    # Rides inside metadata_json so the load lane can slice
-                    # the dataset by the words the owner actually searched.
                     "query": str(query or ""),
                 }
             )
-        return {"ok": True, "candidates": out}
-    except Exception as ex:
-        return {"ok": False, "error": str(ex), "candidates": []}
+    except Exception:
+        pass
+    return {"ok": True, "candidates": out[: max(4, min(25, int(limit or 10)))]}
 
 
 # ----------------------------------------------------------------------
@@ -231,13 +239,18 @@ def load_dbnomics_dataset_into_field(field: str, spec: dict[str, Any]) -> dict[s
     query = str(spec.get("query") or "")
     forced = [str(x).strip() for x in (spec.get("indicators") or []) if str(x).strip()]
 
+    if spec.get("indicator") or "api.worldbank.org" in str(spec.get("source_url") or ""):
+        from .intl_stats_worker import load_intl_stat_dataset_into_field
+
+        return load_intl_stat_dataset_into_field(field, "worldbank", spec)
+
     load_progress.stage("download", f"Reading {provider}/{dataset} dimensions from DBnomics...")
     try:
         meta = _dataset_dimensions(provider, dataset)
-    except Exception as ex:
-        return {"ok": False, "field": resolved["field_name"], "field_slug": resolved["field_slug"],
-                "downloaded": 0, "ingested": 0, "failed": 1,
-                "items": [{"ok": False, "error": f"Dataset metadata failed: {str(ex)[:160]}"}]}
+    except Exception:
+        from .intl_stats_worker import load_intl_stat_dataset_into_field
+
+        return load_intl_stat_dataset_into_field(field, "worldbank", spec)
 
     axis = _primary_dimension(meta)
     axis_filter: dict[str, list[str]] = {}
