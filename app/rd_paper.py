@@ -379,6 +379,92 @@ def _ensure_abstract_word_range(text: str, pattern: dict[str, Any], field_pretty
     return " ".join(c_words)
 
 
+RECOMMENDED_SOLUTIONS_FALLBACK = (
+    "This issue needs further analysis and in-depth study to provide any possible solutions. "
+    "From the curated and contemporary sources available to date it is not possible to render any recommendations."
+)
+
+
+def _synthesize_recommended_solutions(
+    pattern: dict[str, Any],
+    field_pretty: str,
+    problem_statement: str,
+    literature_review: str,
+    discussion: str,
+    evidence_excerpts: list[str],
+    bibliography: list[dict[str, str]],
+    ref_keys: list[str],
+    llm_sections: dict[str, Any],
+    *,
+    use_llm: bool = True,
+) -> str:
+    """Have Gemma analyze the literature and discussion within the R&D Paper to decide Possible Solutions, or return the required fallback sentence."""
+    # If there are no curated/contemporary sources or primary evidence excerpts, recommendations cannot be rendered.
+    if not evidence_excerpts or not bibliography or float(pattern.get("confidence") or 0.0) < 0.45:
+        return RECOMMENDED_SOLUTIONS_FALLBACK
+
+    candidate = str(llm_sections.get("recommended_solutions") or "").strip()
+    if not candidate and use_llm:
+        bib_summary = "\n".join(
+            f"{b.get('citation_key', '')} {b.get('title') or b.get('full_reference') or ''} ({b.get('role') or 'Source'})"
+            for b in bibliography[:8]
+        )
+        try:
+            raw_resp = get_gateway().chat(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are Gemma, acting as the R&D Principal Investigator for Sentinel. "
+                            "Your task is to write the final 'Recommended Solutions' paragraph of an R&D Validation Paper. "
+                            "Carefully analyze the Problem Statement, the Literature Review (curated and contemporary sources), "
+                            "and the Discussion within the R&D Paper, and decide what are the Possible Solutions to the problem addressed.\n"
+                            "- If the curated and contemporary sources and discussion support concrete, actionable Possible Solutions "
+                            "to the problem addressed, write one cohesive paragraph (4 to 6 sentences) detailing those Possible Solutions "
+                            "and citing relevant sources with inline brackets like [1], [2]. Do not include a heading.\n"
+                            "- If it is NOT possible to determine concrete solutions from the curated and contemporary sources available to date, "
+                            "output ONLY this exact text:\n"
+                            f"\"{RECOMMENDED_SOLUTIONS_FALLBACK}\""
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Pattern Title: {pattern.get('title')}\n"
+                            f"Scientific Fields: {field_pretty}\n"
+                            f"Problem Statement & Hypothesis: {problem_statement}\n"
+                            f"Literature Review: {literature_review}\n"
+                            f"Discussion & Evaluation: {discussion}\n"
+                            f"Curated & Contemporary Sources:\n{bib_summary}\n"
+                            f"Primary Evidence Excerpts:\n" + "\n".join(f"- {ex[:300]}" for ex in evidence_excerpts[:4])
+                        ),
+                    },
+                ],
+                temperature=0.2,
+                max_tokens=450,
+            )
+            candidate = str(raw_resp or "").strip().strip('"')
+        except Exception:
+            candidate = ""
+
+    if not candidate or len(candidate) < 40:
+        return RECOMMENDED_SOLUTIONS_FALLBACK
+
+    low = candidate.lower()
+    if (
+        "further analysis and in depth study" in low
+        or "further analysis and in-depth study" in low
+        or "not possible to render any recommendations" in low
+        or "insufficient evidence" in low
+    ):
+        return RECOMMENDED_SOLUTIONS_FALLBACK
+
+    if ref_keys and not re.search(r"\[\d+\]", candidate):
+        cite_pair = ", ".join(ref_keys[:2])
+        candidate = f"{candidate.rstrip('.')} ({cite_pair})."
+    return candidate
+
+
 def _build_stage_data(
     stage_num: int,
     pattern: dict[str, Any],
@@ -575,6 +661,22 @@ def _build_stage_data(
             f"{field_pretty}, execute multi-epoch PINN hardening as new experimental evidence arrives, and "
             f"scale the Stage 3 implementation protocol into automated decision-support workflows."
         )
+    intro_saved = existing_rd.get("introduction_framework") if isinstance(existing_rd.get("introduction_framework"), dict) else {}
+    test_saved = existing_rd.get("testing_evaluation") if isinstance(existing_rd.get("testing_evaluation"), dict) else {}
+    prob_for_sol = str(intro_saved.get("problem_statement") or llm_sections.get("problem_statement") or stmt or "")
+    lit_for_sol = str(intro_saved.get("literature_review") or llm_sections.get("literature_review") or "")
+    disc_for_sol = str(test_saved.get("discussion") or llm_sections.get("discussion") or "")
+    rec_solutions = _synthesize_recommended_solutions(
+        pattern,
+        field_pretty,
+        prob_for_sol,
+        lit_for_sol,
+        disc_for_sol,
+        evidence_excerpts,
+        bibliography,
+        ref_keys,
+        llm_sections,
+    )
     appendices_list: list[str] = [
         f"Appendix A — Canonical Mathematical Formalism: {_canonical_latex()}",
         f"Appendix B — Instantiated Pattern Formalism: {_computed_formalism_latex(evaluation)}",
@@ -590,6 +692,7 @@ def _build_stage_data(
     return {
         "conclusion": conc,
         "future_scope": future,
+        "recommended_solutions": rec_solutions,
         "references": bibliography,
         "appendices": appendices_list,
         "references_appendices": f"{len(bibliography)} cited source(s) and {len(appendices_list)} technical appendix item(s) compiled.",
@@ -609,7 +712,7 @@ def _synthesize_llm_all_stages(
                 {
                     "role": "system",
                     "content": (
-                        "You are Sentinel, a senior R&D principal investigator. "
+                        "You are Gemma (Sentinel R&D Principal Investigator). "
                         "Return ONLY a valid JSON object (no markdown fences) with these exact keys:\n"
                         "- \"title\": concise descriptive R&D title reflecting the core technological development or research objective\n"
                         "- \"abstract\": 150 to 250-word academic summary covering problem, proposed development, methodology, key findings, and practical impact\n"
@@ -625,7 +728,9 @@ def _synthesize_llm_all_stages(
                         "- \"data_analysis_results\": 3-4 sentences analyzing the quantitative metrics and Assessment Matrix outcomes\n"
                         "- \"discussion\": 3-4 sentences evaluating how results met objectives, anomalies, and benchmark comparisons\n"
                         "- \"conclusion\": 2-3 sentences summarizing project success, technical contributions, and real-world viability\n"
-                        "- \"future_scope\": 2-3 sentences on next-generation improvements, scaling, and addressing remaining limitations"
+                        "- \"future_scope\": 2-3 sentences on next-generation improvements, scaling, and addressing remaining limitations\n"
+                        "- \"recommended_solutions\": 4-5 sentences analyzing the literature_review and discussion to propose concrete Possible Solutions to the problem_statement (with inline citations like [1], [2]). If the curated and contemporary sources available to date are insufficient to propose concrete solutions, set this exact sentence: "
+                        f"\"{RECOMMENDED_SOLUTIONS_FALLBACK}\""
                     ),
                 },
                 {
@@ -643,7 +748,7 @@ def _synthesize_llm_all_stages(
                     ),
                 },
             ],
-            max_tokens=1800,
+            max_tokens=2100,
         )
     except Exception:
         return {}
@@ -665,11 +770,13 @@ def advance_pattern_rd_stage(
     existing_rd = {} if force else _parse_rd_json(pattern.get("rd_indicators_json"))
     status_before = evaluate_rd_indicators(pattern, existing_rd)
 
-    # Check if existing bibliography needs citation enrichment
-    existing_refs = ((existing_rd.get("back_matter") or {}).get("references") or []) if isinstance(existing_rd, dict) else []
+    # Check if existing bibliography or recommended_solutions needs enrichment
+    back_existing = (existing_rd.get("back_matter") or {}) if isinstance(existing_rd, dict) else {}
+    existing_refs = back_existing.get("references") or []
     needs_cite_refresh = len(existing_refs) < 2
+    needs_solutions_refresh = not bool(str(back_existing.get("recommended_solutions") or "").strip())
 
-    if status_before["completed_indicators"] >= TOTAL_INDICATORS and not force and not needs_cite_refresh:
+    if status_before["completed_indicators"] >= TOTAL_INDICATORS and not force and not needs_cite_refresh and not needs_solutions_refresh:
         return {
             "ok": True,
             "pattern_id": int(pattern_id),
@@ -742,7 +849,7 @@ def advance_pattern_rd_stage(
             _is_indicator_done(st_key, str(ind["key"]), existing_rd)
             for ind in RD_STAGES[st_num - 1]["indicators"]
         )
-        if st_done and not force and not (needs_cite_refresh and st_num in (2, 5)):
+        if st_done and not force and not (needs_cite_refresh and st_num in (2, 5)) and not (needs_solutions_refresh and st_num == 5):
             continue
         existing_rd[st_key] = _build_stage_data(
             st_num,
@@ -809,7 +916,9 @@ def generate_rd_report(pattern_id: int, *, force: bool = False, use_llm: bool = 
     intro = rd_data.get("introduction_framework") or {}
     meth = rd_data.get("methodology_design") or {}
     test_ev = rd_data.get("testing_evaluation") or {}
-    back = rd_data.get("back_matter") or {}
+    back = dict(rd_data.get("back_matter") or {})
+    if not str(back.get("recommended_solutions") or "").strip():
+        back["recommended_solutions"] = RECOMMENDED_SOLUTIONS_FALLBACK
 
     documented: list[str] = []
     benefits_text = str(pattern.get("benefits") or "").strip()
@@ -849,6 +958,7 @@ def generate_rd_report(pattern_id: int, *, force: bool = False, use_llm: bool = 
         "methodology_design": meth,
         "testing_evaluation": test_ev,
         "back_matter": back,
+        "recommended_solutions": str(back.get("recommended_solutions") or RECOMMENDED_SOLUTIONS_FALLBACK),
         "indicators": indicators_eval,
         # Unified Request R&D Paper keys
         "hypothesis_formulation": str(pattern.get("statement") or intro.get("problem_statement") or ""),
@@ -888,6 +998,7 @@ def get_or_generate_rd_report(pattern_id: int, force: bool = False, use_llm: boo
                     isinstance(cached, dict)
                     and cached.get("front_matter")
                     and cached.get("back_matter")
+                    and bool(str((cached.get("back_matter") or {}).get("recommended_solutions") or "").strip())
                     and len(cached.get("bibliography") or []) >= 2
                 ):
                     return cached
@@ -1053,6 +1164,12 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
         lit_raw_text = f"{lit_raw_text.rstrip('.')} ({', '.join(inline_keys[:4])})."
     lit_html = _format_prose_with_inline_citations(lit_raw_text, len(bib))
     disc_html = _format_prose_with_inline_citations(str(test_ev.get("discussion") or ""), len(bib))
+    rec_sol_raw = str(
+        report.get("recommended_solutions")
+        or back.get("recommended_solutions")
+        or RECOMMENDED_SOLUTIONS_FALLBACK
+    ).strip()
+    rec_sol_html = _format_prose_with_inline_citations(rec_sol_raw, len(bib))
 
     curve_payload = json.dumps(
         {
@@ -1090,6 +1207,7 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
           <a class="top-btn primary" href="/api/patterns/{pid}/rd-paper.pdf">&#11015; Download R&amp;D Paper (.pdf)</a>
           <a class="top-btn" href="#bib-section">&#128218; Jump to Citations ({len(bib)})</a>
           <a class="top-btn" href="#graphs-section">&#128200; Jump to Graphs &amp; Simulator (Section 6)</a>
+          <a class="top-btn" href="#recommended-solutions">&#128161; Jump to Recommended Solutions</a>
           <a class="top-btn" href="/ui/patterns">&larr; Back to New Pattern Discovery</a>
         </div>
       </div>
@@ -1190,6 +1308,9 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
 
     <h4 class="subsec" style="margin-top:18px;">5.4 Appendices (Extended Data, Formal Proofs &amp; Excerpts)</h4>
     <ul class="benefits">{appendices_html or '<li>No extended appendices attached.</li>'}</ul>
+
+    <h4 class="subsec" style="margin-top:18px;">5.5 Recommended Solutions — Possible Solutions to the Problem Addressed</h4>
+    <p class="body">{rec_sol_html}</p>
   </section>
 
   <!-- SECTION 6: CONSOLIDATED VISUAL ANALYTICS & GRAPHS (Moved to Bottom of Paper) -->
@@ -1215,6 +1336,13 @@ def render_rd_report_html(report: dict[str, Any]) -> str:
         <div class="chart-note">Comparison of each dimension's empirical operating level x<sub>i</sub> against its coupled Gaussian optimum &mu;<sub>i</sub> across the 0–10 scale.</div>
       </div>
     </div>
+  </section>
+
+  <!-- FINAL PARAGRAPH OF R&D PAPER: RECOMMENDED SOLUTIONS -->
+  <section class="card" id="recommended-solutions" style="border-top:4px solid #059669;background:linear-gradient(180deg,#ffffff 0%,#f0fdf4 100%);">
+    <h3 class="sec" style="color:#065f46;">Recommended Solutions</h3>
+    <div class="label" style="color:#047857;margin-bottom:8px;">Gemma Synthesis of Literature Review (Section 2.2) &amp; Discussion (Section 4.3) — Possible Solutions to the Problem Addressed</div>
+    <p class="body" style="font-size:15px;line-height:1.78;color:#0f172a;font-weight:500;">{rec_sol_html}</p>
   </section>
 
   <div class="foot">Sentinel &middot; New Patterns Workspace &middot; Unified 5-Stage (15-Indicator) R&amp;D Validation Paper — synchronized with the Assessment Matrix engine.</div>
@@ -1302,6 +1430,11 @@ def rd_report_pdf_bytes(report: dict[str, Any]) -> bytes:
     bib = report.get("bibliography") or back.get("references") or []
     ev = report.get("matrix_evaluation") or {}
     sd = report.get("matrix_scores") or {}
+    rec_sol_raw = str(
+        report.get("recommended_solutions")
+        or back.get("recommended_solutions")
+        or RECOMMENDED_SOLUTIONS_FALLBACK
+    ).strip()
 
     lines: list[str] = [
         "SENTINEL UNIFIED R&D VALIDATION PAPER (15/15 INDICATORS)",
@@ -1378,6 +1511,12 @@ def rd_report_pdf_bytes(report: dict[str, Any]) -> bytes:
     for b in bib:
         lines.extend(_w(f"{b.get('citation_key', '')} {b.get('full_reference', '')}"))
         lines.append("")
+
+    lines.extend([
+        "RECOMMENDED SOLUTIONS",
+        "-" * 60,
+        *_w(rec_sol_raw),
+    ])
 
     return build_pdf_bytes("\n".join(lines), title=str(report.get("paper_title") or "R&D Validation Paper")[:110])
 
