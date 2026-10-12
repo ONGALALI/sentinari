@@ -967,6 +967,9 @@ def api_direct_chat(
     }
 
 
+from pydantic import BaseModel, Field
+
+
 class ContemporaryScrapeRequest(BaseModel):
     query: str = Field(..., min_length=2, max_length=500)
     fields: list[str] = Field(default_factory=list)
