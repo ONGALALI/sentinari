@@ -317,31 +317,63 @@ def _upsert_document_with_chunks(
         _deadline = _time.monotonic() + max(30, _budget)
         load_progress.emit(message=f"Embedding {len(chunks)} chunk(s)...")
         _failed_embeds = 0
-        for idx, chunk in enumerate(chunks):
-            if load_progress.cancel_requested():
-                raise load_progress.LoadCancelled("Load cancelled by owner at chunk boundary.")
+        pending_indices: list[int] = []
+        for idx in range(len(chunks)):
             if chunk_hashes[idx] in known_chunk_hashes:
-                # Exact duplicate of a previously vectorized chunk: reuse the
-                # stored embedding and keep the embed budget for novel text.
-                embeddings[idx] = json.loads(known_chunk_hashes[chunk_hashes[idx]])
-                continue
-            if _time.monotonic() > _deadline:
-                load_progress.emit(
-                    message=f"Embed budget ({_budget}s) exhausted after {idx}/{len(chunks)} chunks — continuing without vectors (the re-embed migration can fill them)."
-                )
-                break
-            embedding = embedding_model.embed(chunk)
-            if embedding is None:
-                _failed_embeds += 1
-                if _failed_embeds >= 3:
+                try:
+                    embeddings[idx] = json.loads(known_chunk_hashes[chunk_hashes[idx]])
+                    continue
+                except Exception:
+                    pass
+            pending_indices.append(idx)
+
+        if hasattr(embedding_model, "embed_batch") and pending_indices:
+            batch_size = 25
+            for b_start in range(0, len(pending_indices), batch_size):
+                if load_progress.cancel_requested():
+                    raise load_progress.LoadCancelled("Load cancelled by owner at chunk boundary.")
+                if _time.monotonic() > _deadline:
                     load_progress.emit(
-                        message=f"Embedding service unavailable ({_failed_embeds} consecutive failures) — continuing without vectors for this document."
+                        message=f"Embed budget ({_budget}s) exhausted — continuing without remaining vectors."
                     )
                     break
-            else:
-                _failed_embeds = 0
-            embeddings[idx] = embedding
-            load_progress.embed_progress(idx + 1, len(chunks))
+                b_idxs = pending_indices[b_start : b_start + batch_size]
+                b_texts = [chunks[i] for i in b_idxs]
+                b_vecs = embedding_model.embed_batch(b_texts)
+                if not b_vecs or not any(b_vecs):
+                    _failed_embeds += 1
+                    if _failed_embeds >= 2:
+                        load_progress.emit(
+                            message="Embedding service unavailable — continuing without vectors for this document."
+                        )
+                        break
+                else:
+                    _failed_embeds = 0
+                    for i_pos, doc_idx in enumerate(b_idxs):
+                        if i_pos < len(b_vecs):
+                            embeddings[doc_idx] = b_vecs[i_pos]
+                load_progress.embed_progress(min(b_idxs[-1] + 1, len(chunks)), len(chunks))
+        else:
+            for idx in pending_indices:
+                if load_progress.cancel_requested():
+                    raise load_progress.LoadCancelled("Load cancelled by owner at chunk boundary.")
+                if _time.monotonic() > _deadline:
+                    load_progress.emit(
+                        message=f"Embed budget ({_budget}s) exhausted after {idx}/{len(chunks)} chunks — continuing without vectors (the re-embed migration can fill them)."
+                    )
+                    break
+                embedding = embedding_model.embed(chunks[idx])
+                if embedding is None:
+                    _failed_embeds += 1
+                    if _failed_embeds >= 3:
+                        load_progress.emit(
+                            message=f"Embedding service unavailable ({_failed_embeds} consecutive failures) — continuing without vectors for this document."
+                        )
+                        break
+                else:
+                    _failed_embeds = 0
+                embeddings[idx] = embedding
+                load_progress.embed_progress(idx + 1, len(chunks))
 
     extra_metadata_json = _json_dumps(metadata.get("extra_metadata") or {})
     priority = int(metadata.get("priority") or 0)
@@ -558,7 +590,7 @@ def _record_document_edges(
     """
     try:
         conn.execute("DELETE FROM document_edges WHERE document_id = ?;", (int(document_id),))
-    except sqlite3.OperationalError:
+    except Exception:
         return  # library not yet migrated
 
     edges: list[tuple[str, str, str, str, str]] = []
@@ -590,7 +622,7 @@ def _record_document_edges(
             """,
             [(s, sv, et, dt, dv, int(document_id)) for (s, sv, et, dt, dv) in edges],
         )
-    except sqlite3.OperationalError:
+    except Exception:
         pass
 
 

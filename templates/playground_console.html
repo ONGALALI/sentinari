@@ -1850,7 +1850,9 @@
       const hint = wrap.querySelector('[data-role="hint"]');
       if (hint) {
         hint.textContent = message || '';
-        hint.style.color = isError ? '#b23a48' : '';
+        hint.hidden = !message;
+        hint.style.color = isError ? '#b23a48' : '#1e7d32';
+        hint.style.fontWeight = message ? '600' : '';
       }
     };
 
@@ -2016,6 +2018,7 @@
 
     const sentinelIngest = async ({ url, options, fieldSlug, busyText, doneText }) => {
       setStatus('sentinelStatus', busyText, true);
+      sentinelSetFieldHint(fieldSlug, busyText, false);
       try {
         const res = await fetch(url, options);
         if (redirectIfUnauthorized(res)) return;
@@ -2036,6 +2039,7 @@
         sentinelForgetFailure(fieldSlug);
         sentinelSetFieldHint(fieldSlug, doneText(data), false);
         setStatus('sentinelStatus', doneText(data), true);
+        if (fieldSlug) await loadSentinelLoadedDatasets(fieldSlug);
       } catch (err) {
         sentinelRememberFailure(fieldSlug, { url, options, busyText, doneText });
         sentinelSetFieldHint(fieldSlug, String(err), true);
@@ -2049,18 +2053,26 @@
         sentinelSetFieldHint(fieldSlug, 'Choose one or more PDFs/documents first.', true);
         return;
       }
+      const wrap = document.querySelector(`.sentinel-field[data-field-slug="${CSS.escape(fieldSlug)}"]`);
+      const uploadBtn = wrap?.querySelector('button[data-role="upload"]');
+      const origLabel = uploadBtn ? uploadBtn.textContent : 'Upload PDFs';
+      if (uploadBtn) { uploadBtn.disabled = true; uploadBtn.textContent = 'Uploading...'; }
       const form = new FormData();
       form.append('field', fieldSlug);
       files.forEach((file) => form.append('files', file));
       const totalBytes = files.reduce((acc, file) => acc + file.size, 0);
-      await sentinelIngest({
-        url: '/api/playground/sentinel/upload',
-        options: { method: 'POST', body: form },
-        fieldSlug,
-        busyText: `Uploading ${files.length} file(s) (${sentinelFormatMb(totalBytes / (1024 * 1024))}) into the field...`,
-        doneText: (data) => `Uploaded ${data.ingested ?? 0}/${data.uploaded ?? files.length} into ${fieldSlug} (+${sentinelFormatMb(asNum(data.uploaded_bytes, 0) / (1024 * 1024))}).`,
-      });
-      input.value = '';
+      try {
+        await sentinelIngest({
+          url: '/api/playground/sentinel/upload',
+          options: { method: 'POST', body: form },
+          fieldSlug,
+          busyText: `Uploading & indexing ${files.length} file(s) (${sentinelFormatMb(totalBytes / (1024 * 1024))}) into ${fieldSlug}...`,
+          doneText: (data) => `✓ Uploaded & indexed ${data.ingested ?? 0}/${data.uploaded ?? files.length} file(s) (${data.chunks_created ?? 0} chunks, +${sentinelFormatMb(asNum(data.uploaded_bytes, 0) / (1024 * 1024))}) into ${fieldSlug}.`,
+        });
+      } finally {
+        if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.textContent = origLabel; }
+        input.value = '';
+      }
     };
 
     const sentinelLoadGithub = async (fieldSlug, input) => {
@@ -2259,11 +2271,13 @@
       ecb: 'ECB (European Central Bank Data)',
       bis: 'BIS (Bank for International Settlements)',
       undata: 'UN Data (United Nations Statistics)',
+      bea: 'U.S. BEA (Bureau of Economic Analysis)',
       oecd: 'OECD (Official Statistics)',
       contemporary: 'Scraped Contemporary Sources',
       'contemporary-journal': 'Scraped Contemporary Sources',
       'contemporary-article': 'Scraped Contemporary Sources',
       'contemporary-preprint': 'Scraped Contemporary Sources',
+      'pdf-upload': 'Uploaded PDF / Document',
       github: 'GitHub',
       huggingface: 'Hugging Face',
     };
@@ -2326,7 +2340,7 @@
           if (Number(item.cited_by_count || 0) > 0) badges.push(`cited ${formatInt(item.cited_by_count)}`);
           if (item.doi) badges.push(`DOI: ${String(item.doi)}`);
         }
-        if (['oecd', 'eurostat', 'imf', 'ecb', 'bis', 'undata', 'worldbank'].includes(stLow)) {
+        if (['oecd', 'eurostat', 'imf', 'ecb', 'bis', 'undata', 'bea', 'worldbank'].includes(stLow)) {
           badges.push('Official Statistical API');
           if (item.agency || item.provider) badges.push(`Authority: ${item.agency || item.provider}`);
         }
@@ -2367,7 +2381,7 @@
       if (curatedSlice.length) {
         groupedHtml += groupHeaderHtml(
           'Curated Scholarly &amp; Official Statistical Sources',
-          `OpenAlex · NLM/PubMed · World Bank · Eurostat · IMF · ECB · BIS · UN Data · OECD (${curatedSlice.length})`,
+          `OpenAlex · NLM/PubMed · World Bank · Eurostat · IMF · ECB · BIS · UN Data · U.S. BEA · OECD (${curatedSlice.length})`,
           '#eef5fc', '#c7dbf0', '#143a63'
         ) + curatedSlice.map(renderOneSourcingCard).join('');
       }
@@ -2416,7 +2430,7 @@
       }
       const isNextBatch = Boolean(opts && opts.nextBatch);
       const batchPage = isNextBatch ? ((sentinelFieldBatchPages[fieldSlug] || 1) + 1) : 1;
-      if (statusEl) statusEl.textContent = `Sourcing worker running unified scan (batch #${batchPage}) across OpenAlex, NLM/PubMed, World Bank, Eurostat, IMF, ECB, BIS, UN Data, OECD, Scraped Contemporary Sources, GitHub, and Hugging Face...`;
+      if (statusEl) statusEl.textContent = `Sourcing worker running unified scan (batch #${batchPage}) across OpenAlex, NLM/PubMed, World Bank, Eurostat, IMF, ECB, BIS, UN Data, U.S. BEA, OECD, Scraped Contemporary Sources, GitHub, and Hugging Face...`;
       try {
         const fullTextOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fulltext-only"]')?.checked);
         const freshOnly = Boolean(fieldWrap.querySelector('[data-role="sourcing-fresh-only"]')?.checked);
@@ -2452,7 +2466,7 @@
         }
         renderSourcingResults(fieldSlug, pubmedFullTextOnlyActive() || fullTextOnly ? hideAbstractOnly(sentinelFieldSourcingResults[fieldSlug] || []) : (sentinelFieldSourcingResults[fieldSlug] || []));
         if (statusEl) {
-          statusEl.innerHTML = `Batch #${batchPage}: Found ${formatInt(data.count)} candidates (OpenAlex ${formatInt(data.openalex_count)} · NLM/PubMed ${formatInt(data.pubmed_count || 0)} · World Bank ${formatInt(data.worldbank_count || 0)} · Eurostat ${formatInt(data.eurostat_count || 0)} · IMF ${formatInt(data.imf_count || 0)} · ECB ${formatInt(data.ecb_count || 0)} · BIS ${formatInt(data.bis_count || 0)} · UN Data ${formatInt(data.undata_count || 0)} · OECD ${formatInt(data.oecd_count || 0)} · <strong>Scraped Contemporary ${formatInt(data.contemporary_count || 0)}</strong> · GitHub ${formatInt(data.github_count)} · HF ${formatInt(data.huggingface_count)}).`;
+          statusEl.innerHTML = `Batch #${batchPage}: Found ${formatInt(data.count)} candidates (OpenAlex ${formatInt(data.openalex_count)} · NLM/PubMed ${formatInt(data.pubmed_count || 0)} · World Bank ${formatInt(data.worldbank_count || 0)} · Eurostat ${formatInt(data.eurostat_count || 0)} · IMF ${formatInt(data.imf_count || 0)} · ECB ${formatInt(data.ecb_count || 0)} · BIS ${formatInt(data.bis_count || 0)} · UN Data ${formatInt(data.undata_count || 0)} · U.S. BEA ${formatInt(data.bea_count || 0)} · OECD ${formatInt(data.oecd_count || 0)} · <strong>Scraped Contemporary ${formatInt(data.contemporary_count || 0)}</strong> · GitHub ${formatInt(data.github_count)} · HF ${formatInt(data.huggingface_count)}).`;
         }
       } catch (error) {
         if (statusEl) statusEl.textContent = `Dataset search failed: ${error.message || error}`;
@@ -2887,6 +2901,32 @@
     window.setInterval(pollLearning, 20000);
 
     // ---------- Permanently loaded datasets per field ----------
+    const renderSentinelFieldLoadedRows = (fieldSlug, allLoaded) => {
+      const fieldWrap = document.querySelector(`.sentinel-field[data-field-slug="${CSS.escape(fieldSlug)}"]`);
+      const listEl = fieldWrap?.querySelector('[data-role="loaded-list"]');
+      if (!listEl) return;
+      const rows = (allLoaded || []).filter((row) => String(row.scientific_field || '').toLowerCase() === String(fieldSlug).toLowerCase());
+      if (!rows.length) {
+        listEl.innerHTML = '<div class="hint">Nothing loaded into this field yet.</div>';
+        return;
+      }
+      const recentHtml = rows.slice(0, 6).map((row) => {
+        const docId = Number(row.loaded_document_id || 0);
+        const stLow = String(row.source_type || '').toLowerCase();
+        const stLabel = SOURCE_LABELS[stLow] || String(row.source_type || 'Dataset');
+        const chunks = Number(row.chunk_count || 0);
+        return `<div class="loaded-item" data-document-id="${docId}">
+          <div class="li-title">${escapeHtml(String(row.loaded_title || row.title || 'Uploaded dataset'))}</div>
+          <div class="li-meta">${escapeHtml(stLabel)}${chunks > 0 ? ` · ${formatInt(chunks)} chunks` : ''}${row.loaded_at ? ` · ${escapeHtml(String(row.loaded_at).slice(0, 19).replace('T', ' '))}` : ''}</div>
+          ${docId > 0 ? `<div class="li-actions">
+            <button type="button" class="ghost" data-role="loaded-preview">Preview</button>
+            <button type="button" class="ghost" data-role="loaded-download">⬇ Download .pdf</button>
+          </div>` : ''}
+        </div>`;
+      }).join('');
+      listEl.innerHTML = `<div class="hint">${rows.length} dataset${rows.length === 1 ? '' : 's'} / PDF${rows.length === 1 ? '' : 's'} loaded and ingested into this field — browse, search, preview and download all in the <a href="/ui/search" target="_blank" rel="noreferrer">Search Library</a>.</div>${recentHtml}`;
+    };
+
     const loadSentinelLoadedDatasets = async (fieldSlug) => {
       const fieldWrap = document.querySelector(`.sentinel-field[data-field-slug="${CSS.escape(fieldSlug)}"]`);
       const listEl = fieldWrap?.querySelector('[data-role="loaded-list"]');
@@ -2895,22 +2935,23 @@
         const response = await fetch('/api/skill-review/loaded');
         const data = await readApiJson(response);
         if (!response.ok || data.ok === false) throw new Error(data.detail || 'Could not load the loaded dataset list.');
-        const rows = (data.loaded || []).filter((row) => String(row.scientific_field || '').toLowerCase() === String(fieldSlug).toLowerCase());
-        // Owner directive: keep the Playground light — the full searchable
-        // dataset list lives in the Search Library workspace.
-        listEl.innerHTML = rows.length
-          ? `<div class="hint">${rows.length} dataset${rows.length === 1 ? '' : 's'} loaded and ingested into this field — browse, search, preview and download them in the <a href="/ui/search" target="_blank" rel="noreferrer">Search Library</a>.</div>`
-          : '<div class="hint">Nothing loaded into this field yet.</div>';
+        renderSentinelFieldLoadedRows(fieldSlug, data.loaded || []);
       } catch (error) {
         listEl.innerHTML = `<div class="hint">Loaded list unavailable: ${escapeHtml(String(error.message || error))}</div>`;
       }
     };
 
-    const loadAllSentinelLoadedLists = () => {
-      document.querySelectorAll('.sentinel-field').forEach((wrap) => {
-        const slug = String(wrap.dataset.fieldSlug || '');
-        if (slug) loadSentinelLoadedDatasets(slug);
-      });
+    const loadAllSentinelLoadedLists = async () => {
+      try {
+        const response = await fetch('/api/skill-review/loaded');
+        const data = await readApiJson(response);
+        if (!response.ok || data.ok === false) return;
+        const allLoaded = data.loaded || [];
+        document.querySelectorAll('.sentinel-field').forEach((wrap) => {
+          const slug = String(wrap.dataset.fieldSlug || '');
+          if (slug) renderSentinelFieldLoadedRows(slug, allLoaded);
+        });
+      } catch (_) {}
     };
 
     // ---------- Dataset preview modal (HTML) ----------

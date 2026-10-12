@@ -3388,6 +3388,126 @@ def _task_attachment_from_upload(item: dict[str, Any], *, uploaded_at: str) -> d
     }
 
 
+async def _store_and_ingest_uploaded_files(
+    *,
+    session_id: str | None,
+    files: list[UploadFile],
+    scientific_field: str | None = None,
+) -> dict[str, Any]:
+    if not files:
+        raise HTTPException(status_code=400, detail="Upload at least one document.")
+    if len(files) > SENTINEL_MAX_UPLOAD_FILES:
+        raise HTTPException(status_code=400, detail=f"Upload up to {SENTINEL_MAX_UPLOAD_FILES} files at a time.")
+
+    settings = get_settings()
+    raw_root = Path(settings.get("paths", {}).get("raw_root") or (get_project_root() / "data" / "raw")).resolve()
+    max_bytes = SENTINEL_DOC_MAX_MB * 1024 * 1024
+    pdf_max_bytes = SENTINEL_PDF_MAX_MB * 1024 * 1024
+    clean_session = _safe_upload_segment(session_id, "session-transient")
+
+    items: list[dict[str, Any]] = []
+    stored_paths: list[str] = []
+    for upload in files:
+        original_name = str(upload.filename or "").strip() or "upload.bin"
+        target = allocate_chat_upload_path(raw_root, clean_session, original_name)
+        written = 0
+        is_pdf = original_name.lower().endswith(".pdf")
+        effective_limit = pdf_max_bytes if is_pdf else max_bytes
+        effective_limit_mb = SENTINEL_PDF_MAX_MB if is_pdf else SENTINEL_DOC_MAX_MB
+        try:
+            with target.open("wb") as handle:
+                while True:
+                    chunk = await upload.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > effective_limit:
+                        raise ValueError(f"{original_name} exceeds the {effective_limit_mb} MB upload limit.")
+                    handle.write(chunk)
+            if written <= 0:
+                raise ValueError(f"{original_name} is empty.")
+            stored_paths.append(str(target))
+            items.append(
+                {
+                    "original_name": original_name,
+                    "stored_name": target.name,
+                    "stored_path": str(target),
+                    "bytes": written,
+                    "uploaded": True,
+                    "ingest_ok": False,
+                }
+            )
+        except Exception as ex:
+            try:
+                if target.exists():
+                    target.unlink()
+            except Exception:
+                pass
+            items.append(
+                {
+                    "original_name": original_name,
+                    "stored_name": "",
+                    "stored_path": "",
+                    "bytes": written,
+                    "uploaded": False,
+                    "ingest_ok": False,
+                    "error": str(ex),
+                }
+            )
+        finally:
+            await upload.close()
+
+    if not stored_paths:
+        first_error = next((str(item.get("error") or "") for item in items if item.get("error")), "")
+        raise HTTPException(status_code=400, detail=first_error or "No uploaded documents were accepted.")
+
+    ingest_meta: dict[str, Any] = {
+        "module": "chat-upload",
+        "topic": f"session-{clean_session}",
+        "priority": 160,
+        "publisher": "Sentinari Operator Upload",
+        "license": "operator-provided",
+    }
+    if scientific_field and str(scientific_field).strip():
+        ingest_meta["scientific_field"] = str(scientific_field).strip()
+
+    ingest_summary = ingest_files(stored_paths, metadata=ingest_meta, allow_embeddings=True)
+    by_path = {str(item.get("stored_path") or ""): item for item in items if item.get("stored_path")}
+    for res_item in ingest_summary.get("items") or []:
+        p_str = str(res_item.get("path") or "")
+        entry = by_path.get(p_str)
+        if entry is None:
+            continue
+        if res_item.get("ok"):
+            entry.update(
+                {
+                    "ingest_ok": True,
+                    "document_id": res_item.get("document_id"),
+                    "source_id": res_item.get("source_id"),
+                    "title": res_item.get("title") or entry.get("original_name"),
+                    "chunk_count": res_item.get("chunk_count") or 0,
+                    "pdf_engine": res_item.get("pdf_engine") or "",
+                }
+            )
+        else:
+            entry["error"] = str(res_item.get("error") or "Ingestion failed.")
+
+    ingested = int(ingest_summary.get("ingested") or 0)
+    failed = int(ingest_summary.get("failed") or 0)
+    if ingested <= 0:
+        first_error = next((str(item.get("error") or "") for item in items if item.get("error")), "")
+        raise HTTPException(status_code=400, detail=first_error or "Uploaded files could not be indexed.")
+
+    return {
+        "ok": True,
+        "session_id": clean_session,
+        "uploaded": len(stored_paths),
+        "ingested": ingested,
+        "failed": failed,
+        "items": items,
+    }
+
+
 @app.post("/api/chat/upload")
 async def api_chat_upload(
     session_id: str | None = Query(default=None, max_length=120),

@@ -828,23 +828,29 @@ def _field_metadata(resolved: dict[str, Any]) -> dict[str, Any]:
 
 
 def _note_last_ingest(field_slug: str) -> None:
-    # The live server writes field counts too, so brief write contention is
-    # normal — retry a few times, then continue: this stamp is cosmetic and a
-    # busy database must never turn a successful ingestion into an error.
-    for _attempt in range(5):
+    from .db import library_connection
+
+    for _attempt in range(3):
         try:
-            with get_connection() as conn:
-                _refresh_field_counts(conn)
+            with library_connection("gemma") as conn:
                 conn.execute(
-                    "UPDATE sentinel_scientific_fields SET last_ingest_at = ? WHERE field_slug = ?;",
-                    (_utc_now(), field_slug),
+                    """
+                    UPDATE sentinel_scientific_fields
+                    SET
+                        documents = COALESCE((SELECT COUNT(1) FROM documents d WHERE d.scientific_field = ?), 0),
+                        chunks = COALESCE((SELECT COUNT(1) FROM chunks c JOIN documents d ON d.id = c.document_id WHERE d.scientific_field = ?), 0),
+                        bytes_total = COALESCE((SELECT SUM(d.raw_char_count) FROM documents d WHERE d.scientific_field = ?), 0),
+                        last_ingest_at = ?
+                    WHERE field_slug = ?;
+                    """,
+                    (field_slug, field_slug, field_slug, _utc_now(), field_slug),
                 )
                 conn.commit()
             return
-        except sqlite3.OperationalError as ex:
+        except Exception as ex:
             if "locked" not in str(ex).lower():
-                raise
-            time.sleep(0.6)
+                break
+            time.sleep(0.5)
     print(f"[sentinel] note: could not stamp last_ingest_at for {field_slug} (database busy) — data is safely stored.")
 
 
@@ -865,17 +871,26 @@ def ingest_sentinel_field_files(
     metadata.update({"module": module, "topic": topic, "priority": 150})
     result = ingest_files(stored_paths, metadata=metadata, allow_embeddings=True)
     _note_last_ingest(resolved["field_slug"])
-    return {
-        "ok": bool(result.get("ingested")),
+    items = result.get("items") or []
+    ingested_count = int(result.get("ingested") or 0)
+    first_error = next((str(item.get("error") or "") for item in items if item.get("error")), "")
+    total_chunks = sum(int(item.get("chunk_count") or item.get("chunks_created") or 0) for item in items if isinstance(item, dict))
+    out: dict[str, Any] = {
+        "ok": ingested_count > 0,
         "field": resolved["field_name"],
         "field_slug": resolved["field_slug"],
         "domain": resolved["domain_slug"],
         "uploaded": len(stored_paths),
-        "ingested": int(result.get("ingested") or 0),
+        "ingested": ingested_count,
+        "chunks_created": total_chunks,
         "failed": int(result.get("failed") or 0),
-        "items": result.get("items") or [],
+        "items": items,
         "status": get_sentinel_status(refresh_counts=False),
     }
+    if ingested_count <= 0 and first_error:
+        out["error"] = first_error
+        out["detail"] = first_error
+    return out
 
 
 # ---------------------------------------------------------------------------

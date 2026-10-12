@@ -33,10 +33,11 @@ SOURCE_PRIORITY = (
     {"rank": 6, "id": "ecb", "label": "ECB (European Central Bank Financial Data)"},
     {"rank": 7, "id": "bis", "label": "BIS (Bank for International Settlements)"},
     {"rank": 8, "id": "undata", "label": "UN Data (United Nations Statistical Division)"},
-    {"rank": 9, "id": "oecd", "label": "OECD (Official Statistical Dataflows)"},
-    {"rank": 10, "id": "contemporary", "label": "Scraped Contemporary Sources (Recent Journals, Preprints & Expert Press)"},
-    {"rank": 11, "id": "github", "label": "GitHub (Repos & Data)"},
-    {"rank": 12, "id": "huggingface", "label": "HuggingFace (Datasets Hub)"},
+    {"rank": 9, "id": "bea", "label": "U.S. BEA (Bureau of Economic Analysis)"},
+    {"rank": 10, "id": "oecd", "label": "OECD (Official Statistical Dataflows)"},
+    {"rank": 11, "id": "contemporary", "label": "Scraped Contemporary Sources (Recent Journals, Preprints & Expert Press)"},
+    {"rank": 12, "id": "github", "label": "GitHub (Repos & Data)"},
+    {"rank": 13, "id": "huggingface", "label": "HuggingFace (Datasets Hub)"},
 )
 
 _HTTP_TIMEOUT = 20
@@ -240,6 +241,7 @@ _SOURCES = {
     "ecb": _make_intl_stat_fn("ecb", "ECB"),
     "bis": _make_intl_stat_fn("bis", "BIS"),
     "undata": _make_intl_stat_fn("undata", "UN Data"),
+    "bea": _make_intl_stat_fn("bea", "U.S. BEA"),
     "oecd": _oecd_candidates,
     "contemporary": _contemporary_candidates,
     "github": _github_candidates,

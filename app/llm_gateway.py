@@ -624,12 +624,18 @@ class VertexAIProvider:
         return " ".join(str(p.get("text") or "") for p in parts).strip()
 
     def embed(self, text: str) -> list[float] | None:
+        res = self.embed_batch([text])
+        return res[0] if res else None
+
+    def embed_batch(self, texts: list[str]) -> list[list[float] | None]:
+        if not texts:
+            return []
         token = self._get_token()
         if not token:
-            return None
+            return [None] * len(texts)
         url = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.project}/locations/us-central1/publishers/google/models/{self.embedding_model}:predict"
         payload = {
-            "instances": [{"content": str(text or "")[:8000], "task_type": "RETRIEVAL_DOCUMENT"}],
+            "instances": [{"content": str(t or "")[:8000], "task_type": "RETRIEVAL_DOCUMENT"} for t in texts],
             "parameters": {"outputDimensionality": self.embedding_dims},
         }
         try:
@@ -643,13 +649,15 @@ class VertexAIProvider:
             resp.raise_for_status()
             data = resp.json() or {}
             preds = data.get("predictions") or []
-            if preds:
-                vals = preds[0].get("embeddings", {}).get("values")
-                if isinstance(vals, list):
-                    return [float(v) for v in vals]
+            if len(preds) == len(texts):
+                out: list[list[float] | None] = []
+                for p in preds:
+                    vals = p.get("embeddings", {}).get("values")
+                    out.append([float(v) for v in vals] if isinstance(vals, list) else None)
+                return out
         except Exception:
             pass
-        return None
+        return [None] * len(texts)
 
 
 _PROVIDERS: dict[str, type] = {
@@ -717,6 +725,29 @@ class LLMGateway:
                     return [float(x) / norm for x in embedding]
                 return [float(x) for x in embedding]
         return None
+
+    def embed_batch(self, texts: list[str]) -> list[list[float] | None]:
+        import math as _math
+
+        if not texts:
+            return []
+        for provider in [self.provider, *self._fallbacks]:
+            if hasattr(provider, "embed_batch"):
+                raw_batch = provider.embed_batch(texts)
+                if raw_batch and any(raw_batch):
+                    out: list[list[float] | None] = []
+                    for emb in raw_batch:
+                        if emb:
+                            norm = _math.sqrt(sum(float(x) * float(x) for x in emb))
+                            out.append([float(x) / norm for x in emb] if norm > 0 else [float(x) for x in emb])
+                        else:
+                            out.append(None)
+                    return out
+            else:
+                out_single = [self.embed(t) for t in texts]
+                if any(out_single):
+                    return out_single
+        return [None] * len(texts)
 
     # -- structured output --------------------------------------------------
 
@@ -817,6 +848,9 @@ class GatewayBackedClient:
 
     def embed(self, text: str) -> list[float] | None:
         return self._gateway.embed(text)
+
+    def embed_batch(self, texts: list[str]) -> list[list[float] | None]:
+        return self._gateway.embed_batch(texts)
 
     # -- diagnostics -----------------------------------------------------
 

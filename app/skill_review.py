@@ -130,7 +130,7 @@ def _source_identity(source_type: str, source_url: str, metadata: dict[str, Any]
             return f"hf:{dataset}"
         return f"url:{_norm_url(url)}"
 
-    if stype in {"oecd", "eurostat", "imf", "ecb", "bis", "undata", "worldbank"}:
+    if stype in {"oecd", "eurostat", "imf", "ecb", "bis", "undata", "bea", "worldbank"}:
         agency = str(metadata.get("agency") or metadata.get("provider") or stype).lower()
         dataset = str(metadata.get("dataset") or metadata.get("indicator") or "").lower()
         if dataset:
@@ -469,21 +469,61 @@ def list_loaded() -> dict[str, Any]:
     loaded: list[dict[str, Any]] = []
     chunk_totals: dict[int, int] = {}
     doc_ids = [int(r["loaded_document_id"] or 0) for r in rows if r.get("loaded_document_id")]
-    valid_ids = [d for d in doc_ids if d > 0]
-    if valid_ids:
-        try:
-            with library_connection("gemma") as conn:
+    direct_docs: list[dict[str, Any]] = []
+    try:
+        with library_connection("gemma") as conn:
+            direct_rows = conn.execute(
+                """
+                SELECT id, title, source_type, source_path, source_url,
+                       scientific_field, created_at, module, topic
+                FROM documents
+                WHERE module IN ('uploaded-document', 'chat-upload')
+                   OR topic = 'sentinel-upload'
+                ORDER BY id DESC
+                LIMIT 200
+                """
+            ).fetchall()
+            direct_docs = [dict(r) for r in direct_rows]
+            for d in direct_docs:
+                doc_ids.append(int(d["id"]))
+            valid_ids = [d for d in doc_ids if d > 0]
+            if valid_ids:
                 id_list = ",".join(str(d) for d in set(valid_ids))
                 counts = conn.execute(
                     f"SELECT document_id, COUNT(1) AS n FROM chunks WHERE document_id IN ({id_list}) GROUP BY document_id"
                 ).fetchall()
                 for c in counts:
                     chunk_totals[int(c["document_id"])] = int(c["n"])
-        except Exception:
-            pass
+    except Exception:
+        pass
+    seen_doc_ids: set[int] = set()
+    for d in direct_docs:
+        did = int(d.get("id") or 0)
+        if did <= 0 or did in seen_doc_ids:
+            continue
+        seen_doc_ids.add(did)
+        loaded.append(
+            {
+                "id": 0,
+                "source_type": "pdf-upload",
+                "source_url": str(d.get("source_url") or ""),
+                "title": str(d.get("title") or "Uploaded PDF"),
+                "description": f"Uploaded document ({d.get('source_type') or 'pdf'})",
+                "scientific_field": str(d.get("scientific_field") or ""),
+                "license": "Uploaded",
+                "loaded_at": str(d.get("created_at") or ""),
+                "loaded_document_id": did,
+                "loaded_title": str(d.get("title") or "Uploaded PDF"),
+                "status": "loaded",
+                "chunk_count": chunk_totals.get(did, 0),
+            }
+        )
     for row in rows:
         item = dict(row)
-        item["chunk_count"] = chunk_totals.get(int(row["loaded_document_id"] or 0), 0)
+        did = int(row["loaded_document_id"] or 0)
+        if did > 0:
+            seen_doc_ids.add(did)
+        item["chunk_count"] = chunk_totals.get(did, 0)
         loaded.append(item)
     return {"ok": True, "loaded": loaded}
 
@@ -1067,7 +1107,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         except Exception:
             return []
 
-    pool = ThreadPoolExecutor(max_workers=12)
+    pool = ThreadPoolExecutor(max_workers=13)
     try:
         openalex_future = pool.submit(_openalex_search)
         pubmed_future = pool.submit(_pubmed_search)
@@ -1077,6 +1117,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         ecb_future = pool.submit(_intl_stat_search, "ecb")
         bis_future = pool.submit(_intl_stat_search, "bis")
         undata_future = pool.submit(_intl_stat_search, "undata")
+        bea_future = pool.submit(_intl_stat_search, "bea")
         oecd_future = pool.submit(_oecd_search)
         contemp_future = pool.submit(_contemporary_search)
         github_future = pool.submit(_github_search)
@@ -1090,6 +1131,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
             *_lane_result(ecb_future),
             *_lane_result(bis_future),
             *_lane_result(undata_future),
+            *_lane_result(bea_future),
             *_lane_result(oecd_future),
             *_lane_result(contemp_future),
             *_lane_result(github_future),
@@ -1149,7 +1191,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
     # Official statistical catalogues, NLM/PubMed E-utilities matches, and
     # Scraped Contemporary Sources are already scoped by their upstream search
     # engines and kept intact.
-    _EXEMPT_SOURCES = {"worldbank", "oecd", "eurostat", "imf", "ecb", "bis", "undata", "pubmed", "contemporary"}
+    _EXEMPT_SOURCES = {"worldbank", "oecd", "eurostat", "imf", "ecb", "bis", "undata", "bea", "pubmed", "contemporary"}
     terms = _precision_terms(query)
     phrase = _normalize_for_match(query)
     scored: list[dict[str, Any]] = []
@@ -1179,7 +1221,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
 
     # Interleave primary scientific, official statistical, and Scraped
     # Contemporary Sources at the front so Page 1 shows OpenAlex, NLM/PubMed,
-    # World Bank, Eurostat, IMF, ECB, BIS, UN Data, OECD, and Scraped
+    # World Bank, Eurostat, IMF, ECB, BIS, UN Data, BEA, OECD, and Scraped
     # Contemporary Sources together, while moving all GitHub and Hugging Face
     # results to the very last!
     by_source: dict[str, list[dict[str, Any]]] = {}
@@ -1196,6 +1238,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         ("ecb", 2),
         ("bis", 2),
         ("undata", 2),
+        ("bea", 2),
         ("oecd", 2),
         ("contemporary", 4),
     ]
@@ -1356,6 +1399,7 @@ def find_candidates(payload: FindRequest) -> dict[str, Any]:
         "ecb_count": sum(1 for c in candidates if c["source_type"] == "ecb"),
         "bis_count": sum(1 for c in candidates if c["source_type"] == "bis"),
         "undata_count": sum(1 for c in candidates if c["source_type"] == "undata"),
+        "bea_count": sum(1 for c in candidates if c["source_type"] == "bea"),
         "oecd_count": sum(1 for c in candidates if c["source_type"] == "oecd"),
         "contemporary_count": sum(1 for c in candidates if c["source_type"] == "contemporary"),
         "github_count": sum(1 for c in candidates if c["source_type"] == "github"),
@@ -1607,6 +1651,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
         "ecb": "ECB (European Central Bank Financial Data)",
         "bis": "BIS (Bank for International Settlements)",
         "undata": "UN Data (United Nations Statistical Division)",
+        "bea": "U.S. BEA (Bureau of Economic Analysis)",
         "oecd": "OECD (Official Statistics)",
         "contemporary": "Scraped Contemporary Sources",
         "contemporary-journal": "Scraped Contemporary Sources",
@@ -1668,7 +1713,7 @@ def _ingest_candidate_impl(candidate_id: int, rep: Any) -> dict[str, Any]:
             },
         )
         result["source_type"] = "worldbank"
-    elif source_type in {"eurostat", "imf", "ecb", "bis", "undata"}:
+    elif source_type in {"eurostat", "imf", "ecb", "bis", "undata", "bea"}:
         load_progress.stage("download", f"Fetching observations from {_source_label}...")
         from .intl_stats_worker import load_intl_stat_dataset_into_field
 

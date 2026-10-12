@@ -28,6 +28,8 @@ from typing import Any
 import requests
 import urllib3
 
+import os
+
 from . import load_progress
 from .sentinel_domains import _resolve_field, slugify
 
@@ -41,6 +43,8 @@ ECB_SDMX_BASE = "https://data-api.ecb.europa.eu/service"
 BIS_SDMX_BASE = "https://stats.bis.org/api/v1"
 UNDATA_SDMX_BASE = "https://data.un.org/ws/rest"
 WORLDBANK_API_BASE = "https://api.worldbank.org/v2"
+BEA_API_BASE = "https://apps.bea.gov/api/data"
+BEA_DEFAULT_API_KEY = os.environ.get("BEA_API_KEY") or "0B723192-2659-417D-B3B0-70DA5CDB1C20"
 
 USER_AGENT = "Sentinari-Sentinel/1.0 (Official SDMX Statistical Research Client)"
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "intl_stats_cache"
@@ -307,6 +311,56 @@ CURATED_CATALOGS: dict[str, list[dict[str, Any]]] = {
             "keywords": "un population demographics mortality fertility life expectancy public health anthropology",
         },
     ],
+    "bea": [
+        {
+            "code": "NIPA_T10101",
+            "agency": "BEA",
+            "indicator": "T10101",
+            "title": "Percent Change From Preceding Period in Real Gross Domestic Product (NIPA Table 1.1.1)",
+            "description": "U.S. Bureau of Economic Analysis (BEA) National Income and Product Accounts (NIPA) Table 1.1.1: Real GDP growth rates, personal consumption expenditures, gross private domestic investment, net exports, and government spending.",
+            "keywords": "bea gdp real gross domestic product nipa us economy macroeconomics growth consumption investment",
+        },
+        {
+            "code": "NIPA_T10105",
+            "agency": "BEA",
+            "indicator": "T10105",
+            "title": "Gross Domestic Product, Nominal Billions of Dollars (NIPA Table 1.1.5)",
+            "description": "U.S. Bureau of Economic Analysis (BEA) NIPA Table 1.1.5: Current-dollar Gross Domestic Product and expenditure components across quarterly and annual series.",
+            "keywords": "bea gdp nominal gross domestic product nipa us economy finance macroeconomics expenditure",
+        },
+        {
+            "code": "NIPA_T20304",
+            "agency": "BEA",
+            "indicator": "T20304",
+            "title": "Price Indexes for Personal Consumption Expenditures by Major Type of Product (PCE Inflation, NIPA Table 2.3.4)",
+            "description": "Official Federal Reserve benchmark inflation series (PCE & Core PCE Price Indexes) published by the U.S. Bureau of Economic Analysis.",
+            "keywords": "bea pce inflation prices consumer monetary policy federal reserve economics finance",
+        },
+        {
+            "code": "GDPBYINDUSTRY_VA",
+            "agency": "BEA",
+            "indicator": "1",
+            "title": "Value Added by Industry as a Percentage of Gross Domestic Product (BEA GDP by Industry)",
+            "description": "U.S. Bureau of Economic Analysis industry-level value added across agriculture, manufacturing, technology, information, healthcare, finance, and government.",
+            "keywords": "bea industry value added gdp manufacturing technology healthcare engineering economics",
+        },
+        {
+            "code": "ITA_BOP",
+            "agency": "BEA",
+            "indicator": "BalGds",
+            "title": "U.S. International Transactions Accounts (Balance of Payments, Trade in Goods & Services)",
+            "description": "U.S. Bureau of Economic Analysis cross-border trade balances, current account, financial account, and international investment position.",
+            "keywords": "bea international trade balance of payments exports imports geopolitics geoeconomics",
+        },
+        {
+            "code": "FIXEDASSETS_FAAT101",
+            "agency": "BEA",
+            "indicator": "FAAt101",
+            "title": "Current-Cost Net Stock of Fixed Assets and Consumer Durable Goods (BEA Fixed Assets Table 1.1)",
+            "description": "U.S. national wealth and capital stock across private nonresidential equipment, structures, intellectual property products (R&D, software), and government infrastructure.",
+            "keywords": "bea fixed assets capital stock infrastructure research development software engineering economics",
+        },
+    ],
 }
 
 
@@ -447,6 +501,29 @@ def _get_live_or_cached_catalog(source_type: str) -> list[dict[str, Any]]:
                             "keywords": f"imf {ind_code.lower()} {lbl.lower()} {dsc.lower()}",
                         }
                     )
+        elif stype == "bea":
+            data = _http_get_json(
+                BEA_API_BASE,
+                params={"UserID": BEA_DEFAULT_API_KEY, "method": "GETDATASETLIST", "ResultFormat": "JSON"},
+                timeout=8,
+            )
+            ds_list = (((data or {}).get("BEAAPI") or {}).get("Results") or {}).get("Dataset") or []
+            for ds in ds_list:
+                if not isinstance(ds, dict):
+                    continue
+                ds_name = str(ds.get("DatasetName") or "").strip()
+                ds_desc = str(ds.get("DatasetDescription") or "").strip()
+                if ds_name and ds_name.upper() not in {"APIDATASET", "UNDERLYINGDETAIL"}:
+                    live_flows.append(
+                        {
+                            "code": f"BEA_{ds_name.upper()}",
+                            "indicator": "T10101" if ds_name.upper() == "NIPA" else ds_name,
+                            "agency": "BEA",
+                            "title": f"U.S. BEA {ds_name} — {ds_desc}",
+                            "description": f"Official U.S. Bureau of Economic Analysis ({ds_name}) dataset: {ds_desc}.",
+                            "keywords": f"bea us gdp economics {ds_name.lower()} {ds_desc.lower()}",
+                        }
+                    )
     except Exception:
         pass
 
@@ -500,6 +577,12 @@ def _source_meta(source_type: str, code: str, agency: str) -> tuple[str, str, st
             f"UN-Data/{code}",
             "United Nations Statistical Division Open Data Terms",
         )
+    if st == "bea":
+        return (
+            f"https://www.bea.gov/data/gdp/gross-domestic-product#{code}",
+            f"U.S. BEA/{code}",
+            "U.S. Bureau of Economic Analysis (Public Domain / Official U.S. Department of Commerce Data)",
+        )
     return (f"https://db.nomics.world/{agency}/{code}", f"{agency}/{code}", "Official Statistics")
 
 
@@ -510,7 +593,7 @@ def search_intl_stat_provider(
     limit: int = 8,
     page: int = 1,
 ) -> dict[str, Any]:
-    """Search one of the 5 international statistical providers (eurostat, imf, ecb, bis, undata)."""
+    """Search one of the official international/national statistical providers (eurostat, imf, ecb, bis, undata, bea)."""
     st = str(source_type or "").lower().strip()
     catalog = _get_live_or_cached_catalog(st)
     q = str(query or "").lower().strip()
@@ -777,6 +860,34 @@ def _fetch_live_observations_markdown(source_type: str, spec: dict[str, Any]) ->
                         dt = str(row.get("date") or "")
                         val = row.get("value")
                         obs_lines.append(f"| {cname} | `{ciso}` | {dt} | {val:,} |" if isinstance(val, (int, float)) else f"| {cname} | `{ciso}` | {dt} | {val} |")
+        elif st == "bea":
+            tbl = indicator if indicator.startswith("T") else "T10101"
+            data = _http_get_json(
+                BEA_API_BASE,
+                params={
+                    "UserID": BEA_DEFAULT_API_KEY,
+                    "method": "GetData",
+                    "DataSetName": "NIPA",
+                    "TableName": tbl,
+                    "Frequency": "Q",
+                    "Year": "2022,2023,2024,2025",
+                    "ResultFormat": "JSON",
+                },
+                timeout=15,
+            )
+            rows = (((data or {}).get("BEAAPI") or {}).get("Results") or {}).get("Data") or []
+            if isinstance(rows, list) and rows:
+                obs_lines.append(f"### Live U.S. BEA NIPA Observations (`{tbl}`)")
+                obs_lines.append("| Line Description | Series Code | Period | Value | Unit |")
+                obs_lines.append("|---|---|---|---|---|")
+                for r in rows[:65]:
+                    if isinstance(r, dict):
+                        ldesc = str(r.get("LineDescription") or "")
+                        scode = str(r.get("SeriesCode") or "")
+                        tp = str(r.get("TimePeriod") or "")
+                        dval = str(r.get("DataValue") or "")
+                        unit = str(r.get("METRIC_NAME") or "")
+                        obs_lines.append(f"| {ldesc} | `{scode}` | {tp} | **{dval}** | {unit} |")
     except Exception as ex:
         obs_lines.append(f"_Note: Direct SDMX observation stream summarized via catalog metadata ({str(ex)[:120]})._")
 
@@ -792,8 +903,9 @@ def _fetch_live_observations_markdown(source_type: str, spec: dict[str, Any]) ->
 
 
 def load_intl_stat_dataset_into_field(field: str, source_type: str, spec: dict[str, Any]) -> dict[str, Any]:
-    """Download and ingest an official Eurostat, IMF, ECB, BIS, UN Data, or World Bank dataset into a Sentinel field."""
+    """Download and ingest an official Eurostat, IMF, ECB, BIS, UN Data, U.S. BEA, or World Bank dataset into a Sentinel field."""
     from .ingestion import ingest_files
+    from .sentinel_domains import _field_metadata, _note_last_ingest
 
     st = str(source_type or "").lower().strip()
     resolved = _resolve_field(field)
@@ -812,14 +924,20 @@ def load_intl_stat_dataset_into_field(field: str, source_type: str, spec: dict[s
     file_path.write_text(md_content, encoding="utf-8")
 
     load_progress.stage("digest", f"Digesting {title[:60]} into {resolved['field_name']}...")
-    ingest_res = ingest_files(
-        [file_path],
-        persona="gemma",
-        source_type=st,
-        scientific_field=resolved["field_slug"],
-        title_override=title,
-        source_url_override=str(spec.get("source_url") or ""),
+    meta = _field_metadata(resolved)
+    meta.update(
+        {
+            "title": title,
+            "source_url": str(spec.get("source_url") or ""),
+            "publisher": agency,
+            "module": f"{st}-dataset",
+            "topic": dataset,
+            "source_collection": f"{st.upper()} Official Statistics",
+            "priority": 135,
+        }
     )
+    ingest_res = ingest_files([str(file_path)], metadata=meta, allow_embeddings=True)
+    _note_last_ingest(resolved["field_slug"])
     ingested_count = int(ingest_res.get("ingested") or 0)
     doc_ids = [int(x["document_id"]) for x in (ingest_res.get("items") or []) if isinstance(x, dict) and x.get("document_id")]
     return {

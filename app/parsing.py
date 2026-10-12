@@ -237,6 +237,69 @@ def _parse_pdf(path: Path) -> dict[str, Any]:
         _first_non_empty(_meta_get(meta, "/CreationDate"), _meta_get(meta, "/ModDate"))
     )
 
+    poppler_text, poppler_engine = _extract_pdf_text_via_poppler(path)
+    if len(poppler_text.strip()) >= 80:
+        extra_metadata = _to_safe_meta_dict(meta)
+        extra_metadata["pdf_preprocess_engine"] = poppler_engine or "poppler"
+        return {
+            "text": _polish_pdf_text(poppler_text),
+            "source_type": "pdf",
+            "title": title,
+            "authors": authors,
+            "publisher": publisher,
+            "published_date": published_date,
+            "extra_metadata": extra_metadata,
+        }
+
+    pypdf_text = ""
+    if reader is not None:
+        per_page_lines: list[list[str]] = []
+        edge_line_frequency: dict[str, int] = {}
+        for page in reader.pages:
+            try:
+                raw_page = page.extract_text() or ""
+            except Exception:
+                raw_page = ""
+            lines = _split_lines(raw_page)
+            if not lines:
+                continue
+            per_page_lines.append(lines)
+            for edge in lines[:2] + lines[-2:]:
+                key = _canonical_line(edge)
+                if not key:
+                    continue
+                edge_line_frequency[key] = edge_line_frequency.get(key, 0) + 1
+
+        repetitive_edges = {
+            line
+            for line, count in edge_line_frequency.items()
+            if count >= max(3, len(per_page_lines) // 3) and len(line) <= 100
+        }
+
+        body_lines: list[str] = []
+        for lines in per_page_lines:
+            for raw in lines:
+                canonical = _canonical_line(raw)
+                if not canonical:
+                    continue
+                if canonical in repetitive_edges:
+                    continue
+                body_lines.append(raw.strip())
+        pypdf_text = _polish_pdf_text("\n".join(body_lines))
+        if len(pypdf_text.strip()) >= 80:
+            extra_metadata = _to_safe_meta_dict(meta)
+            extra_metadata["pdf_preprocess_engine"] = "pypdf"
+            return {
+                "text": pypdf_text,
+                "source_type": "pdf",
+                "title": title,
+                "authors": authors,
+                "publisher": publisher,
+                "published_date": published_date,
+                "extra_metadata": extra_metadata,
+            }
+
+    # Heavy fallback chain (docling / stirling / easyocr) only for scanned/image PDFs
     preprocessed_text, preprocess_engine = _extract_pdf_text_via_preprocessor(path)
     if preprocessed_text.strip():
         extra_metadata = _to_safe_meta_dict(meta)
@@ -251,48 +314,8 @@ def _parse_pdf(path: Path) -> dict[str, Any]:
             "extra_metadata": extra_metadata,
         }
 
-    if reader is None:
-        return {
-            "text": "",
-            "source_type": "pdf",
-            "title": title,
-            "authors": authors,
-            "publisher": publisher,
-            "published_date": published_date,
-            "extra_metadata": _to_safe_meta_dict(meta),
-        }
-
-    per_page_lines: list[list[str]] = []
-    edge_line_frequency: dict[str, int] = {}
-    for page in reader.pages:
-        lines = _split_lines(page.extract_text() or "")
-        if not lines:
-            continue
-        per_page_lines.append(lines)
-        for edge in lines[:2] + lines[-2:]:
-            key = _canonical_line(edge)
-            if not key:
-                continue
-            edge_line_frequency[key] = edge_line_frequency.get(key, 0) + 1
-
-    repetitive_edges = {
-        line
-        for line, count in edge_line_frequency.items()
-        if count >= max(3, len(per_page_lines) // 3) and len(line) <= 100
-    }
-
-    body_lines: list[str] = []
-    for lines in per_page_lines:
-        for raw in lines:
-            canonical = _canonical_line(raw)
-            if not canonical:
-                continue
-            if canonical in repetitive_edges:
-                continue
-            body_lines.append(raw.strip())
-
     return {
-        "text": _polish_pdf_text("\n".join(body_lines)),
+        "text": pypdf_text or _polish_pdf_text(poppler_text),
         "source_type": "pdf",
         "title": title,
         "authors": authors,

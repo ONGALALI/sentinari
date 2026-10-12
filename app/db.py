@@ -160,7 +160,9 @@ class PostgresConnectionWrapper:
             flags=re.IGNORECASE,
         )
         s = re.sub(r"\blast_insert_rowid\s*\(\s*\)", "LASTVAL()", s, flags=re.IGNORECASE)
-        s = re.sub(r"\bembedding_json\b", "embedding", s)
+        s = re.sub(r"\b(\w+\.)?embedding_json\s*!=\s*''", r"1=1", s)
+        if not re.search(r"\bembedding\b", s):
+            s = re.sub(r"\bembedding_json\b", "embedding", s)
         if re.search(r"\bALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\b", s, re.IGNORECASE) and "IF NOT EXISTS" not in s.upper():
             s = re.sub(r"\bADD\s+COLUMN\b", "ADD COLUMN IF NOT EXISTS", s, flags=re.IGNORECASE)
         if re.search(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", s, re.IGNORECASE):
@@ -198,13 +200,18 @@ class PostgresConnectionWrapper:
                 cur = self._conn.cursor(cursor_factory=DictCursor)
 
         try:
+            cur.execute("SAVEPOINT _agy_exec;")
             if params is not None:
                 cur.execute(clean_sql, params)
             else:
                 cur.execute(clean_sql)
             return PostgresCursorWrapper(cur, lastrowid=lastrowid)
         except Exception:
-            self._conn.rollback()
+            try:
+                cur.execute("ROLLBACK TO SAVEPOINT _agy_exec;")
+                cur.execute("RELEASE SAVEPOINT _agy_exec;")
+            except Exception:
+                self._conn.rollback()
             raise
 
     def executescript(self, sql: str) -> None:
@@ -224,11 +231,18 @@ class PostgresConnectionWrapper:
         if not params_list:
             return PostgresCursorWrapper(cur)
         try:
+            cur.execute("SAVEPOINT _agy_batch;")
             from psycopg2.extras import execute_batch
 
             execute_batch(cur, clean_sql, params_list, page_size=200)
+            cur.execute("RELEASE SAVEPOINT _agy_batch;")
         except Exception:
-            cur.executemany(clean_sql, params_list)
+            try:
+                cur.execute("ROLLBACK TO SAVEPOINT _agy_batch;")
+                cur.execute("RELEASE SAVEPOINT _agy_batch;")
+            except Exception:
+                self._conn.rollback()
+            raise
         return PostgresCursorWrapper(cur)
 
     def commit(self) -> None:
