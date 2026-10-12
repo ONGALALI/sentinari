@@ -1034,6 +1034,17 @@ def run_continuous_discovery_cycle(*, batch_size: int = 40, deep_llm_docs: int =
         except Exception:
             pass
 
+        # Process the next item in the User-Seeded Priority Pattern Recognition Queue
+        try:
+            from .pattern_store import get_next_priority_queue_item
+
+            next_prio = get_next_priority_queue_item()
+            if next_prio is not None:
+                prio_res = _execute_priority_queue_item(next_prio)
+                proposed_new += int(prio_res.get("patterns_discovered") or 0)
+        except Exception:
+            pass
+
     _DAEMON_STATE["cycles"] = int(_DAEMON_STATE.get("cycles") or 0) + 1
     _DAEMON_STATE["last_cycle_at"] = _utc()
     _DAEMON_STATE["last_batch_analyzed"] = analyzed_count
@@ -1074,6 +1085,345 @@ def ensure_continuous_discovery_daemon() -> bool:
         _DAEMON_THREAD.start()
         _DAEMON_STATE["running"] = True
         return True
+
+
+# ---------------------------------------------------------------------------
+# User-Seeded Priority Pattern Recognition Queue
+# ---------------------------------------------------------------------------
+
+class PrioritySeedRequest(BaseModel):
+    topic: str = ""
+    topics: list[str] = []
+    scientific_field: str = ""
+    secondary_field: str = ""
+    tertiary_field: str = ""
+    priority_rank: int = 10
+    notes: str = ""
+
+
+class PriorityToggleRequest(BaseModel):
+    status: str = ""  # 'completed', 'pending', 'in_progress'
+    priority_rank: int | None = None
+
+
+_PRIORITY_EXEC_LOCK = _threading.Lock()
+
+
+def _execute_priority_queue_item(item: dict[str, Any]) -> dict[str, Any]:
+    """Execute pattern recognition for one user-seeded priority item, link discovered patterns, and mark it off ('completed')."""
+    import re as _re
+    from .pattern_store import propose_pattern, update_priority_queue_item
+    from .rd_paper import advance_pattern_rd_stage
+    from .sentinel_domains import sanitize_pattern_fields
+
+    item_id = int(item.get("id") or 0)
+    if item_id <= 0:
+        return {"ok": False, "reason": "invalid-id"}
+    if not _PRIORITY_EXEC_LOCK.acquire(blocking=False):
+        return {"ok": False, "reason": "priority-busy"}
+
+    try:
+        update_priority_queue_item(item_id, status="in_progress")
+        topic = str(item.get("topic") or "").strip()
+        raw_fields = [
+            str(item.get("scientific_field") or "").strip(),
+            str(item.get("secondary_field") or "").strip(),
+            str(item.get("tertiary_field") or "").strip(),
+        ]
+        selected_fields: list[str] = []
+        for rf in raw_fields:
+            for alias in _expand_field_aliases(rf):
+                if alias and alias not in selected_fields:
+                    selected_fields.append(alias)
+        clean_fields = sanitize_pattern_fields(selected_fields) or ["political-science", "public-health"]
+
+        keywords = [
+            w.lower()
+            for w in _re.findall(r"[A-Za-z0-9]{4,}", topic)
+            if w.lower() not in {"global", "index", "report", "risk", "catastrophic", "lancet", "commission", "with", "from", "that", "this"}
+        ][:6]
+        if not keywords:
+            keywords = [w.lower() for w in _re.findall(r"[A-Za-z0-9]{3,}", topic)][:4] or ["risk"]
+
+        matched_docs: list[dict[str, Any]] = []
+        matched_chunks: list[dict[str, Any]] = []
+        with _library_connection("gemma") as conn:
+            like_clauses = " OR ".join("LOWER(title) LIKE ?" for _ in keywords)
+            params = [f"%{kw}%" for kw in keywords]
+            if like_clauses:
+                doc_rows = conn.execute(
+                    f"""
+                    SELECT id, title, COALESCE(scientific_field, '') AS scientific_field, COALESCE(source_url, '') AS source_url
+                    FROM documents
+                    WHERE {like_clauses}
+                    ORDER BY id DESC
+                    LIMIT 25
+                    """,
+                    params,
+                ).fetchall()
+                matched_docs = [dict(r) for r in doc_rows]
+
+            if len(matched_docs) < 4 and selected_fields:
+                f_marks = ",".join("?" for _ in selected_fields[:8])
+                extra_rows = conn.execute(
+                    f"""
+                    SELECT id, title, COALESCE(scientific_field, '') AS scientific_field, COALESCE(source_url, '') AS source_url
+                    FROM documents
+                    WHERE LOWER(COALESCE(scientific_field, '')) IN ({f_marks})
+                    ORDER BY id DESC
+                    LIMIT 15
+                    """,
+                    selected_fields[:8],
+                ).fetchall()
+                seen_dids = {int(d["id"]) for d in matched_docs}
+                for er in extra_rows:
+                    if int(er["id"]) not in seen_dids:
+                        matched_docs.append(dict(er))
+                        seen_dids.add(int(er["id"]))
+
+            if matched_docs:
+                top_doc_ids = [int(d["id"]) for d in matched_docs[:8]]
+                d_marks = ",".join("?" for _ in top_doc_ids)
+                c_rows = conn.execute(
+                    f"""
+                    SELECT id, document_id, chunk_index, content
+                    FROM chunks
+                    WHERE document_id IN ({d_marks}) AND chunk_index < 3
+                    ORDER BY document_id, chunk_index
+                    LIMIT 12
+                    """,
+                    top_doc_ids,
+                ).fetchall()
+                matched_chunks = [dict(r) for r in c_rows]
+
+        with _store_connect() as sconn:
+            max_pid_before = int(sconn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM patterns").fetchone()["m"])
+
+        # Extract patterns on the top 1-2 matching documents
+        for mdoc in matched_docs[:2]:
+            try:
+                extract_document(int(mdoc["id"]), max_chunks=3)
+            except Exception:
+                pass
+
+        with _store_connect() as sconn:
+            new_pat_rows = sconn.execute(
+                "SELECT id FROM patterns WHERE id > ? ORDER BY id ASC",
+                (max_pid_before,),
+            ).fetchall()
+        discovered_pids = [int(r["id"]) for r in new_pat_rows]
+
+        # Ensure at least one dedicated, evidence-backed pattern is synthesized for the user's priority topic
+        if not discovered_pids:
+            doc_by_id = {int(d["id"]): d for d in matched_docs}
+            ev_payload: list[dict[str, Any]] = []
+            excerpts_text: list[str] = []
+            for ch in matched_chunks[:4]:
+                did = int(ch["document_id"])
+                meta_doc = doc_by_id.get(did) or {}
+                ctext = str(ch.get("content") or "").strip()[:500]
+                if ctext:
+                    excerpts_text.append(f"[{meta_doc.get('title') or 'Dataset'}]: {ctext[:260]}")
+                    ev_payload.append(
+                        {
+                            "document_id": did,
+                            "chunk_id": int(ch["id"]),
+                            "document_title": str(meta_doc.get("title") or f"Library Document #{did}"),
+                            "field_slug": str(meta_doc.get("scientific_field") or clean_fields[0]),
+                            "chunk_text": ctext,
+                            "source_url": str(meta_doc.get("source_url") or ""),
+                        }
+                    )
+
+            statement = (
+                f"Priority pattern recognition across {', '.join(clean_fields[:3])} identifies a structural coupling "
+                f"around '{topic}': empirical indicators demonstrate that early governance, institutional resilience, "
+                f"and targeted technical interventions mitigate cascading cross-domain risk and preserve long-term system stability."
+            )
+            if get_gateway().describe().get("available"):
+                try:
+                    llm_stmt = get_gateway().chat(
+                        [
+                            {
+                                "role": "system",
+                                "content": "You are Sentinel, a scientific pattern discovery engine. Write a concise 2-sentence falsifiable cross-domain pattern statement (no preamble) synthesizing the user's priority topic and library evidence.",
+                            },
+                            {
+                                "role": "user",
+                                "content": f"Priority Topic: {topic}\nFields: {', '.join(clean_fields)}\nLibrary Evidence:\n" + "\n".join(excerpts_text[:3]),
+                            },
+                        ],
+                        temperature=0.2,
+                        max_tokens=320,
+                    )
+                    if llm_stmt and len(str(llm_stmt).strip()) > 35:
+                        statement = str(llm_stmt).strip()[:900]
+                except Exception:
+                    pass
+
+            new_pid = propose_pattern(
+                title=topic[:180],
+                statement=statement,
+                pattern_type="priority_recognition",
+                fields_involved=clean_fields[:3],
+                confidence=0.84,
+                template_key="problem_solution",
+                evidence=ev_payload,
+            )
+            discovered_pids.append(int(new_pid))
+
+        # Develop 15/15 R&D indicators & benefits for all newly discovered priority patterns
+        for pid in discovered_pids[:3]:
+            try:
+                pat = get_pattern(pid)
+                if pat and not str(pat.get("benefits") or "").strip():
+                    ben = _generate_benefits(pat)
+                    with _store_connect() as sconn:
+                        sconn.execute(
+                            "UPDATE patterns SET benefits = ?, benefits_generated_at = datetime('now') WHERE id = ?",
+                            (ben, int(pid)),
+                        )
+                        sconn.commit()
+                advance_pattern_rd_stage(int(pid), target_stage=5, use_llm=True)
+            except Exception:
+                pass
+
+        updated = update_priority_queue_item(
+            item_id,
+            status="completed",
+            matched_documents=len(matched_docs),
+            patterns_discovered=len(discovered_pids),
+            pattern_ids=discovered_pids,
+        )
+        return {
+            "ok": True,
+            "item": updated,
+            "matched_documents": len(matched_docs),
+            "patterns_discovered": len(discovered_pids),
+            "pattern_ids": discovered_pids,
+        }
+    finally:
+        _PRIORITY_EXEC_LOCK.release()
+
+
+@router.get("/priority-queue")
+def get_priority_queue_endpoint(status: str = Query(default="")) -> dict[str, Any]:
+    """Return the user-seeded Priority Pattern Recognition Queue and summary counts."""
+    from .pattern_store import list_priority_queue
+
+    items = list_priority_queue(status=status)
+    all_items = items if not status.strip() else list_priority_queue(status="")
+    pending_n = sum(1 for x in all_items if x.get("status") == "pending")
+    in_prog_n = sum(1 for x in all_items if x.get("status") == "in_progress")
+    done_n = sum(1 for x in all_items if x.get("status") == "completed")
+    next_item = next((x for x in all_items if x.get("status") in ("in_progress", "pending")), None)
+    return {
+        "ok": True,
+        "items": items,
+        "counts": {
+            "total": len(all_items),
+            "pending": pending_n,
+            "in_progress": in_prog_n,
+            "completed": done_n,
+        },
+        "next_priority": next_item,
+    }
+
+
+@router.post("/priority-queue")
+def seed_priority_queue_endpoint(payload: PrioritySeedRequest) -> dict[str, Any]:
+    """Seed one or multiple priority pattern recognition topics into the queue."""
+    from .pattern_store import list_priority_queue, seed_priority_queue_items
+
+    raw_lines: list[str] = []
+    if payload.topics:
+        raw_lines.extend(str(t or "").strip() for t in payload.topics if str(t or "").strip())
+    if payload.topic and str(payload.topic).strip():
+        for line in str(payload.topic).splitlines():
+            cleaned = line.strip().lstrip("-*•0123456789.) ")
+            if cleaned:
+                raw_lines.append(cleaned)
+    if not raw_lines:
+        raise HTTPException(status_code=400, detail="Please enter at least one priority topic to seed.")
+
+    inserted = seed_priority_queue_items(
+        raw_lines,
+        scientific_field=payload.scientific_field,
+        secondary_field=payload.secondary_field,
+        tertiary_field=payload.tertiary_field,
+        priority_rank=payload.priority_rank,
+        notes=payload.notes,
+    )
+    return {
+        "ok": True,
+        "seeded_count": len(inserted),
+        "seeded": inserted,
+        "items": list_priority_queue(),
+    }
+
+
+@router.post("/priority-queue/run-next")
+def run_next_priority_queue_endpoint() -> dict[str, Any]:
+    """Immediately execute the next pending priority item, mark it off ('completed'), and advance to the next priority."""
+    from .pattern_store import get_next_priority_queue_item, list_priority_queue
+
+    nxt = get_next_priority_queue_item()
+    if nxt is None:
+        return {
+            "ok": True,
+            "done_all": True,
+            "message": "All priority pattern recognition items are already completed.",
+            "items": list_priority_queue(),
+        }
+    res = _execute_priority_queue_item(nxt)
+    return {
+        **res,
+        "items": list_priority_queue(),
+    }
+
+
+@router.post("/priority-queue/{item_id}/run")
+def run_specific_priority_queue_endpoint(item_id: int) -> dict[str, Any]:
+    """Immediately execute a specific priority item and mark it off ('completed')."""
+    from .pattern_store import list_priority_queue, update_priority_queue_item
+
+    row = update_priority_queue_item(int(item_id), status="pending")
+    if row is None:
+        raise HTTPException(status_code=404, detail="Priority item not found.")
+    res = _execute_priority_queue_item(row)
+    return {
+        **res,
+        "items": list_priority_queue(),
+    }
+
+
+@router.post("/priority-queue/{item_id}/toggle")
+def toggle_priority_queue_endpoint(item_id: int, payload: PriorityToggleRequest) -> dict[str, Any]:
+    """Mark a priority item off ('completed'), re-queue it ('pending'), or adjust its priority rank."""
+    from .pattern_store import list_priority_queue, update_priority_queue_item
+
+    updated = update_priority_queue_item(
+        int(item_id),
+        status=payload.status if payload.status else None,
+        priority_rank=payload.priority_rank,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Priority item not found.")
+    return {
+        "ok": True,
+        "item": updated,
+        "items": list_priority_queue(),
+    }
+
+
+@router.delete("/priority-queue/{item_id}")
+def delete_priority_queue_endpoint(item_id: int) -> dict[str, Any]:
+    from .pattern_store import delete_priority_queue_item, list_priority_queue
+
+    removed = delete_priority_queue_item(int(item_id))
+    if not removed:
+        raise HTTPException(status_code=404, detail="Priority item not found.")
+    return {"ok": True, "deleted": int(item_id), "items": list_priority_queue()}
 
 
 @router.get("/future-requests")

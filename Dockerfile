@@ -29,6 +29,7 @@ COPY config/ ./config/
 COPY corrections/ ./corrections/
 COPY pattern_discovery/key_words_tags.md ./pattern_discovery/key_words_tags.md
 COPY sentinel/ ./sentinel/
+COPY static/ ./static/
 COPY templates/ ./templates/
 COPY run_smi.py .
 

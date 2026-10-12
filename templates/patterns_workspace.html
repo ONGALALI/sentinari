@@ -227,6 +227,54 @@
       <div id="futureRequests" class="future-requests"></div>
     </div>
 
+    <div class="card" id="priorityQueueCard" style="border-top:4px solid #1d6fd8;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="margin:0;">Priority Pattern Recognition List (User-Seeded Queue)</h2>
+          <div class="hint" style="margin-top:4px;">
+            Seed one or multiple priority topics below (one per line). The Continuous Pattern Discovery engine processes the top pending priority, develops its 15 R&amp;D indicators, <b>marks it off (&#10003; Completed)</b> once done, and automatically advances to the next priority in your list.
+          </div>
+        </div>
+        <div id="priorityQueueStats" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
+      </div>
+
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr;gap:8px;">
+        <textarea id="prioritySeedInput" rows="3" placeholder="Enter or paste priority pattern recognition topics (one priority per line, e.g.&#10;1. Sovereign debt sustainability vs. healthcare infrastructure resilience&#10;2. Autonomous AI governance and international conflict deterrence)" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13.5px;"></textarea>
+      </div>
+      <div class="domain-select-grid" style="margin-top:8px;">
+        <div class="domain-select-col">
+          <label for="prioField1">1. Primary Domain / Field (Optional)</label>
+          <select id="prioField1"></select>
+        </div>
+        <div class="domain-select-col">
+          <label for="prioField2">2. Second Domain / Field (Optional)</label>
+          <select id="prioField2"></select>
+        </div>
+        <div class="domain-select-col">
+          <label for="prioField3">3. Third Domain / Field (Optional)</label>
+          <select id="prioField3"></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div class="row" style="gap:8px;">
+          <button id="btnSeedPriority" class="primary" type="button">+ Seed Priority List</button>
+          <button id="btnRunNextPriority" type="button" style="background:#0f766e;color:#fff;border-color:#0f766e;font-weight:700;">&#9654; Run &amp; Mark Off Next Priority Now</button>
+          <span class="muted" id="priorityActionHint"></span>
+        </div>
+        <div class="row" style="gap:6px;">
+          <select id="priorityFilterSelect" style="font-size:12.5px;padding:6px 10px;">
+            <option value="">Show: All Priorities (Pending + Completed)</option>
+            <option value="pending">Show: Pending Only</option>
+            <option value="completed">Show: Completed (Marked Off &#10003;)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="priorityQueueList" style="margin-top:14px;display:grid;gap:8px;">
+        <div class="muted">Loading priority pattern recognition queue…</div>
+      </div>
+    </div>
+
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
       <div>
         <h2 style="margin:0;">New Patterns Discovered (Concertina &middot; 8 per page)</h2>
@@ -850,9 +898,246 @@
   populateDomainDropdown($('manualField1'), '— Select Domain / Field 1 (Optional) —');
   populateDomainDropdown($('manualField2'), '— Select Domain / Field 2 (Optional) —');
   populateDomainDropdown($('manualField3'), '— Select Domain / Field 3 (Optional) —');
+  populateDomainDropdown($('prioField1'), '— Select Domain / Field 1 (Optional) —');
+  populateDomainDropdown($('prioField2'), '— Select Domain / Field 2 (Optional) —');
+  populateDomainDropdown($('prioField3'), '— Select Domain / Field 3 (Optional) —');
 
   $('btnStart').addEventListener('click', startDiscovery);
-  $('btnRefresh').addEventListener('click', async () => { await loadStatus(); await loadWorkspace(); });
+  $('btnRefresh').addEventListener('click', async () => { await loadStatus(); await loadWorkspace(); await loadPriorityQueue(); });
+
+  let priorityQueueItems = [];
+
+  function renderPriorityQueue(data) {
+    const box = $('priorityQueueList');
+    const statsBox = $('priorityQueueStats');
+    if (!box) return;
+    const allItems = Array.isArray(data?.items) ? data.items : priorityQueueItems;
+    priorityQueueItems = allItems;
+    const filterVal = $('priorityFilterSelect') ? $('priorityFilterSelect').value : '';
+    const filtered = filterVal ? allItems.filter((it) => it.status === filterVal) : allItems;
+
+    const pendingCount = allItems.filter((it) => it.status === 'pending').length;
+    const inProgCount = allItems.filter((it) => it.status === 'in_progress').length;
+    const doneCount = allItems.filter((it) => it.status === 'completed').length;
+    const nextItem = allItems.find((it) => it.status === 'in_progress') || allItems.find((it) => it.status === 'pending');
+
+    if (statsBox) {
+      statsBox.innerHTML = `
+        <span class="meta-pill" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd;font-weight:700;">Pending: ${pendingCount}</span>
+        ${inProgCount > 0 ? `<span class="meta-pill" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;font-weight:700;">In Progress: ${inProgCount}</span>` : ''}
+        <span class="meta-pill" style="background:#dcfce7;color:#166534;border-color:#86efac;font-weight:700;">Marked Off (&#10003; Done): ${doneCount}</span>
+      `;
+    }
+
+    if (!filtered.length) {
+      box.innerHTML = '<div class="muted" style="padding:10px 0;">No priority pattern recognition items match the selected filter. Seed new priorities above.</div>';
+      return;
+    }
+
+    let pendingIdx = 0;
+    box.innerHTML = filtered.map((item) => {
+      const id = Number(item.id || 0);
+      const isDone = item.status === 'completed';
+      const isRunning = item.status === 'in_progress';
+      const isNext = nextItem && Number(nextItem.id) === id && !isDone;
+      if (!isDone) pendingIdx += 1;
+
+      const fields = [item.scientific_field, item.secondary_field, item.tertiary_field].filter(Boolean);
+      const fieldBadges = fields.map((f) => `<span class="meta-pill" style="font-size:11px;">${esc(f)}</span>`).join(' ');
+      const pids = Array.isArray(item.pattern_ids) ? item.pattern_ids : [];
+      const patternLinks = pids.map((pid) =>
+        `<a href="/api/patterns/rd-paper/${pid}/report" target="_blank" rel="noopener" style="font-weight:700;color:#1d6fd8;text-decoration:none;margin-right:6px;">[Pattern #${pid} R&amp;D Paper &nearr;]</a>`
+      ).join('');
+
+      const statusBadge = isDone
+        ? `<span class="meta-pill" style="background:#dcfce7;color:#166534;border-color:#86efac;font-weight:700;">&#10003; Marked Off (Completed)</span>`
+        : isRunning
+          ? `<span class="meta-pill" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;font-weight:700;">&#9889; In Progress</span>`
+          : isNext
+            ? `<span class="meta-pill" style="background:#1d6fd8;color:#ffffff;border-color:#1d6fd8;font-weight:700;">#${pendingIdx} NEXT PRIORITY</span>`
+            : `<span class="meta-pill" style="background:#f1f5f9;color:#334155;border-color:#cbd5e1;font-weight:700;">Queue #${pendingIdx}</span>`;
+
+      const rowBg = isDone
+        ? 'background:#f8fafc;border:1px solid #cbd5e1;opacity:0.88;'
+        : isNext
+          ? 'background:#eff6ff;border:2px solid #60a5fa;'
+          : 'background:#ffffff;border:1px solid #dbe4ee;';
+
+      return `
+        <div style="${rowBg}border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:flex-start;gap:10px;flex:1 1 420px;">
+            <input type="checkbox" data-prio-action="toggle" data-id="${id}" ${isDone ? 'checked' : ''} title="Check to mark off as completed, or uncheck to re-queue" style="margin-top:4px;width:17px;height:17px;cursor:pointer;">
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                ${statusBadge}
+                <strong style="font-size:13.8px;${isDone ? 'text-decoration:line-through;color:#64748b;' : 'color:#102235;'}">${esc(item.topic)}</strong>
+              </div>
+              <div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;">
+                ${fieldBadges}
+                ${item.notes ? `<span class="muted">${esc(item.notes)}</span>` : ''}
+                ${isDone && item.completed_at ? `<span class="muted">&middot; Completed ${esc(String(item.completed_at).slice(0, 16))} (${Number(item.matched_documents || 0)} docs scanned)</span>` : ''}
+                ${patternLinks}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            ${!isDone ? `<button type="button" data-prio-action="run" data-id="${id}" style="padding:5px 10px;font-size:11.5px;background:#0f766e;color:#fff;border-color:#0f766e;font-weight:600;">&#9654; Run Now</button>` : ''}
+            ${!isDone && !isNext ? `<button type="button" data-prio-action="top" data-id="${id}" style="padding:5px 9px;font-size:11.5px;" title="Move to #1 Priority">&uarr; Top</button>` : ''}
+            <button type="button" data-prio-action="toggle-btn" data-id="${id}" data-status="${isDone ? 'pending' : 'completed'}" style="padding:5px 9px;font-size:11.5px;">${isDone ? '&#8634; Re-queue' : '&#10003; Mark Off'}</button>
+            <button type="button" data-prio-action="delete" data-id="${id}" style="padding:5px 9px;font-size:11.5px;color:#b42318;" title="Remove from queue">&#10005;</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadPriorityQueue() {
+    try {
+      const data = await api('/api/patterns/priority-queue');
+      renderPriorityQueue(data);
+    } catch (_) {}
+  }
+
+  $('priorityFilterSelect')?.addEventListener('change', () => {
+    renderPriorityQueue({ items: priorityQueueItems });
+  });
+
+  $('btnSeedPriority')?.addEventListener('click', async () => {
+    const rawText = ($('prioritySeedInput')?.value || '').trim();
+    if (!rawText) {
+      showAlert('Please enter one or more priority topics (one per line) to seed.', false);
+      return;
+    }
+    const btn = $('btnSeedPriority');
+    btn.disabled = true;
+    $('priorityActionHint').textContent = 'Seeding priority list…';
+    try {
+      const r = await api('/api/patterns/priority-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: rawText,
+          scientific_field: $('prioField1')?.value || '',
+          secondary_field: $('prioField2')?.value || '',
+          tertiary_field: $('prioField3')?.value || '',
+          priority_rank: 1,
+          notes: 'User-seeded priority pattern recognition',
+        }),
+      });
+      $('prioritySeedInput').value = '';
+      $('priorityActionHint').textContent = '';
+      renderPriorityQueue(r);
+      showAlert(`Seeded ${r.seeded_count || 1} priority topic(s) into the Pattern Recognition Queue.`, true);
+    } catch (error) {
+      $('priorityActionHint').textContent = '';
+      showAlert(error.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('btnRunNextPriority')?.addEventListener('click', async () => {
+    const btn = $('btnRunNextPriority');
+    btn.disabled = true;
+    $('priorityActionHint').textContent = 'Running top priority pattern recognition & developing 15 R&D indicators…';
+    try {
+      const r = await api('/api/patterns/priority-queue/run-next', { method: 'POST' });
+      $('priorityActionHint').textContent = '';
+      renderPriorityQueue(r);
+      if (r.done_all) {
+        showAlert(r.message || 'All priority items are already completed.', true);
+      } else {
+        const doneTopic = r.item?.topic || 'Priority item';
+        showAlert(`Completed & marked off "${doneTopic}" (${r.patterns_discovered || 1} pattern(s) discovered). Queue moved to next priority!`, true);
+        await loadStatus();
+        await loadWorkspace();
+      }
+    } catch (error) {
+      $('priorityActionHint').textContent = '';
+      showAlert(error.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('priorityQueueList')?.addEventListener('click', async (event) => {
+    const btn = event.target.closest('[data-prio-action]');
+    if (!btn) return;
+    const action = btn.getAttribute('data-prio-action');
+    const id = Number(btn.getAttribute('data-id') || 0);
+    if (!id) return;
+
+    if (action === 'toggle') {
+      const checked = Boolean(btn.checked);
+      try {
+        const r = await api(`/api/patterns/priority-queue/${id}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: checked ? 'completed' : 'pending' }),
+        });
+        renderPriorityQueue(r);
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+      return;
+    }
+
+    if (action === 'toggle-btn') {
+      const newStatus = btn.getAttribute('data-status') || 'completed';
+      try {
+        const r = await api(`/api/patterns/priority-queue/${id}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        renderPriorityQueue(r);
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+      return;
+    }
+
+    if (action === 'top') {
+      try {
+        const r = await api(`/api/patterns/priority-queue/${id}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'pending', priority_rank: 1 }),
+        });
+        renderPriorityQueue(r);
+        showAlert('Moved item to #1 Next Priority.', true);
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+      return;
+    }
+
+    if (action === 'run') {
+      btn.disabled = true;
+      btn.textContent = 'Running…';
+      try {
+        const r = await api(`/api/patterns/priority-queue/${id}/run`, { method: 'POST' });
+        renderPriorityQueue(r);
+        showAlert(`Completed & marked off "${r.item?.topic || 'Priority'}" — moved to next priority!`, true);
+        await loadStatus();
+        await loadWorkspace();
+      } catch (err) {
+        showAlert(err.message, false);
+      } finally {
+        btn.disabled = false;
+      }
+      return;
+    }
+
+    if (action === 'delete') {
+      try {
+        const r = await api(`/api/patterns/priority-queue/${id}`, { method: 'DELETE' });
+        renderPriorityQueue(r);
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+    }
+  });
 
   $('btnManual').addEventListener('click', async () => {
     const topic = $('manualTopic').value.trim();
@@ -910,7 +1195,9 @@
     await loadStatus();
     const busy = await loadWorkspace();
     if (busy) ensurePolling();
+    await loadPriorityQueue();
     await loadFutureRequests();
+    setInterval(loadPriorityQueue, 15000);
   })();
 })();
 </script>

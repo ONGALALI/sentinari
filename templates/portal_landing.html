@@ -397,6 +397,137 @@
     .footer-links a:hover {
       color: var(--text-main);
     }
+
+    /* Global Reference Reports Section */
+    .reports-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .report-card {
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.78) 0%, rgba(17, 24, 39, 0.88) 100%);
+      border: 1px solid rgba(99, 102, 241, 0.28);
+      border-radius: 18px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .report-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(129, 140, 248, 0.65);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.6);
+    }
+    .report-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.16);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      margin-bottom: 14px;
+      width: fit-content;
+    }
+    .report-card h3 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .report-sub {
+      font-size: 0.84rem;
+      color: #38bdf8;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .report-desc {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .report-highlights {
+      list-style: none;
+      margin: 0 0 20px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(11, 15, 25, 0.55);
+      border: 1px solid var(--border);
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+    .report-highlights li {
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .report-highlights li:last-child { margin-bottom: 0; }
+    .report-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: auto;
+    }
+    .btn-report-primary {
+      flex: 1;
+      text-align: center;
+      padding: 10px 14px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.14);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-report-primary:hover {
+      background: linear-gradient(135deg, #818cf8, #6366f1);
+    }
+    .btn-report-secondary {
+      padding: 10px 14px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-report-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .pdf-viewer-drawer {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 80px;
+    }
+    .pdf-viewer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -410,6 +541,7 @@
         <span class="brand-badge">CLOUD PRO</span>
       </a>
       <div class="nav-links">
+        <a href="#global-reports">Global Risk Reports (3)</a>
         <a href="#architecture">Architecture</a>
         <a href="#domains">Domains</a>
         <a href="/ui/patterns">New Patterns (<span id="navPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
@@ -438,6 +570,7 @@
         <div class="cta-group">
           <a href="/ui/chat" class="btn-primary">Open Research Console</a>
           <a href="/ui/patterns" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
+          <a href="#global-reports" class="btn-secondary">Global Risk &amp; Lancet Reports (3)</a>
           <a href="/ui/start" class="btn-secondary">Operator Start Studio</a>
         </div>
       </section>
@@ -482,6 +615,94 @@
           </div>
           <div class="stat-value">&lt; 5 ms</div>
           <div class="stat-sub">Cloud SQL pgvector HNSW search</div>
+        </div>
+      </section>
+
+      <!-- Featured Global Risk & Catastrophic Threat Reference Reports -->
+      <section id="global-reports" style="margin-bottom: 100px;">
+        <div class="section-header">
+          <h2>Global Risk &amp; Catastrophic Reference Reports</h2>
+          <p>Foundational global risk indices and epidemiological threat assessments driving Sentinari's Priority Pattern Recognition &amp; R&amp;D Validation Engine.</p>
+        </div>
+
+        <div class="reports-grid">
+          <!-- 1) The Global Risk Index -->
+          <div class="report-card">
+            <div>
+              <span class="report-badge">&#x1F30D; Reference Document 01 &bull; PDF (5.2 MB)</span>
+              <h3>1) The Global Risk Index</h3>
+              <div class="report-sub">2025/2026 Global Risk Landscape &amp; Systemic Pillars (163 Countries)</div>
+              <p class="report-desc">
+                Multi-pillar quantitative assessment of global systemic risk across 163 countries and 109 indicators—integrating data from The World Bank, IMF, UN, WHO, and SIPRI to measure national vulnerability and resilience.
+              </p>
+              <ul class="report-highlights">
+                <li><span>&#x25B8;</span><span><b>8 Core Risk Pillars:</b> Quality of Governance, Health &amp; Human Security, Economic Stability, Gender Inequality, Environmental Vulnerabilities, Education &amp; Skills, Business Resilience, and Exogenous Threats.</span></li>
+                <li><span>&#x25B8;</span><span><b>Systemic Propagation:</b> Tracks how fiscal debt, inflation, regime fragility, and environmental shocks compound across borders.</span></li>
+              </ul>
+            </div>
+            <div class="report-actions">
+              <button type="button" class="btn-report-primary" onclick="openPortalPdfPreview('/reports/the-global-risk-index', '1) The Global Risk Index (2025/2026)')">&#x1F4D6; Preview Report Inline</button>
+              <a href="/reports/the-global-risk-index" target="_blank" rel="noopener" class="btn-report-secondary">Open Tab &nearr;</a>
+              <a href="/reports/the-global-risk-index?download=1" class="btn-report-secondary">&#x2B07; Download PDF</a>
+            </div>
+          </div>
+
+          <!-- 2) The Global Catastrophic Index -->
+          <div class="report-card">
+            <div>
+              <span class="report-badge" style="background:rgba(6, 182, 212, 0.16);color:#67e8f9;border-color:rgba(6, 182, 212, 0.35);">&#x26A0;&#xFE0F; Reference Document 02 &bull; PDF (5.2 MB)</span>
+              <h3>2) The Global Catastrophic Index</h3>
+              <div class="report-sub">Navigating Risk in an Uncertain Future &bull; Global Governance Forum</div>
+              <p class="report-desc">
+                Authored by Augusto Lopez-Claros &amp; John Miller (with Aminah Malik &amp; Ben Sweeney). Synthesizes nearly 20,000 data points across 163 nations (99% of global GDP, 98% of global population) to rank catastrophic risk exposure.
+              </p>
+              <ul class="report-highlights">
+                <li><span>&#x25B8;</span><span><b>Most vs. Least At-Risk:</b> Contrasts highest-vulnerability states (Yemen 63.8, Afghanistan 62.4, Haiti 61.1, South Sudan 60.7, Sudan 60.0) with highest-resilience democracies (Norway 16.1, Denmark 16.7, Sweden 17.3).</span></li>
+                <li><span>&#x25B8;</span><span><b>7 Areas to Watch:</b> Conflict spillover, energy dependencies, nuclear proliferation, Russo-Ukrainian trajectory, sovereign debt crises, and unchecked AI risks.</span></li>
+              </ul>
+            </div>
+            <div class="report-actions">
+              <button type="button" class="btn-report-primary" onclick="openPortalPdfPreview('/reports/the-global-catastrophic-index', '2) The Global Catastrophic Index (2025/2026)')">&#x1F4D6; Preview Report Inline</button>
+              <a href="/reports/the-global-catastrophic-index" target="_blank" rel="noopener" class="btn-report-secondary">Open Tab &nearr;</a>
+              <a href="/reports/the-global-catastrophic-index?download=1" class="btn-report-secondary">&#x2B07; Download PDF</a>
+            </div>
+          </div>
+
+          <!-- 3) The Lancet Report -->
+          <div class="report-card">
+            <div>
+              <span class="report-badge" style="background:rgba(16, 185, 129, 0.16);color:#6ee7b7;border-color:rgba(16, 185, 129, 0.35);">&#x1FA7A; Reference Document 03 &bull; PDF (124 KB)</span>
+              <h3>3) The Lancet Report</h3>
+              <div class="report-sub">The Lancet Commission on 21st Century Global Threats to Health (2025–2100)</div>
+              <p class="report-desc">
+                Examining hundreds of threats across 204 countries (co-chaired by Prof. Christopher JL Murray &amp; Dr. Natalia Kanem), identifying <b>17 catastrophic threats</b> to human survival and quantifying avoidable DALYs through 2100.
+              </p>
+              <ul class="report-highlights">
+                <li><span>&#x25B8;</span><span><b>Extinction-Level Threats:</b> Malicious AI (up to 10.4B amenable DALYs averted by action) and nuclear conflict (133M deaths / 9.35B DALYs averted).</span></li>
+                <li><span>&#x25B8;</span><span><b>15 Major Catastrophic Threats &amp; 3-Part Agenda:</b> Climate change (1.89B DALYs), pandemics, AMR, air pollution, obesity, and inequality — addressed via <i>Build Readiness</i>, <i>Back Breakthroughs</i>, and <i>Track Threats</i>.</span></li>
+              </ul>
+            </div>
+            <div class="report-actions">
+              <button type="button" class="btn-report-primary" onclick="openPortalPdfPreview('/reports/the-lancet-report', '3) The Lancet Report — 17 Catastrophic Threats (2025–2100)')">&#x1F4D6; Preview Report Inline</button>
+              <a href="/reports/the-lancet-report" target="_blank" rel="noopener" class="btn-report-secondary">Open Tab &nearr;</a>
+              <a href="/reports/the-lancet-report?download=1" class="btn-report-secondary">&#x2B07; Download PDF</a>
+            </div>
+          </div>
+        </div>
+
+        <div id="portalPdfDrawer" class="pdf-viewer-drawer" hidden>
+          <div class="pdf-viewer-bar">
+            <div>
+              <strong id="portalPdfTitle" style="color:#ffffff;font-size:1.05rem;">Reference Report Preview</strong>
+              <span style="font-size:0.82rem;color:#94a3b8;margin-left:10px;">Embedded PDF Document Viewer</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <a id="portalPdfDownloadBtn" href="#" class="btn-report-secondary" style="padding:6px 12px;font-size:0.8rem;">&#x2B07; Download PDF</a>
+              <a href="/ui/patterns" class="btn-report-primary" style="padding:6px 12px;font-size:0.8rem;flex:none;">Seed Priority Pattern Recognition &rarr;</a>
+              <button type="button" class="btn-report-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="document.getElementById('portalPdfDrawer').hidden=true;">&#x2715; Close Preview</button>
+            </div>
+          </div>
+          <iframe id="portalPdfFrame" src="about:blank" style="width:100%;height:680px;border:1px solid rgba(255,255,255,0.12);border-radius:10px;background:#0f172a;"></iframe>
         </div>
       </section>
 
@@ -623,6 +844,19 @@
     }
     refreshPortalTelemetry();
     setInterval(refreshPortalTelemetry, 10000);
+
+    window.openPortalPdfPreview = (url, title) => {
+      const drawer = document.getElementById('portalPdfDrawer');
+      const frame = document.getElementById('portalPdfFrame');
+      const titleEl = document.getElementById('portalPdfTitle');
+      const dlBtn = document.getElementById('portalPdfDownloadBtn');
+      if (!drawer || !frame) return;
+      if (titleEl) titleEl.textContent = title || 'Reference Report Preview';
+      if (dlBtn) dlBtn.href = `${url}?download=1`;
+      frame.src = url;
+      drawer.hidden = false;
+      drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
   })();
   </script>
 </body>

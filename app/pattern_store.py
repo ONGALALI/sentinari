@@ -238,6 +238,25 @@ def ensure_pattern_store() -> None:
                 source_type TEXT NOT NULL DEFAULT '',
                 rejected_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
+
+            CREATE TABLE IF NOT EXISTS pattern_priority_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                priority_rank INTEGER NOT NULL DEFAULT 100,
+                topic TEXT NOT NULL,
+                scientific_field TEXT NOT NULL DEFAULT '',
+                secondary_field TEXT NOT NULL DEFAULT '',
+                tertiary_field TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending',
+                matched_documents INTEGER NOT NULL DEFAULT 0,
+                patterns_discovered INTEGER NOT NULL DEFAULT 0,
+                pattern_ids_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                started_at TEXT NOT NULL DEFAULT '',
+                completed_at TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_priority_queue_status
+                ON pattern_priority_queue(status, priority_rank ASC, id ASC);
             """
         )
         # Pattern benefits (owner request #4): LLM-generated potential-benefit
@@ -839,3 +858,248 @@ def forget_rejected_identity(identity_key: str) -> bool:
         cur = conn.execute("DELETE FROM rejected_identities WHERE identity_key = ?", (key,))
         conn.commit()
     return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# User-Seeded Priority Pattern Recognition Queue
+# ---------------------------------------------------------------------------
+
+DEFAULT_PRIORITY_QUEUE_SEED = [
+    {
+        "priority_rank": 1,
+        "topic": "Global Catastrophic Risk Index: Governance Fragility, Rule of Law & Systemic Shock Propagation",
+        "scientific_field": "political-science",
+        "secondary_field": "economics",
+        "tertiary_field": "laws-per-country-and-international-law",
+        "notes": "Seeded from Reference Report 2 (Global Catastrophic Risk Index 2025/2026 — Pillar I & VIII)",
+    },
+    {
+        "priority_rank": 2,
+        "topic": "Lancet Commission: Extinction-Level Malicious AI, Autonomous Weapons & Algorithmic Safeguards",
+        "scientific_field": "computer-and-information-sciences",
+        "secondary_field": "war",
+        "tertiary_field": "laws-per-country-and-international-law",
+        "notes": "Seeded from Reference Report 3 (The Lancet Commission — 10.4B Amenable DALYs at Risk)",
+    },
+    {
+        "priority_rank": 3,
+        "topic": "Lancet Commission & GCRI: Nuclear Conflict Deterrence, Geopolitical Spillover & Peace Dividend",
+        "scientific_field": "war",
+        "secondary_field": "political-science",
+        "tertiary_field": "public-health",
+        "notes": "Seeded from Reference Reports 2 & 3 (133M Deaths / 9.35B DALYs Averted by Nuclear Conflict Prevention)",
+    },
+    {
+        "priority_rank": 4,
+        "topic": "Global Risk Index: Sovereign Debt Crises, Hyperinflation & Macroeconomic Resilience",
+        "scientific_field": "economics",
+        "secondary_field": "political-science",
+        "tertiary_field": "mathematics",
+        "notes": "Seeded from Reference Report 1 (Global Risk Index — Pillar III Economic Stability)",
+    },
+    {
+        "priority_rank": 5,
+        "topic": "Lancet Commission & GCRI: Climate Change (1.8°C vs 4.4°C), Ambient Air Pollution & Ecosystem Collapse",
+        "scientific_field": "environmental-science",
+        "secondary_field": "public-health",
+        "tertiary_field": "ecology-environmental-biology",
+        "notes": "Seeded from Reference Reports 1, 2 & 3 (1.89B Healthy Life Years Saved Below 1.8°C)",
+    },
+    {
+        "priority_rank": 6,
+        "topic": "Lancet Commission & GCRI: Healthcare Worker Density, Immunization Coverage & Pandemic Readiness",
+        "scientific_field": "medicine",
+        "secondary_field": "public-health",
+        "tertiary_field": "pharmacology",
+        "notes": "Seeded from Reference Reports 2 & 3 (Pillar II Health & Human Security · Build, Back, and Track Agenda)",
+    },
+]
+
+
+def _format_priority_row(row: Any) -> dict[str, Any]:
+    d = dict(row)
+    try:
+        pids = json.loads(str(d.get("pattern_ids_json") or "[]"))
+        if not isinstance(pids, list):
+            pids = []
+    except Exception:
+        pids = []
+    d["pattern_ids"] = [int(x) for x in pids if str(x).isdigit()]
+    return d
+
+
+def ensure_default_priority_seed() -> None:
+    """Seed initial priority pattern recognition items if the queue has never been populated."""
+    ensure_pattern_store()
+    with _connect() as conn:
+        row = conn.execute("SELECT COUNT(1) AS n FROM pattern_priority_queue").fetchone()
+        if int(row["n"] or 0) > 0:
+            return
+        now = _utc_now()
+        for item in DEFAULT_PRIORITY_QUEUE_SEED:
+            conn.execute(
+                """
+                INSERT INTO pattern_priority_queue
+                    (priority_rank, topic, scientific_field, secondary_field, tertiary_field, notes, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    int(item["priority_rank"]),
+                    str(item["topic"]),
+                    str(item["scientific_field"]),
+                    str(item["secondary_field"]),
+                    str(item["tertiary_field"]),
+                    str(item["notes"]),
+                    now,
+                ),
+            )
+        conn.commit()
+
+
+def list_priority_queue(status: str = "") -> list[dict[str, Any]]:
+    """Return user-seeded priority pattern recognition items ordered by status (in_progress -> pending -> completed) and priority_rank."""
+    ensure_default_priority_seed()
+    where = ""
+    params: tuple[Any, ...] = ()
+    if status.strip():
+        where = "WHERE status = ?"
+        params = (status.strip(),)
+    with _connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT * FROM pattern_priority_queue
+            {where}
+            ORDER BY CASE status
+                WHEN 'in_progress' THEN 0
+                WHEN 'pending' THEN 1
+                ELSE 2
+            END ASC,
+            priority_rank ASC,
+            id ASC
+            LIMIT 300
+            """,
+            params,
+        ).fetchall()
+    return [_format_priority_row(r) for r in rows]
+
+
+def seed_priority_queue_items(
+    topics: list[str],
+    *,
+    scientific_field: str = "",
+    secondary_field: str = "",
+    tertiary_field: str = "",
+    priority_rank: int = 10,
+    notes: str = "",
+) -> list[dict[str, Any]]:
+    """Seed one or more priority pattern recognition items into pattern_priority_queue."""
+    ensure_default_priority_seed()
+    cleaned_topics = [str(t or "").strip() for t in topics if str(t or "").strip()]
+    if not cleaned_topics:
+        return []
+    now = _utc_now()
+    inserted_ids: list[int] = []
+    with _connect() as conn:
+        for idx, t in enumerate(cleaned_topics):
+            rank = max(1, int(priority_rank or 10) + idx)
+            cur = conn.execute(
+                """
+                INSERT INTO pattern_priority_queue
+                    (priority_rank, topic, scientific_field, secondary_field, tertiary_field, notes, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    rank,
+                    t[:300],
+                    str(scientific_field or "").strip()[:120],
+                    str(secondary_field or "").strip()[:120],
+                    str(tertiary_field or "").strip()[:120],
+                    str(notes or "").strip()[:600],
+                    now,
+                ),
+            )
+            if cur.lastrowid:
+                inserted_ids.append(int(cur.lastrowid))
+        conn.commit()
+        if not inserted_ids:
+            return []
+        marks = ",".join("?" for _ in inserted_ids)
+        rows = conn.execute(
+            f"SELECT * FROM pattern_priority_queue WHERE id IN ({marks}) ORDER BY priority_rank ASC, id ASC",
+            inserted_ids,
+        ).fetchall()
+    return [_format_priority_row(r) for r in rows]
+
+
+def get_next_priority_queue_item() -> dict[str, Any] | None:
+    """Return the highest-priority pending (or in_progress) item for automatic execution."""
+    ensure_default_priority_seed()
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM pattern_priority_queue
+            WHERE status IN ('in_progress', 'pending')
+            ORDER BY CASE status WHEN 'in_progress' THEN 0 ELSE 1 END ASC,
+                     priority_rank ASC,
+                     id ASC
+            LIMIT 1
+            """
+        ).fetchone()
+    return _format_priority_row(row) if row is not None else None
+
+
+def update_priority_queue_item(
+    item_id: int,
+    *,
+    status: str | None = None,
+    priority_rank: int | None = None,
+    matched_documents: int | None = None,
+    patterns_discovered: int | None = None,
+    pattern_ids: list[int] | None = None,
+    notes: str | None = None,
+) -> dict[str, Any] | None:
+    """Update status, rank, or discovered pattern metrics of a priority item (e.g. marking it off as 'completed')."""
+    ensure_pattern_store()
+    now = _utc_now()
+    with _connect() as conn:
+        existing = conn.execute("SELECT * FROM pattern_priority_queue WHERE id = ?", (int(item_id),)).fetchone()
+        if existing is None:
+            return None
+        cur_row = dict(existing)
+        new_status = str(status).strip() if status is not None else str(cur_row.get("status") or "pending")
+        new_rank = int(priority_rank) if priority_rank is not None else int(cur_row.get("priority_rank") or 100)
+        new_matched = int(matched_documents) if matched_documents is not None else int(cur_row.get("matched_documents") or 0)
+        new_pats = int(patterns_discovered) if patterns_discovered is not None else int(cur_row.get("patterns_discovered") or 0)
+        new_pids_json = json.dumps([int(x) for x in pattern_ids]) if pattern_ids is not None else str(cur_row.get("pattern_ids_json") or "[]")
+        new_notes = str(notes)[:600] if notes is not None else str(cur_row.get("notes") or "")
+        started_at = str(cur_row.get("started_at") or "")
+        completed_at = str(cur_row.get("completed_at") or "")
+        if new_status == "in_progress" and not started_at:
+            started_at = now
+        elif new_status == "completed":
+            if not started_at:
+                started_at = now
+            completed_at = now
+        elif new_status == "pending":
+            completed_at = ""
+        conn.execute(
+            """
+            UPDATE pattern_priority_queue
+            SET status = ?, priority_rank = ?, matched_documents = ?, patterns_discovered = ?,
+                pattern_ids_json = ?, notes = ?, started_at = ?, completed_at = ?
+            WHERE id = ?
+            """,
+            (new_status, new_rank, new_matched, new_pats, new_pids_json, new_notes, started_at, completed_at, int(item_id)),
+        )
+        conn.commit()
+        updated = conn.execute("SELECT * FROM pattern_priority_queue WHERE id = ?", (int(item_id),)).fetchone()
+    return _format_priority_row(updated) if updated is not None else None
+
+
+def delete_priority_queue_item(item_id: int) -> bool:
+    ensure_pattern_store()
+    with _connect() as conn:
+        cur = conn.execute("DELETE FROM pattern_priority_queue WHERE id = ?", (int(item_id),))
+        conn.commit()
+    return bool(cur.rowcount and cur.rowcount > 0)
+

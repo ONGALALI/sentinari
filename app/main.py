@@ -704,6 +704,109 @@ def ui_portal_landing() -> HTMLResponse:
     return HTMLResponse("", status_code=307, headers={"Location": "/ui/start"})
 
 
+_LANDING_REFERENCE_REPORTS: dict[str, dict[str, str]] = {
+    "the-global-risk-index": {
+        "slug": "the-global-risk-index",
+        "title": "1) The Global Risk Index (2025/2026)",
+        "filename": "The_Global_Risk_Index.pdf",
+        "download_name": "The_Global_Risk_Index.pdf",
+        "subtitle": "Global Governance Forum · 163 Countries · 109 Systemic Risk Indicators",
+        "description": (
+            "Comprehensive multi-pillar assessment of global systemic risk across Governance, "
+            "Health & Human Security, Economic Stability, Gender Equality, Environmental Vulnerabilities, "
+            "Education & Skills, Business Environment Resilience, and Exogenous Threats."
+        ),
+    },
+    "The_Global_Risk_Index.pdf": {
+        "slug": "the-global-risk-index",
+        "title": "1) The Global Risk Index (2025/2026)",
+        "filename": "The_Global_Risk_Index.pdf",
+        "download_name": "The_Global_Risk_Index.pdf",
+        "subtitle": "Global Governance Forum · 163 Countries · 109 Systemic Risk Indicators",
+        "description": "",
+    },
+    "the-global-catastrophic-index": {
+        "slug": "the-global-catastrophic-index",
+        "title": "2) The Global Catastrophic Index (2025/2026)",
+        "filename": "The_Global_Catastrophic_Index.pdf",
+        "download_name": "The_Global_Catastrophic_Index.pdf",
+        "subtitle": "Navigating Risk in an Uncertain Future · Augusto Lopez-Claros & John Miller",
+        "description": (
+            "Evaluates 163 nations across nearly 20,000 data points from The World Bank, IMF, "
+            "United Nations, WHO, and SIPRI—identifying compounding catastrophic vulnerabilities, "
+            "regime fragility, climate-induced displacement, and AI/nuclear escalation risks."
+        ),
+    },
+    "The_Global_Catastrophic_Index.pdf": {
+        "slug": "the-global-catastrophic-index",
+        "title": "2) The Global Catastrophic Index (2025/2026)",
+        "filename": "The_Global_Catastrophic_Index.pdf",
+        "download_name": "The_Global_Catastrophic_Index.pdf",
+        "subtitle": "Navigating Risk in an Uncertain Future · Augusto Lopez-Claros & John Miller",
+        "description": "",
+    },
+    "the-lancet-report": {
+        "slug": "the-lancet-report",
+        "title": "3) The Lancet Report (2025–2100)",
+        "filename": "The_new_Lancet_Report.pdf",
+        "download_name": "The_Lancet_Report.pdf",
+        "subtitle": "The Lancet Commission on 21st Century Global Threats to Health · 204 Countries",
+        "description": (
+            "Identifies 17 catastrophic threats to human health and survival between 2025 and 2100 "
+            "(including extinction-level AI and nuclear conflict risks, climate change, pandemics, "
+            "antimicrobial resistance, and inequality) with the 'Build, Back, and Track' action agenda."
+        ),
+    },
+    "The_new_Lancet_Report.pdf": {
+        "slug": "the-lancet-report",
+        "title": "3) The Lancet Report (2025–2100)",
+        "filename": "The_new_Lancet_Report.pdf",
+        "download_name": "The_Lancet_Report.pdf",
+        "subtitle": "The Lancet Commission on 21st Century Global Threats to Health · 204 Countries",
+        "description": "",
+    },
+}
+
+
+@app.get("/api/landing-reports", include_in_schema=False)
+def api_landing_reports() -> dict[str, Any]:
+    reports_dir = get_project_root() / "static" / "reports"
+    items = []
+    for key in ("the-global-risk-index", "the-global-catastrophic-index", "the-lancet-report"):
+        meta = _LANDING_REFERENCE_REPORTS[key]
+        fpath = reports_dir / meta["filename"]
+        size_kb = round(fpath.stat().st_size / 1024.0, 1) if fpath.exists() else 0.0
+        items.append(
+            {
+                **meta,
+                "view_url": f"/reports/{meta['slug']}",
+                "download_url": f"/reports/{meta['slug']}?download=1",
+                "size_kb": size_kb,
+            }
+        )
+    return {"ok": True, "reports": items}
+
+
+@app.get("/reports/{report_key}", include_in_schema=False)
+def serve_landing_reference_report(report_key: str, download: int = Query(default=0)) -> FileResponse:
+    """Serve the 3 featured Global Risk & Catastrophic Reference PDFs on the Website Landing Page."""
+    meta = _LANDING_REFERENCE_REPORTS.get(str(report_key or "").strip())
+    if not meta:
+        raise HTTPException(status_code=404, detail="Reference report not found.")
+    fpath = get_project_root() / "static" / "reports" / meta["filename"]
+    if not fpath.exists():
+        raise HTTPException(status_code=404, detail="Reference report PDF file not found on disk.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(fpath),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{meta["download_name"]}"',
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
+
+
 # ===========================================================================
 # §52 — SHARED LEFT RAIL (single sidebar markup for every console page)
 # Injected by _shared_left_rail(active=...) into pages that previously had
