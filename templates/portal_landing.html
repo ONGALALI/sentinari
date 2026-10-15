@@ -541,11 +541,11 @@
         <span class="brand-badge">CLOUD PRO</span>
       </a>
       <div class="nav-links">
+        <button type="button" onclick="openPresentationModal()" style="background:none;border:none;color:#34d399;font-weight:600;font-size:0.92rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">&#x25B6;&#xFE0F; 10-Min Video</button>
+        <a href="#deliverables">Core Deliverables</a>
         <a href="#global-reports">Global Risk Reports (3)</a>
         <a href="#architecture">Architecture</a>
-        <a href="#domains">Domains</a>
         <a href="/ui/patterns">New Patterns (<span id="navPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
-        <a href="/ui/chat">Research Chat</a>
         <a href="/ui/start" class="btn-launch">Launch Studio &rarr;</a>
       </div>
     </div>
@@ -568,10 +568,13 @@
           Scales past gigabytes to terabytes without hallucinations, catastrophic forgetting, or epistemic decay.
         </p>
         <div class="cta-group">
+          <button type="button" class="btn-primary" onclick="openPresentationModal()" style="background:linear-gradient(135deg, #10b981, #059669);box-shadow:0 4px 18px rgba(16,185,129,0.4);border:1px solid rgba(255,255,255,0.2);cursor:pointer;display:inline-flex;align-items:center;gap:8px;">
+            <span>&#x25B6;&#xFE0F;</span>
+            <span>Watch 10-Min Executive Briefing</span>
+          </button>
           <a href="/ui/chat" class="btn-primary">Open Research Console</a>
           <a href="/ui/patterns" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
           <a href="#global-reports" class="btn-secondary">Global Risk &amp; Lancet Reports (3)</a>
-          <a href="/ui/start" class="btn-secondary">Operator Start Studio</a>
         </div>
       </section>
 
@@ -714,6 +717,89 @@
           <p>Founded on The Discipline of Responsible Intelligence — prioritizing empirical provenance, Aristotelian causality, and systemic integrity over neural memorization.</p>
         </div>
 
+        <!-- Master 10-Minute Executive Presentation Video Drawer -->
+        <div id="portalVideoDrawer" class="pdf-viewer-drawer" style="margin-bottom:36px;border-color:rgba(16,185,129,0.5);background:rgba(11,17,32,0.96);box-shadow:0 12px 40px rgba(0,0,0,0.6);" hidden>
+          <div class="pdf-viewer-bar" style="background:#090d16;border-bottom:1px solid rgba(255,255,255,0.1);padding:14px 18px;border-radius:12px 12px 0 0;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(16,185,129,0.2);color:#34d399;font-size:1.1rem;">&#x25B6;&#xFE0F;</span>
+              <div>
+                <strong style="color:#ffffff;font-size:1.1rem;display:block;">Sentinari: The 10-Minute Executive Briefing &amp; Constitutional Architecture</strong>
+                <span style="font-size:0.8rem;color:#94a3b8;">10:50 Runtime &bull; 1080p Full HD &bull; Neural Narration &bull; Conceived, Researched &amp; Engineered by Dr. Pierre C. Wepener</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <a href="/api/presentation/video.mp4?download=1" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4 (15.1 MB)</a>
+              <button type="button" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;" onclick="closePresentationModal()">&#x2715; Close Video</button>
+            </div>
+          </div>
+          <div style="padding:20px;">
+            <div style="position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.7);margin-bottom:18px;">
+              <video id="portalPresentationVideo" controls preload="metadata" poster="/api/presentation/poster.png" style="width:100%;max-height:600px;display:block;outline:none;">
+                <source src="/api/presentation/video.mp4" type="video/mp4">
+                Your browser does not support HTML5 video streaming. Please use the Download MP4 button.
+              </video>
+            </div>
+
+            <!-- Interactive Chapter Scrub Bar -->
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                <span style="font-size:0.8rem;color:#a5b4fc;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">&#x23F1; Jump Directly to Chapter</span>
+                <span style="font-size:0.75rem;color:#64748b;">Click any chapter to seek video instantly</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:8px;">
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(0)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">00:00</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1. Intro &amp; Epistemic Crisis</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(70)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">01:10</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">2. Information Asymmetry</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(125)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">02:05</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">3. The 100-Year Constitution</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(192)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">03:12</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">4. Aristotle's 4 Causes in AI</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(242)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">04:02</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">5. New Pattern Discovery</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(297)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">04:57</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">6. Supplementary Studies ROI</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(347)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">05:47</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">7. 15-Indicator R&amp;D Paper</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(390)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">06:30</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">8. 7-D Assessment Matrix</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(441)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">07:21</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">9. Google Cloud Architecture</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(495)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">08:15</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">10. Working Person's Shield</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(550)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">09:10</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">11. Sole Initiative vs Inertia</span>
+                </button>
+                <button type="button" class="btn-report-secondary" onclick="seekPresentationVideo(593)" style="text-align:left;font-size:0.78rem;padding:7px 10px;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#10b981;font-weight:700;font-family:'JetBrains Mono',monospace;">09:53</span>
+                  <span style="color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">12. Global Investment Call</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Independent Attribution & Copyright Seal -->
         <div style="background:linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(16,185,129,0.06) 100%);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 28px;margin-bottom:36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
           <div style="display:flex;align-items:center;gap:16px;">
@@ -728,7 +814,8 @@
             </div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <button type="button" class="btn-report-primary" onclick="openConstitutionDrawer()" style="box-shadow:0 0 16px rgba(99,102,241,0.4);">&#x1F4DC; Read The 100-Year Constitution</button>
+            <button type="button" class="btn-report-primary" onclick="openPresentationModal()" style="background:linear-gradient(135deg, #10b981, #059669);border-color:#10b981;box-shadow:0 0 16px rgba(16,185,129,0.4);">&#x25B6;&#xFE0F; Watch 10-Min Briefing</button>
+            <button type="button" class="btn-report-secondary" onclick="openConstitutionDrawer()">&#x1F4DC; Read The 100-Year Constitution</button>
             <a href="#deliverables" class="btn-report-secondary">&#x1F9E0; Core Deliverables</a>
             <a href="#sponsorship" class="btn-report-secondary">&#x1F91D; Investor &amp; Sponsorship Dialogue</a>
           </div>
@@ -742,6 +829,7 @@
               <h3 style="font-size:1.6rem;font-weight:800;color:#ffffff;margin-top:6px;">Cross-Functional Pattern Discovery &amp; The 7-D Assessment Matrix</h3>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn-report-primary" onclick="openPresentationModal()" style="background:linear-gradient(135deg, #10b981, #059669);border-color:#10b981;">&#x25B6;&#xFE0F; Watch Video</button>
               <a href="/ui/patterns" class="btn-report-primary">&#x26A1; Launch New Pattern Discovery</a>
               <a href="/api/patterns/assessment-matrix/view" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F4CA; Open Sliding-Scale Simulator</a>
               <a href="/api/patterns/rd-paper/195/report" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F4D1; Preview Sample R&amp;D Paper</a>
@@ -1029,7 +1117,43 @@
       drawer.hidden = false;
       drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
+
+    window.openPresentationModal = () => {
+      const drawer = document.getElementById('portalVideoDrawer');
+      const video = document.getElementById('portalPresentationVideo');
+      if (!drawer) return;
+      drawer.hidden = false;
+      drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (video && video.paused) {
+        video.play().catch(() => {});
+      }
+    };
+
+    window.closePresentationModal = () => {
+      const drawer = document.getElementById('portalVideoDrawer');
+      const video = document.getElementById('portalPresentationVideo');
+      if (video) video.pause();
+      if (drawer) drawer.hidden = true;
+    };
+
+    window.seekPresentationVideo = (sec) => {
+      const drawer = document.getElementById('portalVideoDrawer');
+      const video = document.getElementById('portalPresentationVideo');
+      if (drawer && drawer.hidden) {
+        drawer.hidden = false;
+      }
+      if (!video) return;
+      video.currentTime = Number(sec) || 0;
+      video.play().catch(() => {});
+    };
+
+    if (window.location.hash === '#presentation' || window.location.hash === '#video') {
+      setTimeout(() => {
+        window.openPresentationModal();
+      }, 350);
+    }
   })();
   </script>
 </body>
 </html>
+

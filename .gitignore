@@ -57,5 +57,9 @@ sentinel/apis/
 # Owner-downloaded SWE-bench execution harness (132MB, third-party) - stays local like data/
 assessments/swe-workbench/
 .venv-ml/
+# Intermediate video build segments & temporary audio
+constitution/video_assets/*.mp3
+constitution/video_assets/*.mp4
+constitution/video_assets/concat_list.txt
 engine/custom_engine_weights/
 

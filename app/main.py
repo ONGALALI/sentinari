@@ -807,6 +807,54 @@ def serve_landing_reference_report(report_key: str, download: int = Query(defaul
     )
 
 
+@app.get("/video/presentation", include_in_schema=False)
+@app.head("/video/presentation", include_in_schema=False)
+@app.get("/api/presentation/video.mp4", include_in_schema=False)
+@app.head("/api/presentation/video.mp4", include_in_schema=False)
+def serve_presentation_video(download: int = Query(default=0)) -> FileResponse:
+    """Serve or stream the official 10-Minute Sentinari Presentation Video MP4."""
+    root = get_project_root()
+    candidates = [
+        root / "constitution" / "Sentinari_10_Minute_Presentation.mp4",
+        Path("constitution/Sentinari_10_Minute_Presentation.mp4"),
+        Path("/app/constitution/Sentinari_10_Minute_Presentation.mp4"),
+        Path("D:/Sentinari/constitution/Sentinari_10_Minute_Presentation.mp4"),
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Presentation video file not found on disk.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(target),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="Sentinari_10_Minute_Presentation.mp4"',
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=86400",
+        },
+    )
+
+
+@app.get("/api/presentation/poster.png", include_in_schema=False)
+def serve_presentation_poster() -> FileResponse:
+    """Serve slide 1 cover poster for the presentation video player."""
+    root = get_project_root()
+    candidates = [
+        root / "constitution" / "video_assets" / "slide_01_slide.png",
+        Path("constitution/video_assets/slide_01_slide.png"),
+        Path("/app/constitution/video_assets/slide_01_slide.png"),
+        Path("D:/Sentinari/constitution/video_assets/slide_01_slide.png"),
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Poster image not found.")
+    return FileResponse(
+        path=str(target),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 # ===========================================================================
 # §52 — SHARED LEFT RAIL (single sidebar markup for every console page)
 # Injected by _shared_left_rail(active=...) into pages that previously had
