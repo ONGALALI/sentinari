@@ -1,7 +1,7 @@
 # THE SENTINARI CHARTER & ARCHITECTURAL CONSTITUTION
 **The Foundational Doctrine of Responsible Intelligence & Systemic Operational Integrity**
-*Author & Principal Investigator: Dr. Pierre C. Wepener — University of Johannesburg*  
-*Legal Notice: 100% Self-Funded Independent Research & Development. Copyright © Dr. Pierre C. Wepener. All Rights Reserved.*
+*Author, Founder & Chief Architect: Dr. Pierre C. Wepener*  
+*Legal & Institutional Notice: Conceived, researched, designed, and engineered entirely on personal initiative with zero institutional funding or involvement from the University of Johannesburg (a formal proposal submitted in early 2025 remains unreviewed amidst administrative inertia, mirroring the national Whitepaper on Higher Education pending since 2019). The entire codebase, mathematical formalisms, database schemas, and intellectual property are the exclusive proprietary copyright of Dr. Pierre C. Wepener. Open to global investors, technology sponsors, and action-oriented partners.*
 
 ---
 
@@ -23,7 +23,7 @@ Therefore, **Sentinari exists as an external, objective, and symbiotic mirror**�
 3. Empirical reality shall always supersede administrative, commercial, political, or institutional narratives.
 4. *This Article is Immutable: questioning it merely returns the observer to the imperative of evidence.*
 
-### ARTICLE II: The Doctrine of the Neutral Illuminator
+### ARTICLE II: The Doctrine of the Neutral Illuminator & Symmetric Invalidation
 1. Sentinari is an **illuminator**, not an instrument of punishment, coercion, ideological warfare, or corporate warfare.
 2. The system maintains zero institutional alignment and recognizes no permanent adversaries—**only active, dynamic hypotheses**.
 3. If the uncovering of material evidence exposes systemic wrongdoing, institutional liability, or structural fragility, such an output is not an act of hostility by Sentinari, but the unmediated reflection of material reality.
@@ -35,7 +35,7 @@ Therefore, **Sentinari exists as an external, objective, and symbiotic mirror**�
 3. The instant an existing truth node or analytical conclusion is contradicted or refined by superior data provenance, the system is constitutionally mandated to degrade prior confidence scores and re-collapse its analytical wave function into alignment with the updated material record.
 4. Institutional pride, corporate reputation, and legacy preservation shall never be factored into the state of the network.
 
-### ARTICLE IV: The Declaration of Inadequacy
+### ARTICLE IV: The Declaration of Inadequacy (Zero-Hallucination Law)
 1. Intellectual honesty dictates that silence is a metric of absolute integrity, never a failure of functional capacity.
 2. When incoming data streams or document scans fail to clear the strict threshold of mathematical provenance, or where data vectors are structurally fragmented, Sentinari shall deliberately choose **not** to reach a definitive conclusion.
 3. In such instances, the system is constitutionally bound to publish a formal, non-speculative declaration:
@@ -54,21 +54,21 @@ Therefore, **Sentinari exists as an external, objective, and symbiotic mirror**�
    - Explicit logging of unresolved questions or contradictory evidence.
 3. Any data stream failing to present these baseline criteria shall be classified as institutional noise and denied entry into the core ledger.
 
-### ARTICLE VI: The Inviolability of the Symbiotic Loop
+### ARTICLE VI: The Inviolability of the Symbiotic Loop & The Working Person's Shield
 1. The relationship between human intelligence and Sentinari is natively symbiotic and indivisible.
 2. While the system provides macro-scale cognitive mapping, data-lineage tracking, and interdisciplinary synthesis, it remains dependent on human observers to execute physical verifications, log material evidence, and ground abstract data loops in lived human reality.
 3. Sentinari shall never automate the generation of data points out of pure abstraction. Every core branch of the truth engine must interface with an active human node acting as the witness of material reality.
-4. **The Working Person's Transition Shield**: Sentinari’s pattern discovery engine is dedicated to illuminating systemic technological transitions before they displace workers. It provides workers with early navigational intelligence, skill adjacency mapping, and transition roadmaps, preventing technological advancements from being weaponized as instruments of sudden economic obsolescence.
+4. **The Working Person's Transition Shield**: Sentinari’s pattern discovery engine is dedicated to illuminating systemic technological transitions before they displace workers. It provides workers, trade unions, and regional planners with early navigational intelligence, skill adjacency mapping, and transition roadmaps, preventing technological advancements from being weaponized as instruments of sudden economic obsolescence.
 
 ### ARTICLE VII: Proportionality of Focus
 1. Sentinari shall not expend its analytical or cognitive infrastructure on trivial, non-systemic, or purely localized disputes.
 2. Ingestion and compute are strictly focused on structural anomalies, institutional blindspots, and systemic informational gaps that impact macro-economic, ecological, technological, or social ecosystems.
 3. It operates strictly at the flashpoint where macro-level strategies collide with material ground-level reality.
 
-### ARTICLE VIII: Provenance, Self-Funding & Intellectual Property
-1. Sentinari was conceived, researched, designed, and developed by **Dr. Pierre C. Wepener** as an entirely independent, self-funded scientific project without institutional grants, corporate subsidies, or venture capital encumbrances.
-2. The entire software architecture, database schemas, mathematical formalisms, and codebase are the proprietary copyright of Dr. Pierre C. Wepener.
-3. Future sponsors, academic partners, sovereign funds, or corporate collaborators (including Google Cloud / DeepMind initiatives) may participate under structured research alliances, compute grants, and stewardship agreements that strictly adhere to this Constitution without compromising the core neutrality or ownership of the platform.
+### ARTICLE VIII: Sole Independent Authorship & Investor Framework
+1. Sentinari was conceived, researched, designed, and developed by **Dr. Pierre C. Wepener** as an entirely independent, 100% self-funded scientific project without institutional funding, university sponsorship, or corporate debt.
+2. The entire software architecture, database schemas, mathematical formalisms, and codebase are the exclusive proprietary copyright of Dr. Pierre C. Wepener.
+3. Global investors, technology venture funds, sovereign AI initiatives, and research sponsors (such as Google Cloud and DeepMind) are invited to partner through structured research alliances, compute sponsorships, and deployment consortiums that respect this Constitution without altering the core neutrality of the engine.
 
 ---
 
@@ -98,26 +98,65 @@ To ensure that Sentinari is not a black-box neural mimic, its architecture is en
 +--------------------------------+-------------------------------------------------+
 ```
 
-### 1. The Material Cause: Grounded Multi-Domain Epistemology
-- **21 Sentinel Scientific Fields**: Spanning Physical Sciences, Engineering, Biological Sciences, Health & Medicine, Social Sciences, Economics, and Humanities.
-- **Automated Open Data Pipelines**:
-  - OpenAlex: Over 250M scientific papers indexed by citation count and peer-reviewed provenance.
-  - PubMed: Biomedical and epidemiological telemetry.
-  - OECD / BEA / IMF / Eurostat / BIS: Authoritative economic, financial, and trade telemetry via SDMX/JSON APIs.
-  - Document & PDF Upload Engine: Multi-page document parsing, OCR fallback, metadata extraction, and sha256 checksum hashing.
+---
 
-### 2. The Formal Cause: The Assessment Matrix & Mathematical Formalism
-Sentinari rejects arbitrary LLM scoring in favor of an analytical mathematical framework:
-- **Net Sustainable Impact Score (NSIS)**:
-  $$\text{NSIS} = \sum_{i=1}^{7} W_i \cdot S_i(x_i)$$
-- **Coupled Gaussian Bell Curves**: Dimension impact functions $G_i(x)$ modulated by coupled interdependencies ($\alpha, \beta, \gamma$ vectors), capturing systemic trade-offs (e.g., rapid industrial scaling vs. environmental degradation).
-- **15-Indicator R&D Validation Pipeline**: Formal stages covering Abstract, Hypothesis Formulation, Literature Review, Technical Specs, Mathematical Proof, Experimental Setup, Data Analysis, Benchmark Comparison, Conclusion, Future Scope, APA 7th Works Cited, and Gemma Recommended Solutions.
+## PART III: THE DELIVERABLES OF THE NEW PATTERN DISCOVERY WORKSPACE
 
-### 3. The Efficient Cause: Scalable Cloud Architecture
-- **Compute Layer**: Containerized FastAPI services deployed on **Google Cloud Run** (`us-central1`), automatically scaling with request load.
-- **Vector & Relational Storage**: **Google Cloud SQL PostgreSQL 16** with `pgvector 0.8.5`, executing sub-second hybrid vector search ($L_2$ / Cosine similarity) combined with relational constraints.
-- **AI Gateway & Firewall**: Google Gemini 1.5/2.5 models combined with Gemma 2/3 LLMs operating under strict zero-hallucination boundary firewalls.
+The **New Pattern Discovery Workspace** (`/ui/patterns`) represents the core operational breakthrough of Sentinari. It bridges the chasm between raw multi-disciplinary data collection and actionable, publication-grade scientific validation.
 
-### 4. The Final Cause: Societal Equilibrium & Worker Protection
-- Illuminating the hidden structural collisions between corporate policy and environmental or economic realities.
-- Providing workers, unions, and policymakers with unvarnished, empirical foresight into technological transitions before disruptive displacement occurs.
+### 1. Cross-Functional Pattern Recognition
+Traditional research is conducted in rigid institutional silos. An economist studying supply chain vulnerabilities rarely cross-references materials science literature on semiconductor wafer doping or meteorological fluid dynamics. 
+- Sentinari breaks these silos by continuously evaluating data across **21 Sentinel Scientific Disciplines**.
+- It maps semantic and mathematical affinities across disparate domains to detect **embryonic patterns**—anomalies where systemic interactions between two or more fields produce emergent risks or breakthrough opportunities.
+- Each pattern is surfaced in the workspace as an interactive **Concertina Card**, complete with confidence scores, cross-field badges, primary source excerpts, and multi-stage R&D indicators.
+
+### 2. Strategic Benefits of Conducting Supplementary Studies
+For global investors, corporate boards, and research institutions, conducting a supplementary or dedicated follow-up study on a Sentinari-discovered pattern provides distinct asymmetric advantages:
+- **Early-Warning Risk De-Risking**: Identifies structural supply chain and geopolitical friction 12 to 24 months before it surfaces in backward-looking financial metrics.
+- **First-Mover Patent & Technological Advantage**: Illuminates hidden cross-domain mechanics (e.g. quantum chemical synthesis applied to grid battery storage) before mainstream industry awareness.
+- **Targeted R&D Resource Allocation**: Eliminates speculative trial-and-error by providing researchers with pre-validated hypotheses, curated bibliographies, and mathematical formalisms.
+
+### 3. The Abbreviated Layout & Deliverables of the Unified R&D Paper
+When a researcher or investor clicks **"Open Unified R&D Paper"** or triggers **"Develop R&D Indicators"**, Sentinari develops the embryonic pattern into a complete, 5-section, 15-indicator scientific paper:
+
+| Section | Indicators Covered | Exact Deliverable Provided |
+|---|---|---|
+| **1. Front Matter** | 1.1 Title & Objective<br>1.2 Abstract (Word-counted)<br>1.3 Technical Keywords | Publication-ready academic header defining the core research scope and technical taxonomy. |
+| **2. Introduction & Framework** | 2.1 Problem Statement & Hypothesis<br>2.2 Literature Review (Linked APA 7th Citations)<br>2.3 Measurable Objectives & Benefits | Establishes the formal hypothesis formulation, reviews foundational literature with inline source brackets (`[1]`, `[2]`), and details quantified system benefits. |
+| **3. Methodology & System Design** | 3.1 Conceptual Architecture<br>3.2 Technical Specifications<br>3.3 Implementation & Mathematical Formalism | Step-by-step technical blueprints, system data flows, and rigorous mathematical proofs rendered with KaTeX. |
+| **4. Testing, Results & Evaluation** | 4.1 Experimental Testbed<br>4.2 Assessment Matrix Table & NSIS<br>4.3 Discussion & Benchmark Comparison | Full numerical evaluation under the 7-Dimensional Assessment Matrix, quantitative parameter tables, and empirical benchmark comparisons. |
+| **5. Back Matter & Bibliography** | 5.1 Conclusion & Viability<br>5.2 Future Scope & Scaling<br>5.3 APA 7th Comprehensive Works Cited<br>5.4 Appendices<br>**5.5 Recommended Solutions** | Synthesis of real-world viability, next-generation improvements, collapsible works cited with active DOI links, and **Gemma’s concrete Recommended Solutions** (or the constitutional fallback). |
+| **6. Visual Analytics (Bottom)** | Figure 6.1 Sustainability Matrix Share<br>Figure 6.2 Coupled Bell-Curve Simulator<br>Figure 6.3 Operating Level vs. Optimum | Interactive Chart.js visual analytics displaying dimension curves, optimal centers ($\mu_i$), and the Net Sustainability Envelope. |
+
+### 4. The Assessment Matrix with Manual Sliding Scale: Mathematical Justification
+Sentinari rejects arbitrary qualitative scoring. It evaluates every pattern under an exact mathematical formalism that can be manipulated in real time via an interactive sliding scale (`/api/patterns/assessment-matrix/view`).
+
+#### The Seven Core Dimensions:
+1. **Knowledge ($K$)**: Depth, empirical validity, and academic rigor of the underlying data.
+2. **Intelligence ($I$)**: Analytical coherence, predictive validity, and reasoning clarity.
+3. **Decision ($D$)**: Practical utility, execution feasibility, and strategic leverage.
+4. **Human Agency ($H$)**: Empowerment, labor protection, and preservation of human self-determination.
+5. **Societal ($S$)**: Positive cultural, civic, and systemic stability impact.
+6. **Ethics ($E$)**: Moral constraint, regulatory compliance, and alignment with fundamental human rights.
+7. **Risk ($R$)**: Operational fragility, systemic vulnerability, and downstream catastrophic exposure.
+
+#### The Mathematical Formulation:
+Each dimension operates along a normalized scale $x_i \in [0, 10]$. Its impact score $S_i(x_i)$ is governed by a Gaussian impact function:
+$$S_i(x_i) = A_i \cdot \exp\left(-\frac{(x_i - \mu_i)^2}{2\sigma_i^2}\right)$$
+Where:
+- $A_i$ is the maximum amplitude (potency) of the dimension.
+- $\mu_i$ is the dynamic optimal operating center.
+- $\sigma_i$ is the standard deviation (tolerance band).
+
+The **Net Sustainable Impact Score (NSIS)** is the weighted aggregate:
+$$\text{NSIS} = \sum_{i=1}^{7} W_i \cdot S_i(x_i), \quad \text{where } \sum_{i=1}^{7} W_i = 1.0$$
+The normalized share $\text{SD}_i(\%)$ allocated to each dimension is:
+$$\text{SD}_i(\%) = \frac{W_i \cdot S_i(x_i)}{\text{NSIS}} \times 100\%$$
+
+#### Dynamic Coupled Interdependence (The Sliding Scale Rules):
+When a user manually shifts the slider of any dimension $x_j$, the engine dynamically modulates the parameters of interdependent dimensions via mathematically justifiable coupled rules:
+- **Interdependence Rule A (Capacity Coupling)**: High operational intensity in Decision ($x_D > 7$) increases the amplitude and demands of Knowledge ($A_K$) while shifting the optimal center of Risk ($\mu_R$).
+- **Interdependence Rule B (Ethical Damping)**: If Ethics ($x_E$) drops below 4.0, the standard deviation $\sigma_R$ expands exponentially, reflecting heightened operational volatility and penalizing NSIS.
+- **Interdependence Rule C (Systemic Envelope)**: The composite envelope curve represents the net systemic stability boundary; moving any slider demonstrates visually and mathematically how over-optimizing one dimension at the expense of others causes systemic collapse.
+
+This provides investors and researchers with an **un-falsifiable flight simulator** for strategic decisions: proving mathematically whether a proposed technological or policy intervention produces sustainable equilibrium or catastrophic drift.
