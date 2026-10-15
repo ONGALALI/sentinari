@@ -277,6 +277,18 @@ def ensure_pattern_store() -> None:
             conn.execute("ALTER TABLE pattern_extraction_log ADD COLUMN crisis_score REAL NOT NULL DEFAULT 0.0;")
         if "crisis_terms" not in log_cols:
             conn.execute("ALTER TABLE pattern_extraction_log ADD COLUMN crisis_terms TEXT NOT NULL DEFAULT '';")
+
+        prio_cols = {str(r["name"]) for r in conn.execute("PRAGMA table_info(pattern_priority_queue)").fetchall()}
+        if "solution_text" not in prio_cols:
+            conn.execute("ALTER TABLE pattern_priority_queue ADD COLUMN solution_text TEXT NOT NULL DEFAULT '';")
+        if "assessment_date" not in prio_cols:
+            conn.execute("ALTER TABLE pattern_priority_queue ADD COLUMN assessment_date TEXT NOT NULL DEFAULT '';")
+        if "projected_research_pct" not in prio_cols:
+            conn.execute("ALTER TABLE pattern_priority_queue ADD COLUMN projected_research_pct REAL NOT NULL DEFAULT 0.0;")
+        if "societal_dimensions_json" not in prio_cols:
+            conn.execute("ALTER TABLE pattern_priority_queue ADD COLUMN societal_dimensions_json TEXT NOT NULL DEFAULT '[]';")
+        if "pipeline_health_status" not in prio_cols:
+            conn.execute("ALTER TABLE pattern_priority_queue ADD COLUMN pipeline_health_status TEXT NOT NULL DEFAULT 'OPTIMAL';")
         conn.commit()
 
         for template in PATTERN_TEMPLATE_SEED:
@@ -925,6 +937,16 @@ def _format_priority_row(row: Any) -> dict[str, Any]:
     except Exception:
         pids = []
     d["pattern_ids"] = [int(x) for x in pids if str(x).isdigit()]
+    d["has_solution"] = bool(str(d.get("solution_text") or "").strip())
+    d["solution_text"] = str(d.get("solution_text") or "")
+    d["assessment_date"] = str(d.get("assessment_date") or d.get("completed_at") or "")
+    d["projected_research_pct"] = float(d.get("projected_research_pct") or 87.4)
+    d["pipeline_health_status"] = str(d.get("pipeline_health_status") or "OPTIMAL")
+    try:
+        dims = json.loads(str(d.get("societal_dimensions_json") or "[]"))
+        d["societal_dimensions"] = list(dims) if isinstance(dims, list) else []
+    except Exception:
+        d["societal_dimensions"] = []
     return d
 
 
@@ -1010,7 +1032,7 @@ def seed_priority_queue_items(
                 """,
                 (
                     rank,
-                    t[:300],
+                    t[:5000],
                     str(scientific_field or "").strip()[:120],
                     str(secondary_field or "").strip()[:120],
                     str(tertiary_field or "").strip()[:120],
@@ -1057,6 +1079,11 @@ def update_priority_queue_item(
     patterns_discovered: int | None = None,
     pattern_ids: list[int] | None = None,
     notes: str | None = None,
+    solution_text: str | None = None,
+    assessment_date: str | None = None,
+    projected_research_pct: float | None = None,
+    societal_dimensions: list[str] | None = None,
+    pipeline_health_status: str | None = None,
 ) -> dict[str, Any] | None:
     """Update status, rank, or discovered pattern metrics of a priority item (e.g. marking it off as 'completed')."""
     ensure_pattern_store()
@@ -1074,22 +1101,35 @@ def update_priority_queue_item(
         new_notes = str(notes)[:600] if notes is not None else str(cur_row.get("notes") or "")
         started_at = str(cur_row.get("started_at") or "")
         completed_at = str(cur_row.get("completed_at") or "")
+        new_sol = str(solution_text)[:12000] if solution_text is not None else str(cur_row.get("solution_text") or "")
+        new_ass_date = str(assessment_date) if assessment_date is not None else str(cur_row.get("assessment_date") or "")
+        new_proj_pct = float(projected_research_pct) if projected_research_pct is not None else float(cur_row.get("projected_research_pct") or 0.0)
+        new_dims_json = json.dumps(list(societal_dimensions)) if societal_dimensions is not None else str(cur_row.get("societal_dimensions_json") or "[]")
+        new_health = str(pipeline_health_status) if pipeline_health_status is not None else str(cur_row.get("pipeline_health_status") or "OPTIMAL")
+
         if new_status == "in_progress" and not started_at:
             started_at = now
         elif new_status == "completed":
             if not started_at:
                 started_at = now
             completed_at = now
+            if not new_ass_date:
+                new_ass_date = now
         elif new_status == "pending":
             completed_at = ""
         conn.execute(
             """
             UPDATE pattern_priority_queue
             SET status = ?, priority_rank = ?, matched_documents = ?, patterns_discovered = ?,
-                pattern_ids_json = ?, notes = ?, started_at = ?, completed_at = ?
+                pattern_ids_json = ?, notes = ?, started_at = ?, completed_at = ?,
+                solution_text = ?, assessment_date = ?, projected_research_pct = ?,
+                societal_dimensions_json = ?, pipeline_health_status = ?
             WHERE id = ?
             """,
-            (new_status, new_rank, new_matched, new_pats, new_pids_json, new_notes, started_at, completed_at, int(item_id)),
+            (
+                new_status, new_rank, new_matched, new_pats, new_pids_json, new_notes, started_at, completed_at,
+                new_sol, new_ass_date, new_proj_pct, new_dims_json, new_health, int(item_id)
+            ),
         )
         conn.commit()
         updated = conn.execute("SELECT * FROM pattern_priority_queue WHERE id = ?", (int(item_id),)).fetchone()
