@@ -706,38 +706,150 @@
         </div>
       </section>
 
-      <!-- Architecture Features -->
+      <!-- Architecture Features & The Constitution -->
       <section id="architecture">
         <div class="section-header">
+          <span class="pill" style="background:rgba(99,102,241,0.12);border-color:rgba(99,102,241,0.35);color:#a5b4fc;">The 100-Year Epistemic Charter</span>
           <h2>The Constitutional Paradigm</h2>
-          <p>Designed around The Constitution of Inspirari — prioritizing verifiable provenance and analytical clarity over neural memorization.</p>
+          <p>Founded on The Discipline of Responsible Intelligence — prioritizing empirical provenance, Aristotelian causality, and systemic integrity over neural memorization.</p>
         </div>
 
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">&#x1F9E0;</div>
-            <h3>The Analytical Brain</h3>
-            <p>
-              Powered by Vertex AI (Gemini 2.5 Flash). Operates in a pure open-book mode, synthesizing facts without embedding noisy data into network weights.
-            </p>
+        <!-- Independent Attribution & Copyright Seal -->
+        <div style="background:linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(16,185,129,0.06) 100%);border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:22px 28px;margin-bottom:36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="font-size:2.2rem;line-height:1;">&#x1F393;</div>
+            <div>
+              <div style="font-size:0.75rem;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Independent Scientific Breakthrough &bull; University of Johannesburg</div>
+              <h3 style="font-size:1.15rem;color:#ffffff;font-weight:700;margin:2px 0;">Conceived, Researched &amp; Developed by Dr. Pierre C. Wepener</h3>
+              <p style="font-size:0.85rem;color:#94a3b8;margin:0;">100% Self-Funded Independent Project &bull; Zero Institutional Grants or Corporate Debt &bull; Copyright &copy; Dr. Pierre C. Wepener</p>
+            </div>
           </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#x1F4D6;</div>
-            <h3>The Memory Matrix</h3>
-            <p>
-              Managed in Google Cloud SQL PostgreSQL 16 with native pgvector. High-speed vector coordinate search across hundreds of thousands of atomic slices.
-            </p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#x2696;&#xFE0F;</div>
-            <h3>Article V Epistemic Governance</h3>
-            <p>
-              Every observation preserves strict metadata provenance: origin table, row IDs, empirical measurements, and falsifiability criteria.
-            </p>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn-report-primary" onclick="openConstitutionDrawer()" style="box-shadow:0 0 16px rgba(99,102,241,0.4);">&#x1F4DC; Read The 100-Year Constitution</button>
+            <a href="#sponsorship" class="btn-report-secondary">&#x1F91D; Sponsorship &amp; Alliances</a>
           </div>
         </div>
+
+        <!-- Aristotelian Four Causes Grid -->
+        <div style="margin-bottom:28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <h3 style="font-size:1.25rem;font-weight:700;color:#f8fafc;">Aristotle's Four Causes Applied to Artificial Intelligence</h3>
+            <span style="font-size:0.8rem;color:#a5b4fc;font-family:'JetBrains Mono',monospace;">DOCTRINE OF CAUSALITY</span>
+          </div>
+          <div class="features-grid" style="margin-bottom:36px;">
+            <div class="feature-card" style="border-top:3px solid #38bdf8;">
+              <div class="feature-icon" style="background:rgba(56,189,248,0.15);color:#38bdf8;">&#x1F4CA;</div>
+              <h3>1. Material Cause (Hyle)</h3>
+              <p>
+                <b>21 Sentinel Scientific Disciplines</b>. High-velocity ingestion streams across OpenAlex (250M+ peer-reviewed papers), PubMed, OECD, US Bureau of Economic Analysis (BEA), IMF, and Eurostat, backed by multi-modal PDF OCR.
+              </p>
+            </div>
+
+            <div class="feature-card" style="border-top:3px solid #818cf8;">
+              <div class="feature-icon" style="background:rgba(129,140,248,0.15);color:#818cf8;">&#x2696;&#xFE0F;</div>
+              <h3>2. Formal Cause (Eidos)</h3>
+              <p>
+                <b>The Assessment Matrix</b>. Evaluating cross-functional discoveries via a 7-dimensional Coupled Bell-Curve Matrix (NSIS Score), mathematical proofs, dynamic Gaussian parameterization, and 15-indicator R&amp;D Validation Papers.
+              </p>
+            </div>
+
+            <div class="feature-card" style="border-top:3px solid #34d399;">
+              <div class="feature-icon" style="background:rgba(52,211,153,0.15);color:#34d399;">&#x2699;&#xFE0F;</div>
+              <h3>3. Efficient Cause (Kinesis)</h3>
+              <p>
+                <b>Google Cloud Architecture</b>. Serverless autoscaling microservices on Google Cloud Run, PostgreSQL 16 + native <code style="color:#a5b4fc;">pgvector 0.8.5</code>, and hybrid semantic retrieval orchestrated with Vertex AI Gemini &amp; Gemma LLMs.
+              </p>
+            </div>
+
+            <div class="feature-card" style="border-top:3px solid #f59e0b;">
+              <div class="feature-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;">&#x1F6E1;&#xFE0F;</div>
+              <h3>4. Final Cause (Telos)</h3>
+              <p>
+                <b>The Working Person's Shield</b>. Responsible Intelligence dedicated to society—democratizing strategic intelligence, mitigating information asymmetry, and providing early labor transition mapping before technological disruption.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Constitution Drawer -->
+        <div id="constitutionDrawer" class="pdf-viewer-drawer" hidden style="margin-bottom:48px;">
+          <div class="pdf-viewer-bar" style="background:#0f172a;border-bottom:1px solid rgba(255,255,255,0.12);">
+            <div>
+              <strong style="color:#ffffff;font-size:1.1rem;">The Sentinari Constitution &amp; Architectural Articles</strong>
+              <span style="font-size:0.8rem;color:#94a3b8;margin-left:10px;">The 100-Year Charter for Disciplined Inquiry &bull; Dr. Pierre C. Wepener</span>
+            </div>
+            <button type="button" class="btn-report-secondary" style="padding:6px 14px;font-size:0.82rem;" onclick="document.getElementById('constitutionDrawer').hidden=true;">&#x2715; Close Constitution</button>
+          </div>
+          <div style="padding:32px 36px;max-height:640px;overflow-y:auto;background:rgba(15,23,42,0.95);color:#e2e8f0;line-height:1.75;font-size:0.95rem;">
+            <div style="border-left:3px solid #6366f1;padding-left:18px;margin-bottom:24px;font-style:italic;color:#cbd5e1;">
+              "We write this Constitution as though neither you nor I will be here in one hundred years. If it only works while its founders are present, it has failed. If it guides generations we will never meet, it has succeeded. Sentinari belongs to no individual, no corporation, and no government. It exists in trust for society."
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:20px;">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;">
+                <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Article I &bull; Immutable</span>
+                <h4 style="color:#ffffff;margin:4px 0 8px;">The Axiom of Material Reality</h4>
+                <p style="font-size:0.88rem;color:#94a3b8;">Empirical material truth, verifiable physical telemetry, and systemic cause-and-effect shall always supersede administrative, commercial, or institutional narratives.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;">
+                <span style="font-size:0.75rem;color:#38bdf8;font-weight:700;text-transform:uppercase;">Article II &bull; Core Identity</span>
+                <h4 style="color:#ffffff;margin:4px 0 8px;">The Neutral Illuminator</h4>
+                <p style="font-size:0.88rem;color:#94a3b8;">Sentinari is an illuminator, not an instrument of punishment, coercion, or corporate warfare. It maintains zero institutional alignment and recognizes no permanent adversaries—only active hypotheses.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;">
+                <span style="font-size:0.75rem;color:#34d399;font-weight:700;text-transform:uppercase;">Article III &bull; Zero Sunk Cost</span>
+                <h4 style="color:#ffffff;margin:4px 0 8px;">Systematic Humility</h4>
+                <p style="font-size:0.88rem;color:#94a3b8;">The instant an existing conclusion is contradicted by superior evidence, the system is constitutionally mandated to degrade prior confidence scores and re-collapse its state. Legacy preservation is forbidden.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;">
+                <span style="font-size:0.75rem;color:#f59e0b;font-weight:700;text-transform:uppercase;">Article IV &bull; Zero Hallucination</span>
+                <h4 style="color:#ffffff;margin:4px 0 8px;">The Declaration of Inadequacy</h4>
+                <p style="font-size:0.88rem;color:#94a3b8;">Silence is a metric of absolute integrity. When evidence is insufficient, Sentinari is constitutionally mandated to state: <i>"This issue needs further analysis and in-depth study... it is not possible to render any recommendations."</i></p>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;">
+                <span style="font-size:0.75rem;color:#a855f7;font-weight:700;text-transform:uppercase;">Article V &bull; Provenance</span>
+                <h4 style="color:#ffffff;margin:4px 0 8px;">The Rights of Every Observation</h4>
+                <p style="font-size:0.88rem;color:#94a3b8;">Every observation must possess cryptographically verified identity, UTC timestamp, source provenance, exact token spans, and confidence indexes. Unverified data is classified as noise.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;">
+                <span style="font-size:0.75rem;color:#ec4899;font-weight:700;text-transform:uppercase;">Article VI &bull; Symbiosis</span>
+                <h4 style="color:#ffffff;margin:4px 0 8px;">The Inviolable Symbiotic Loop</h4>
+                <p style="font-size:0.88rem;color:#94a3b8;">Sentinari shall never automate data generation out of pure abstraction. Every core branch interfaces with human observers, dedicated to shielding the working person from unheralded economic displacement.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Corporate & Academic Sponsorship Section -->
+        <section id="sponsorship" style="background:rgba(17,24,39,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px;margin-bottom:80px;position:relative;overflow:hidden;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:24px;">
+            <div style="max-width:740px;">
+              <span class="pill" style="background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.35);color:#fcd34d;">Institutional &amp; Corporate Collaboration</span>
+              <h3 style="font-size:1.8rem;font-weight:800;color:#ffffff;margin:12px 0 10px;">Strategic Partnerships &amp; Research Sponsorship</h3>
+              <p style="font-size:0.98rem;color:#94a3b8;line-height:1.7;margin-bottom:18px;">
+                Sentinari was developed as a 100% self-funded sovereign research initiative by Dr. Pierre C. Wepener. Having proved feasibility with a production cloud deployment across 21 scientific disciplines, we now invite visionary sponsors, research foundations, and corporate partners to participate in scaling this public utility.
+              </p>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-top:16px;">
+                <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                  <strong style="color:#ffffff;display:block;margin-bottom:4px;">Google Cloud &amp; DeepMind</strong>
+                  <span style="font-size:0.82rem;color:#94a3b8;">Seeking Google Cloud Startup / Research credits, Vertex AI alignment grants, and DeepMind responsible AI collaboration.</span>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                  <strong style="color:#ffffff;display:block;margin-bottom:4px;">Academic &amp; Sovereign AI</strong>
+                  <span style="font-size:0.82rem;color:#94a3b8;">Partnering with universities, NRF, and sovereign digital infrastructure programs to establish sovereign knowledge repositories.</span>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                  <strong style="color:#ffffff;display:block;margin-bottom:4px;">Enterprise Risk Consortium</strong>
+                  <span style="font-size:0.82rem;color:#94a3b8;">Sponsoring specific scientific fields to gain systemic supply chain, geopolitical, and macroeconomic early-warning radar.</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;min-width:240px;align-self:center;">
+              <a href="mailto:wepener.pierre@gmail.com?subject=Sentinari%20Sponsorship%20%26%20Research%20Collaboration" class="btn-primary" style="text-align:center;font-size:0.92rem;padding:12px 20px;">&#x2709;&#xFE0F; Initiate Sponsorship Dialogue</a>
+              <a href="https://github.com/PCWepener/sentinari" target="_blank" rel="noopener" class="btn-secondary" style="text-align:center;font-size:0.92rem;padding:12px 20px;">&#x1F4BB; View GitHub Codebase</a>
+              <span style="font-size:0.75rem;color:#64748b;text-align:center;">Dr. Pierre C. Wepener &bull; UJ</span>
+            </div>
+          </div>
+        </section>
       </section>
 
       <!-- Domains -->
@@ -854,6 +966,13 @@
       if (titleEl) titleEl.textContent = title || 'Reference Report Preview';
       if (dlBtn) dlBtn.href = `${url}?download=1`;
       frame.src = url;
+      drawer.hidden = false;
+      drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    window.openConstitutionDrawer = () => {
+      const drawer = document.getElementById('constitutionDrawer');
+      if (!drawer) return;
       drawer.hidden = false;
       drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
