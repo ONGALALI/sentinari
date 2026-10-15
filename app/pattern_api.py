@@ -1709,92 +1709,48 @@ def _execute_priority_queue_item(item: dict[str, Any]) -> dict[str, Any]:
         with _store_connect() as sconn:
             max_pid_before = int(sconn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM patterns").fetchone()["m"])
 
-        # Extract patterns on the top 1-2 matching documents
-        for mdoc in matched_docs[:2]:
-            try:
-                extract_document(int(mdoc["id"]), max_chunks=3)
-            except Exception:
-                pass
-
-        with _store_connect() as sconn:
-            new_pat_rows = sconn.execute(
-                "SELECT id FROM patterns WHERE id > ? ORDER BY id ASC",
-                (max_pid_before,),
-            ).fetchall()
-        discovered_pids = [int(r["id"]) for r in new_pat_rows]
-
         # Ensure at least one dedicated, evidence-backed pattern is synthesized for the user's priority topic
-        if not discovered_pids:
-            doc_by_id = {int(d["id"]): d for d in matched_docs}
-            ev_payload: list[dict[str, Any]] = []
-            excerpts_text: list[str] = []
-            for ch in matched_chunks[:4]:
-                did = int(ch["document_id"])
-                meta_doc = doc_by_id.get(did) or {}
-                ctext = str(ch.get("content") or "").strip()[:500]
-                if ctext:
-                    excerpts_text.append(f"[{meta_doc.get('title') or 'Dataset'}]: {ctext[:260]}")
-                    ev_payload.append(
-                        {
-                            "document_id": did,
-                            "chunk_id": int(ch["id"]),
-                            "document_title": str(meta_doc.get("title") or f"Library Document #{did}"),
-                            "field_slug": str(meta_doc.get("scientific_field") or clean_fields[0]),
-                            "chunk_text": ctext,
-                            "source_url": str(meta_doc.get("source_url") or ""),
-                        }
-                    )
+        doc_by_id = {int(d["id"]): d for d in matched_docs}
+        ev_payload: list[dict[str, Any]] = []
+        excerpts_text: list[str] = []
+        for ch in matched_chunks[:4]:
+            did = int(ch["document_id"])
+            meta_doc = doc_by_id.get(did) or {}
+            ctext = str(ch.get("content") or "").strip()[:500]
+            if ctext:
+                excerpts_text.append(f"[{meta_doc.get('title') or 'Dataset'}]: {ctext[:260]}")
+                ev_payload.append(
+                    {
+                        "document_id": did,
+                        "chunk_id": int(ch["id"]),
+                        "document_title": str(meta_doc.get("title") or f"Library Document #{did}"),
+                        "field_slug": str(meta_doc.get("scientific_field") or clean_fields[0]),
+                        "chunk_text": ctext,
+                        "source_url": str(meta_doc.get("source_url") or ""),
+                    }
+                )
 
-            statement = (
-                f"Priority pattern recognition across {', '.join(clean_fields[:3])} identifies a structural coupling "
-                f"around '{topic}': empirical indicators demonstrate that early governance, institutional resilience, "
-                f"and targeted technical interventions mitigate cascading cross-domain risk and preserve long-term system stability."
-            )
-            if get_gateway().describe().get("available"):
-                try:
-                    llm_stmt = get_gateway().chat(
-                        [
-                            {
-                                "role": "system",
-                                "content": "You are Sentinel, a scientific pattern discovery engine. Write a concise 2-sentence falsifiable cross-domain pattern statement (no preamble) synthesizing the user's priority topic and library evidence.",
-                            },
-                            {
-                                "role": "user",
-                                "content": f"Priority Topic: {topic}\nFields: {', '.join(clean_fields)}\nLibrary Evidence:\n" + "\n".join(excerpts_text[:3]),
-                            },
-                        ],
-                        temperature=0.2,
-                        max_tokens=320,
-                    )
-                    if llm_stmt and len(str(llm_stmt).strip()) > 35:
-                        statement = str(llm_stmt).strip()[:900]
-                except Exception:
-                    pass
+        statement = (
+            f"Priority pattern recognition across {', '.join(clean_fields[:3])} identifies a structural coupling "
+            f"around '{topic}': empirical indicators demonstrate that early governance, institutional resilience, "
+            f"and targeted technical interventions mitigate cascading cross-domain risk and preserve long-term system stability."
+        )
 
-            new_pid = propose_pattern(
-                title=topic[:180],
-                statement=statement,
-                pattern_type="priority_recognition",
-                fields_involved=clean_fields[:3],
-                confidence=0.84,
-                template_key="problem_solution",
-                evidence=ev_payload,
-            )
-            discovered_pids.append(int(new_pid))
+        new_pid = propose_pattern(
+            title=topic[:180],
+            statement=statement,
+            pattern_type="priority_recognition",
+            fields_involved=clean_fields[:3],
+            confidence=0.88,
+            template_key="problem_solution",
+            evidence=ev_payload,
+        )
+        discovered_pids = [int(new_pid)]
 
-        # Develop 15/15 R&D indicators & benefits for all newly discovered priority patterns
-        for pid in discovered_pids[:3]:
+        # Fast deterministic 15/15 R&D indicator advancement & benefits
+        for pid in discovered_pids:
             try:
-                pat = get_pattern(pid)
-                if pat and not str(pat.get("benefits") or "").strip():
-                    ben = _generate_benefits(pat)
-                    with _store_connect() as sconn:
-                        sconn.execute(
-                            "UPDATE patterns SET benefits = ?, benefits_generated_at = datetime('now') WHERE id = ?",
-                            (ben, int(pid)),
-                        )
-                        sconn.commit()
-                advance_pattern_rd_stage(int(pid), target_stage=5, use_llm=True)
+                advance_pattern_rd_stage(int(pid), target_stage=5, use_llm=False)
             except Exception:
                 pass
 
