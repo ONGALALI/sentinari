@@ -197,31 +197,64 @@
     </div>
 
     <div class="card">
-      <h2>User-requested pattern discovery</h2>
-      <div class="mode-pill">Manual &middot; targeted discovery active</div>
-      <div class="hint">State your custom query or hypothesis below and select up to <b>3 Sentinel Domains / Scientific Fields</b> from the dropdown lists to scope single-domain or cross-domain pattern discovery.</div>
-      <div class="row" style="margin-top:10px;">
-        <input type="text" id="manualTopic" placeholder="State your custom pattern query or research topic (e.g. 'Patterns linking drought resilience to crop genetics')" style="flex:1 1 100%; width:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+          <h2 style="margin:0;">User-Requested Pattern Discovery &amp; Problem-Solving Directive</h2>
+          <div class="hint" style="margin-top:4px;">
+            Direct the analytical reasoner to solve a specific problem or crisis. Select your target domain and state the detailed problem statement and resolution objectives below.
+          </div>
+        </div>
+        <div class="mode-pill manual">Problem-solving directive active</div>
       </div>
-      <div class="domain-select-grid">
-        <div class="domain-select-col">
-          <label for="manualField1">1. Primary Domain / Scientific Field</label>
-          <select id="manualField1"></select>
+
+      <!-- 3-Stage Problem-Solving Directive & Example Guide -->
+      <div style="background:linear-gradient(135deg, rgba(29,111,216,0.06) 0%, rgba(16,185,129,0.06) 100%);border:1px solid #c9daf3;border-radius:12px;padding:14px 18px;margin-top:14px;margin-bottom:16px;">
+        <div style="font-size:13.5px;font-weight:800;color:#17304f;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="font-size:15px;">🎯</span> 3-Stage Problem-Solving Directive &amp; Objective Framing Guide
         </div>
-        <div class="domain-select-col">
-          <label for="manualField2">2. Second Domain / Field (Optional Bridge)</label>
-          <select id="manualField2"></select>
-        </div>
-        <div class="domain-select-col">
-          <label for="manualField3">3. Third Domain / Field (Optional Tri-Domain)</label>
-          <select id="manualField3"></select>
+        <div style="display:grid;gap:8px;font-size:12.5px;color:#33506e;line-height:1.6;">
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:#e7f0fb;color:#1c5d99;font-weight:800;font-size:11px;font-family:'JetBrains Mono',monospace;flex-shrink:0;">POINT 1</span>
+            <div><b>Target a Concrete Problem / Crisis:</b> State the overarching objective clearly using action-oriented adjectives and descriptive goals (e.g. <i>"Provide possible solutions to end the Russia-Ukraine war"</i>).</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:#e6f6ea;color:#22743a;font-weight:800;font-size:11px;font-family:'JetBrains Mono',monospace;flex-shrink:0;">POINT 2</span>
+            <div><b>Specify Systemic &amp; Operational Constraints:</b> Outline underlying tensions, such as territorial demilitarization pacts, Black Sea maritime grain transit corridors, sanctions relief milestones, sovereign security guarantees, and European energy dependency.</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:#fff7e0;color:#8a6d1a;font-weight:800;font-size:11px;font-family:'JetBrains Mono',monospace;flex-shrink:0;">POINT 3</span>
+            <div><b>Direct Actionable R&amp;D Recommendations:</b> Instruct the 15-Indicator R&amp;D engine to synthesize viable empirical recommendations, cross-domain economic stabilizers, and policy pathways without speculative drift.</div>
+          </div>
         </div>
       </div>
-      <div class="row" style="margin-top:10px;">
-        <button id="btnManual" class="primary" type="button">Run manual discovery</button>
+
+      <!-- Field 1: Target Domain Dropdown (Set as currently now, no changes to options) -->
+      <div style="margin-bottom:14px;">
+        <label for="manualField1" style="display:block;font-weight:800;font-size:13px;color:#17304f;margin-bottom:5px;">
+          1. Target Sentinel Domain / Scientific Field
+        </label>
+        <select id="manualField1" style="width:100%;padding:10px 12px;background:#fff;border:1px solid #ccd9ea;border-radius:8px;color:#17304f;font-size:13.5px;"></select>
+        <div class="muted" style="margin-top:4px;">Select the primary discipline to anchor document retrieval and cross-functional evidence extraction (or choose All Domains).</div>
+      </div>
+
+      <!-- Field 2: Replaced by 5,000-character textarea for stating the problem to be solved -->
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <label for="manualTopic" style="font-weight:800;font-size:13px;color:#17304f;">
+            2. Problem Statement &amp; Resolution Objective to be Solved
+          </label>
+          <span id="manualCharCounter" style="font-size:12px;color:#5b6b7d;font-family:'JetBrains Mono',monospace;font-weight:600;background:#f0f4fa;padding:2px 8px;border-radius:6px;">
+            0 / 5,000 characters
+          </span>
+        </div>
+        <textarea id="manualTopic" maxlength="5000" rows="8" placeholder="State the specific problem to be solved in detail (up to 5,000 characters). State your objectives, relevant constraints, and desired empirical solutions.&#10;&#10;Example: Provide possible solutions to end the Russia-Ukraine war by analyzing sovereign security guarantees, demilitarized transit corridors, sanctions relief milestones, and multi-lateral energy trade stabilization..." style="width:100%;box-sizing:border-box;padding:12px 14px;background:#fff;border:1px solid #ccd9ea;border-radius:10px;color:#17304f;font-family:inherit;font-size:13.5px;line-height:1.6;resize:vertical;"></textarea>
+      </div>
+
+      <div class="row" style="margin-top:10px;align-items:center;gap:12px;">
+        <button id="btnManual" class="primary" type="button" style="padding:10px 22px;font-size:13.5px;font-weight:800;">Run Problem-Solving &amp; Pattern Discovery</button>
         <span class="muted" id="manualHint"></span>
       </div>
-      <div class="progress-head" id="manualHead" hidden>Manual pattern discovery in progress — <span id="manualPct">0%</span></div>
+      <div class="progress-head" id="manualHead" hidden>Problem-solving pattern discovery in progress — <span id="manualPct">0%</span></div>
       <div class="lp-track" id="manualTrack" hidden><div class="lp-fill active" id="manualFill"></div></div>
       <div class="lp-label" id="manualLabel" hidden></div>
       <div id="futureRequests" class="future-requests"></div>
@@ -895,9 +928,9 @@
   }
 
   populateDomainDropdown($('fieldInput'), '— All Sentinel Domains & Scientific Fields —');
-  populateDomainDropdown($('manualField1'), '— Select Domain / Field 1 (Optional) —');
-  populateDomainDropdown($('manualField2'), '— Select Domain / Field 2 (Optional) —');
-  populateDomainDropdown($('manualField3'), '— Select Domain / Field 3 (Optional) —');
+  populateDomainDropdown($('manualField1'), '— All Sentinel Domains & Scientific Fields (or select target) —');
+  if ($('manualField2')) populateDomainDropdown($('manualField2'), '— Select Domain / Field 2 (Optional) —');
+  if ($('manualField3')) populateDomainDropdown($('manualField3'), '— Select Domain / Field 3 (Optional) —');
   populateDomainDropdown($('prioField1'), '— Select Domain / Field 1 (Optional) —');
   populateDomainDropdown($('prioField2'), '— Select Domain / Field 2 (Optional) —');
   populateDomainDropdown($('prioField3'), '— Select Domain / Field 3 (Optional) —');
@@ -1139,8 +1172,35 @@
     }
   });
 
+  const manualTopicEl = $('manualTopic');
+  const manualCounterEl = $('manualCharCounter');
+  function updateManualCharCount() {
+    if (!manualTopicEl || !manualCounterEl) return;
+    const len = manualTopicEl.value.length;
+    manualCounterEl.textContent = `${new Intl.NumberFormat().format(len)} / 5,000 characters`;
+    if (len >= 4900) {
+      manualCounterEl.style.color = '#8f3a45';
+      manualCounterEl.style.fontWeight = '800';
+    } else if (len >= 4000) {
+      manualCounterEl.style.color = '#8a6d1a';
+      manualCounterEl.style.fontWeight = '700';
+    } else {
+      manualCounterEl.style.color = '#5b6b7d';
+      manualCounterEl.style.fontWeight = '600';
+    }
+  }
+  if (manualTopicEl) {
+    manualTopicEl.addEventListener('input', updateManualCharCount);
+    updateManualCharCount();
+  }
+
   $('btnManual').addEventListener('click', async () => {
     const topic = $('manualTopic').value.trim();
+    if (!topic) {
+      showAlert('Please enter the problem statement and resolution objective to solve.', false);
+      $('manualTopic').focus();
+      return;
+    }
     const rawFields = [
       $('manualField1') ? $('manualField1').value.trim() : '',
       $('manualField2') ? $('manualField2').value.trim() : '',
@@ -1156,14 +1216,15 @@
         body: JSON.stringify({ topic, fields, note: '' }),
       });
       $('manualHint').textContent = '';
-      showAlert(r.message || 'Manual discovery started.', true);
+      showAlert(r.message || 'Problem-solving discovery started.', true);
       $('manualTopic').value = '';
+      updateManualCharCount();
       if ($('manualField1')) $('manualField1').value = '';
       if ($('manualField2')) $('manualField2').value = '';
       if ($('manualField3')) $('manualField3').value = '';
       await loadFutureRequests();
       if (r.job_id) {
-        trackManualJob(r.job_id, topic || fields.join(', ') || 'manual request', btn);
+        trackManualJob(r.job_id, topic.length > 50 ? topic.slice(0, 50) + '…' : topic, btn);
       } else {
         btn.disabled = false;
       }
@@ -1178,15 +1239,17 @@
     try {
       const data = await api('/api/patterns/future-requests');
       const box = $('futureRequests');
-      if (!data.requests.length) { box.innerHTML = '<div class="muted" style="margin-top:8px;">No manual requests yet.</div>'; return; }
+      if (!data.requests.length) { box.innerHTML = '<div class="muted" style="margin-top:8px;">No problem-solving requests yet.</div>'; return; }
       box.innerHTML = data.requests.slice(0, 8).map((r) => {
-        const kind = r.kind === 'rd_paper' ? 'R&D paper' : r.kind === 'manual_discovery' ? 'User-requested discovery' : esc(r.kind);
+        const kind = r.kind === 'rd_paper' ? 'R&D paper' : r.kind === 'manual_discovery' ? 'Problem-Solving Directive' : esc(r.kind);
         const fields = (() => { try { return JSON.parse(r.fields || '[]').join(', '); } catch (_) { return ''; } })();
         const canRun = r.kind === 'manual_discovery' && r.status !== 'running';
+        const rawTopic = String(r.topic || '');
+        const topicSummary = rawTopic ? (rawTopic.length > 120 ? rawTopic.slice(0, 120) + '…' : rawTopic) : '(untitled)';
         const runBtn = canRun
-          ? ` · <button type="button" data-role="run-manual" data-id="${r.id}" data-topic="${esc(r.topic || '')}" style="padding:2px 8px;font-size:11px;cursor:pointer;">${r.status === 'logged' ? 'Run now' : 'Re-run'}</button>`
+          ? ` · <button type="button" data-role="run-manual" data-id="${r.id}" data-topic="${esc(topicSummary)}" style="padding:2px 8px;font-size:11px;cursor:pointer;">${r.status === 'logged' ? 'Run now' : 'Re-run'}</button>`
           : '';
-        return `<div class="future-request-item"><span class="fr-kind">${kind}</span> · <b>${esc(r.topic || '(untitled)')}</b>${fields ? ` · <span>${esc(fields)}</span>` : ''} · <span class="muted">${esc((r.created_at || '').slice(0, 16))} · ${esc(r.status)}</span>${runBtn}</div>`;
+        return `<div class="future-request-item"><span class="fr-kind">${kind}</span> · <b>${esc(topicSummary)}</b>${fields ? ` · <span>${esc(fields)}</span>` : ''} · <span class="muted">${esc((r.created_at || '').slice(0, 16))} · ${esc(r.status)}</span>${runBtn}</div>`;
       }).join('');
     } catch (_) { /* non-critical */ }
   }

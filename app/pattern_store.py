@@ -686,9 +686,9 @@ def record_future_request(
             (
                 str(kind or "").strip() or "unspecified",
                 int(pattern_id) if pattern_id else None,
-                str(topic or "")[:300],
+                str(topic or "")[:5000],
                 json.dumps(list(fields or [])),
-                str(note or "")[:2000],
+                str(note or "")[:5000],
                 str(status or "logged")[:80],
                 _utc_now(),
             ),
@@ -711,7 +711,7 @@ def update_future_request(
         if row is None:
             return None
         new_status = str(status if status is not None else row["status"])[:80]
-        new_note = str(note if note is not None else row["note"])[:2000]
+        new_note = str(note if note is not None else row["note"])[:5000]
         new_pid = int(pattern_id) if pattern_id is not None else row["pattern_id"]
         conn.execute(
             """

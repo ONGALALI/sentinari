@@ -1666,14 +1666,15 @@ from .pattern_store import (
 
 class FutureRequestPayload(BaseModel):
     pattern_id: int | None = None
-    topic: str = Field(default="", max_length=300)
+    topic: str = Field(default="", max_length=5000)
     fields: list[str] = Field(default_factory=list)
-    note: str = Field(default="", max_length=2000)
+    note: str = Field(default="", max_length=5000)
 
 
 _STOPWORDS = {
     "the", "and", "for", "with", "that", "this", "from", "into", "between",
     "patterns", "pattern", "linking", "about", "find", "search", "look", "how",
+    "possible", "solutions", "solution", "provide", "problem", "solve",
 }
 
 
@@ -1681,8 +1682,9 @@ def _topic_search_terms(topic: str, note: str = "") -> list[str]:
     combined = f"{topic} {note}".lower()
     words = [w for w in _re.findall(r"[a-z0-9'\-]{3,}", combined) if w not in _STOPWORDS]
     out: list[str] = []
-    if len(topic.strip()) >= 4:
-        out.append(topic.strip().lower())
+    cleaned_topic = topic.strip().lower()
+    if 4 <= len(cleaned_topic) <= 80:
+        out.append(cleaned_topic)
     for w in words:
         if w not in out:
             out.append(w)
@@ -1707,7 +1709,8 @@ def _discover_manual_impl(
             if alias not in field_aliases:
                 field_aliases.append(alias)
 
-    label = topic.strip() or (fields[0] if fields else "manual request")
+    topic_label = (topic.strip()[:60] + "...") if len(topic.strip()) > 60 else topic.strip()
+    label = topic_label or (fields[0] if fields else "manual request")
     _load_progress.stage("download", f"Searching knowledge library for \"{label}\" + crisis lexicon (§74l)...")
 
     with _library_connection("gemma") as conn:
@@ -2033,13 +2036,13 @@ def request_manual_discovery_endpoint(payload: FutureRequestPayload) -> dict[str
         note=payload.note,
         status="running",
     )
-    job_id = _launch_manual_discovery_job(row)
+    summary_topic = (payload.topic.strip()[:80] + "...") if len(payload.topic.strip()) > 80 else (payload.topic or payload.note)
     return {
         "ok": True,
         "request": row,
         "job_id": job_id,
         "async": True,
-        "message": f"Manual pattern discovery started for \"{payload.topic or payload.note}\".",
+        "message": f"Problem-solving pattern discovery started for \"{summary_topic}\".",
     }
 
 
