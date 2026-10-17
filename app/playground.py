@@ -347,6 +347,35 @@ def _build_assessment_answer(
     return "\n".join(lines).strip()
 
 
+_LEARNING_LIBRARY_SNAPSHOT_CACHE: dict[str, Any] | None = None
+_LEARNING_LIBRARY_SNAPSHOT_TIME: float = 0.0
+
+
+def _load_learning_library_progress_snapshot() -> dict[str, Any] | None:
+    global _LEARNING_LIBRARY_SNAPSHOT_CACHE, _LEARNING_LIBRARY_SNAPSHOT_TIME
+    import time
+    if _LEARNING_LIBRARY_SNAPSHOT_CACHE is not None and (time.time() - _LEARNING_LIBRARY_SNAPSHOT_TIME < 60.0):
+        return _LEARNING_LIBRARY_SNAPSHOT_CACHE
+    return None
+
+
+def _write_learning_library_progress_snapshot(progress: dict[str, Any]) -> None:
+    global _LEARNING_LIBRARY_SNAPSHOT_CACHE, _LEARNING_LIBRARY_SNAPSHOT_TIME
+    import time
+    _LEARNING_LIBRARY_SNAPSHOT_CACHE = dict(progress)
+    _LEARNING_LIBRARY_SNAPSHOT_TIME = time.time()
+
+
+def _normalize_path_key(path_str: str) -> str:
+    if not path_str:
+        return ""
+    try:
+        p = Path(path_str).resolve()
+        return str(p).replace("\\", "/").lower()
+    except Exception:
+        return str(path_str).strip().replace("\\", "/").lower()
+
+
 def get_learning_library_progress(*, force_refresh: bool = False) -> dict[str, Any]:
     if not force_refresh:
         snapshot = _load_learning_library_progress_snapshot()

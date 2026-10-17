@@ -341,6 +341,25 @@ def _get_pg_url() -> str | None:
     return os.environ.get("DATABASE_URL")
 
 
+_PG_COOLDOWN_UNTIL = 0.0
+
+
+def _connect_pg(db_url: str) -> PostgresConnectionWrapper | None:
+    global _PG_COOLDOWN_UNTIL
+    import time
+    if psycopg2 is None or not db_url:
+        return None
+    if time.time() < _PG_COOLDOWN_UNTIL:
+        return None
+    try:
+        raw_conn = psycopg2.connect(db_url, connect_timeout=3)
+        return PostgresConnectionWrapper(raw_conn)
+    except Exception as ex:
+        _PG_COOLDOWN_UNTIL = time.time() + 15.0
+        print(f"[db] PostgreSQL connection failed ({ex}); fallback to local SQLite library.", flush=True)
+        return None
+
+
 def try_library_write_lock(timeout_ms: int = 750) -> bool:
     """True when the Gemma library accepts a write transaction right now.
 
@@ -348,7 +367,8 @@ def try_library_write_lock(timeout_ms: int = 750) -> bool:
     without stalling behind a bulk writer (e.g. the learning engine writing
     chunks mid-load). Uses a bare connection — no schema script, no views.
     """
-    if _get_pg_url() and psycopg2 is not None:
+    db_url = _get_pg_url()
+    if db_url and _connect_pg(db_url) is not None:
         return True
     conn = None
     try:
@@ -382,8 +402,10 @@ def library_read_connection(*, busy_timeout_ms: int = 750) -> Any:
     up with `TypeError: Failed to fetch`.
     """
     db_url = _get_pg_url()
-    if db_url and psycopg2 is not None:
-        return PostgresConnectionWrapper(psycopg2.connect(db_url))
+    if db_url:
+        pg_conn = _connect_pg(db_url)
+        if pg_conn is not None:
+            return pg_conn
     target = gemma_library_path()
     if not target.exists():
         raise FileNotFoundError(f"Library database not found at {target}")
@@ -404,8 +426,10 @@ def library_connection(library: str = "gemma", *, busy_timeout_ms: int | None = 
     small cap so a mid-load writer cannot stall them for the configured 20s).
     """
     db_url = _get_pg_url()
-    if db_url and psycopg2 is not None:
-        return PostgresConnectionWrapper(psycopg2.connect(db_url))
+    if db_url:
+        pg_conn = _connect_pg(db_url)
+        if pg_conn is not None:
+            return pg_conn
     target = gemma_library_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
@@ -494,8 +518,10 @@ CREATE INDEX IF NOT EXISTS idx_ingest_events_field ON ingest_events(scientific_f
 
 def get_connection() -> Any:
     db_url = _get_pg_url()
-    if db_url and psycopg2 is not None:
-        return PostgresConnectionWrapper(psycopg2.connect(db_url))
+    if db_url:
+        pg_conn = _connect_pg(db_url)
+        if pg_conn is not None:
+            return pg_conn
     settings = get_settings()
     db_path = _db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -525,8 +551,10 @@ def get_connection() -> Any:
 def try_write_lock(timeout_ms: int = 1500) -> Any:
     """Acquire the database write lock briefly, or return None if busy."""
     db_url = _get_pg_url()
-    if db_url and psycopg2 is not None:
-        return PostgresConnectionWrapper(psycopg2.connect(db_url))
+    if db_url:
+        pg_conn = _connect_pg(db_url)
+        if pg_conn is not None:
+            return pg_conn
     conn = None
     try:
         settings = get_settings()
@@ -553,8 +581,10 @@ def try_write_lock(timeout_ms: int = 1500) -> Any:
 
 def get_read_connection(*, busy_timeout_ms: int = 750) -> Any:
     db_url = _get_pg_url()
-    if db_url and psycopg2 is not None:
-        return PostgresConnectionWrapper(psycopg2.connect(db_url))
+    if db_url:
+        pg_conn = _connect_pg(db_url)
+        if pg_conn is not None:
+            return pg_conn
     settings = get_settings()
     db_path = _db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -658,10 +688,13 @@ def _migrate_library_fk_tables(conn: Any) -> None:
 
 def initialize_database() -> None:
     db_url = _get_pg_url()
-    if db_url and psycopg2 is not None:
-        with library_connection() as lib_conn:
-            lib_conn.executescript(_LIBRARY_SCHEMA)
-            lib_conn.commit()
+    if db_url and _connect_pg(db_url) is not None:
+        try:
+            with library_connection() as lib_conn:
+                lib_conn.executescript(_LIBRARY_SCHEMA)
+                lib_conn.commit()
+        except Exception as ex:
+            print(f"[db] Postgres schema initialization failed ({ex}); continuing.", flush=True)
 
     # NOTE: documents / chunks / chunk_fts / ingest_events are NOT created here.
     # They live in the attached physical library (sentinari.db — the former

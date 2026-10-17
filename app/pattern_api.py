@@ -249,6 +249,7 @@ def pattern_workspace() -> dict[str, Any]:
 
 
 @router.get("/assessment-matrix")
+@router.get("/assessment-matrix/view")
 def assessment_matrix_endpoint() -> Response:
     """§78: the Assessment Matrix document (corrections/Assessment_Matrix.docx)
     rendered as a standalone HTML page — headings, prose, all tables, the

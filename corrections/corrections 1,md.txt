@@ -222,3 +222,7 @@ Falsifiable Claims: Compounds extracted from dataset show receptor binding alter
 Provenance Check: Row ID 482 synced dynamically on 2026-10-08.
 This allows Gemma to parse, weigh, and connect anomalies across millions of rows without consuming excessive context window memory or losing her foundational reasoning limits
 
+🌐 Public Website / Portal: https://sentinari-core-250830594433.us-central1.run.app/
+🔬 Playground Console: https://sentinari-core-250830594433.us-central1.run.app/ui/playground
+🧠 Learning Index / Examiner: https://sentinari-core-250830594433.us-central1.run.app/ui/start
+
