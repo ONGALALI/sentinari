@@ -525,13 +525,17 @@ class VertexAIProvider:
 
         # 3. Local CLI fallback (gcloud CLI on developer workstation)
         if not token:
-            try:
-                import subprocess
-                out = subprocess.check_output("gcloud auth print-access-token", shell=True, timeout=8).decode().strip()
-                token = out.splitlines()[-1].strip()
-                ttl_seconds = 900
-            except Exception:
-                token = ""
+            for cmd in ("gcloud auth application-default print-access-token", "gcloud auth print-access-token"):
+                try:
+                    import subprocess
+                    out = subprocess.check_output(cmd, shell=True, timeout=8).decode().strip()
+                    lines = [ln.strip() for ln in out.splitlines() if ln.strip() and not ln.startswith("C:\\") and not ln.startswith("WARNING") and not ln.startswith("ERROR")]
+                    if lines and lines[-1].startswith("ya29."):
+                        token = lines[-1]
+                        ttl_seconds = 900
+                        break
+                except Exception:
+                    continue
 
         if token:
             self._cached_token = token
