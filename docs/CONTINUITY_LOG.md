@@ -2081,4 +2081,6 @@ Also observed and worked around this session: the qualia simulate endpoint hit t
 **Verification:**
 - Live probe on local port 8099 returned HTTP 200 OK across `/constitution`, `/api/video/walkthrough/meta`, `/api/video/walkthrough.mp4`, and all section endpoints `sec_01` through `sec_06`.
 - `docs/index.html` rebuilt and validated.
+- **Cloud Run Production Deployment Live**: Re-authenticated with `rodenbecker.za@gmail.com` and deployed revision `sentinari-core-00035-bxf` to Google Cloud Run (`seninari` project, `us-central1`) with 100% traffic allocation. Probed live endpoints across `https://sentinari-core-250830594433.us-central1.run.app/` — confirmed `HTTP 200 OK` for `/constitution` (5.9 MB), `/api/video/walkthrough.mp4` (16.4 MB), and all 6 individual section MP4s (`sec_01` through `sec_06`).
+
 
