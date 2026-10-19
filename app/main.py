@@ -827,6 +827,31 @@ def serve_constitution_direct(download: int = Query(default=0)) -> FileResponse:
     )
 
 
+@app.get("/schematic", include_in_schema=False)
+@app.head("/schematic", include_in_schema=False)
+@app.get("/architecture-schematic", include_in_schema=False)
+def serve_architecture_schematic(download: int = Query(default=0)) -> FileResponse:
+    """Serve or download the 2400x1400 Master Architecture Schematic Diagram PNG."""
+    root = get_project_root()
+    candidates = [
+        root / "static" / "sentinari_functional_schematic.png",
+        root / "docs" / "sentinari_functional_schematic.png",
+        Path("D:/Sentinari/docs/sentinari_functional_schematic.png"),
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Schematic image not found.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(target),
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="Sentinari_Master_Functional_Schematic.png"',
+            "Cache-Control": "public, max-age=86400",
+        },
+    )
+
+
 @app.get("/api/landing-reports", include_in_schema=False)
 def api_landing_reports() -> dict[str, Any]:
     reports_dir = get_project_root() / "static" / "reports"
