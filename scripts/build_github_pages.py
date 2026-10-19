@@ -18,6 +18,7 @@ def main() -> None:
     )
 
     # 2. Update relative URLs to Cloud Run production service
+    html = html.replace('href="/reports/the-constitution"', 'href="./Constitution.pdf" target="_blank" rel="noopener"')
     html = re.sub(r'href="/(ui/[^"]*)"', f'href="{cloud_url}/\\1" target="_blank" rel="noopener"', html)
     html = re.sub(r'href="/(api/[^"]*)"', f'href="{cloud_url}/\\1" target="_blank" rel="noopener"', html)
     html = re.sub(r'href="/(reports/[^"]*)"', f'href="{cloud_url}/\\1" target="_blank" rel="noopener"', html)
@@ -31,10 +32,10 @@ def main() -> None:
     # 4. Brand link in header
     html = html.replace('href="/" class="brand"', 'href="#" class="brand"')
 
-    # 5. Telemetry fetch from Cloud Run
+    # 5. Telemetry fetch and media API base from Cloud Run
     html = html.replace(
-        "fetch('/api/patterns/discovery-status')",
-        f"fetch('{cloud_url}/api/patterns/discovery-status')",
+        "const API_BASE = window.API_BASE || '';",
+        f"const API_BASE = '{cloud_url}';",
     )
 
     # 6. Add GitHub Pages Repo link in header navigation

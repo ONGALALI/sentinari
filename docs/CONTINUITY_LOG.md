@@ -2031,3 +2031,54 @@ Also observed and worked around this session: the qualia simulate endpoint hit t
    - Real-time result rendering: Deception Index gauge, Truth-Gradient, Noise ratio, Research ROI %, SCAN/CBCA marker distribution cards, Decoupled reality panel, and 1-click A4 print preview.
 
 **State at close:** Verified via TestClient and live server probe on :8099 (HTTP 200 across all endpoints). Deception Index, noise decoupling, and APA 7 report rendering verified end-to-end.
+
+## §85 — 100-YEAR CONSTITUTION TOP MENU & 6-SECTION MASTER WALKTHROUGH VIDEO SUITE — 2026-10-19
+
+**User Requests:**
+1. Add the 100-Year Constitution (`D:\Constitution.pdf`) to the top navigation menu across all workspaces.
+2. Produce a comprehensive, section-divided video that explains and demonstrates the core functions of every workspace and element:
+   - Synchronous database reindexing / refresh mechanics on the Playground console.
+   - In-depth walkthrough of the New Pattern Discovery workspace, concertina cards, 7-D Assessment Matrix simulator, 15-indicator R&D paper generation, and Figure 6.4 economics.
+   - The Qualia Lab vector dynamics and the Forensic Governance & Courtroom Deception Engine (SCAN/CBCA deception detection).
+   - The Learning Workspace & Assessment Ladder (HLE, SWE-Bench Pro, calibration gate).
+3. Reassurance that video generation and media production are 100% within scope and an integral part of pair-programming delivery.
+
+**Architecture built & verified:**
+1. **Constitution PDF Integration:**
+   - Copied `D:\Constitution.pdf` (5.9 MB) to `static/reports/Constitution.pdf` and `docs/Constitution.pdf`.
+   - Exposed routes in `app/main.py`:
+     * `GET /constitution` and `HEAD /constitution`
+     * `GET /Constitution.pdf` and `HEAD /Constitution.pdf`
+     * Registered `the-constitution` in `_LANDING_REFERENCE_REPORTS`.
+   - Linked in top navigation menus across all consoles:
+     * `templates/portal_landing.html`
+     * `templates/playground_console.html`
+     * `templates/patterns_workspace.html`
+     * `templates/learning_workspace.html`
+     * `templates/qualia_console.html`
+     * `templates/sentinari_start_console.html`
+     * `docs/index.html` (compiled via `scripts/build_github_pages.py`).
+
+2. **Automated Master Walkthrough Video Production Pipeline (`scripts/build_sentinari_workspace_walkthrough_video.py`):**
+   - Synthesizes neural voiceover narration (`edge-tts`, voice `en-US-AndrewNeural` with fallback to `en-US-ChristopherNeural` and exponential retry).
+   - Renders 1080p Full HD slide graphics using Pillow with dark-neon typography, section badges, and element-by-element specification cards.
+   - Encodes H.264 video segments and concatenates them via FFmpeg into 6 individual section videos and a unified master video:
+     * `section_01_architecture_constitution.mp4` (2.8 MB, 115.1s)
+     * `section_02_playground_database_refresh.mp4` (2.9 MB, 116.9s)
+     * `section_03_pattern_discovery_deep_dive.mp4` (5.5 MB, 222.4s)
+     * `section_04_qualia_forensic_governance.mp4` (2.7 MB, 111.0s)
+     * `section_05_learning_hle_benchmarks.mp4` (1.3 MB, 50.6s)
+     * `section_06_master_workflow_synthesis.mp4` (1.3 MB, 53.2s)
+     * `Sentinari_Complete_Workspace_Walkthrough.mp4` (16.4 MB, 11:09 runtime, 669.2s).
+
+3. **Dual-Mode Interactive Video Player (`templates/portal_landing.html` & `docs/index.html`):**
+   - Integrated tabbed mode switcher in `#portalVideoDrawer`:
+     * Mode 1: 10-Min Executive Briefing (12 chapter buttons).
+     * Mode 2: Complete Workspace Tour (6 interactive section selector cards).
+   - 1-click streaming and direct MP4 download links for the complete walkthrough and all 6 individual sections.
+   - Configured `const API_BASE` in `scripts/build_github_pages.py` to route video streaming on GitHub Pages directly to Cloud Run (`https://sentinari-core-250830594433.us-central1.run.app`).
+
+**Verification:**
+- Live probe on local port 8099 returned HTTP 200 OK across `/constitution`, `/api/video/walkthrough/meta`, `/api/video/walkthrough.mp4`, and all section endpoints `sec_01` through `sec_06`.
+- `docs/index.html` rebuilt and validated.
+

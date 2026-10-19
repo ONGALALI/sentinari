@@ -61,5 +61,7 @@ assessments/swe-workbench/
 constitution/video_assets/*.mp3
 constitution/video_assets/*.mp4
 constitution/video_assets/concat_list.txt
+constitution/walkthrough_assets/slide_*
+constitution/walkthrough_assets/concat_*
 engine/custom_engine_weights/
 

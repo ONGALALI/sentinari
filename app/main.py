@@ -774,14 +774,64 @@ _LANDING_REFERENCE_REPORTS: dict[str, dict[str, str]] = {
         "subtitle": "The Lancet Commission on 21st Century Global Threats to Health · 204 Countries",
         "description": "",
     },
+    "the-constitution": {
+        "slug": "the-constitution",
+        "title": "The 100-Year Sentinari Constitution",
+        "filename": "Constitution.pdf",
+        "download_name": "Sentinari_Constitution.pdf",
+        "subtitle": "Foundational Sovereign Epistemic Charter · Dr. Pierre C. Wepener",
+        "description": "The foundational 100-Year Constitution and Intellectual Property Charter governing the Sentinari architecture.",
+    },
+    "Constitution.pdf": {
+        "slug": "the-constitution",
+        "title": "The 100-Year Sentinari Constitution",
+        "filename": "Constitution.pdf",
+        "download_name": "Sentinari_Constitution.pdf",
+        "subtitle": "Foundational Sovereign Epistemic Charter · Dr. Pierre C. Wepener",
+        "description": "",
+    },
+    "constitution": {
+        "slug": "the-constitution",
+        "title": "The 100-Year Sentinari Constitution",
+        "filename": "Constitution.pdf",
+        "download_name": "Sentinari_Constitution.pdf",
+        "subtitle": "Foundational Sovereign Epistemic Charter · Dr. Pierre C. Wepener",
+        "description": "",
+    },
 }
+
+
+@app.get("/constitution", include_in_schema=False)
+@app.head("/constitution", include_in_schema=False)
+@app.get("/Constitution.pdf", include_in_schema=False)
+@app.head("/Constitution.pdf", include_in_schema=False)
+def serve_constitution_direct(download: int = Query(default=0)) -> FileResponse:
+    """Direct route for viewing or downloading the 100-Year Sentinari Constitution PDF."""
+    root = get_project_root()
+    candidates = [
+        root / "static" / "reports" / "Constitution.pdf",
+        Path("D:/Constitution.pdf"),
+        root / "docs" / "Constitution.pdf",
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Constitution PDF file not found on disk.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(target),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="Sentinari_Constitution.pdf"',
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
 
 
 @app.get("/api/landing-reports", include_in_schema=False)
 def api_landing_reports() -> dict[str, Any]:
     reports_dir = get_project_root() / "static" / "reports"
     items = []
-    for key in ("the-global-risk-index", "the-global-catastrophic-index", "the-lancet-report"):
+    for key in ("the-global-risk-index", "the-global-catastrophic-index", "the-lancet-report", "the-constitution"):
         meta = _LANDING_REFERENCE_REPORTS[key]
         fpath = reports_dir / meta["filename"]
         size_kb = round(fpath.stat().st_size / 1024.0, 1) if fpath.exists() else 0.0
@@ -861,6 +911,130 @@ def serve_presentation_poster() -> FileResponse:
         path=str(target),
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+WALKTHROUGH_SECTIONS_META = [
+    {
+        "section_id": "sec_01",
+        "num": 1,
+        "title": "Architecture & 100-Year Constitution",
+        "filename": "section_01_architecture_constitution.mp4",
+        "desc": "Foundational sovereign doctrine, Articles I–VIII, and the Studio Start Cockpit (/ui/start).",
+    },
+    {
+        "section_id": "sec_02",
+        "num": 2,
+        "title": "Playground & Database Reindexing",
+        "filename": "section_02_playground_database_refresh.mp4",
+        "desc": "Synchronous database refresh mechanics, SQLite WAL lock armor, and 21 scientific domain tiles.",
+    },
+    {
+        "section_id": "sec_03",
+        "num": 3,
+        "title": "New Pattern Discovery & 7-D Assessment Matrix",
+        "filename": "section_03_pattern_discovery_deep_dive.mp4",
+        "desc": "Collapsible concertina cards, 15-indicator R&D paper generation, 7-D sliding-scale simulator, and Figure 6.4 economics.",
+    },
+    {
+        "section_id": "sec_04",
+        "num": 4,
+        "title": "Qualia Lab & Forensic Governance Deception Suite",
+        "filename": "section_04_qualia_forensic_governance.mp4",
+        "desc": "Pseudodynamic vector steering (Q0, A0, S, Gamma), courtroom criminal psychology SCAN/CBCA deception markers, and 1-page A4 audit reports.",
+    },
+    {
+        "section_id": "sec_05",
+        "num": 5,
+        "title": "Learning Index & Assessment Ladder",
+        "filename": "section_05_learning_hle_benchmarks.mp4",
+        "desc": "% Learned progress, Humanity's Last Exam (HLE), and SWE-Bench Pro autonomous software grading.",
+    },
+    {
+        "section_id": "sec_06",
+        "num": 6,
+        "title": "Synthesis & Master Operational Workflow",
+        "filename": "section_06_master_workflow_synthesis.mp4",
+        "desc": "The complete end-to-end user journey across all consoles, Dr. Wepener's sole authorship, and partnership roadmap.",
+    },
+]
+
+
+@app.get("/api/video/walkthrough/meta", include_in_schema=False)
+def api_walkthrough_video_meta() -> dict[str, Any]:
+    """Return metadata and streaming URLs for the multi-section walkthrough video suite."""
+    root = get_project_root()
+    master_candidates = [
+        root / "constitution" / "Sentinari_Complete_Workspace_Walkthrough.mp4",
+        Path("D:/Sentinari/constitution/Sentinari_Complete_Workspace_Walkthrough.mp4"),
+    ]
+    master_exists = any(p.exists() for p in master_candidates)
+    sections = []
+    for s in WALKTHROUGH_SECTIONS_META:
+        sec_path = root / "constitution" / "walkthrough_assets" / s["filename"]
+        sections.append({
+            **s,
+            "stream_url": f"/api/video/walkthrough/sections/{s['section_id']}",
+            "available": sec_path.exists() or Path(f"D:/Sentinari/constitution/walkthrough_assets/{s['filename']}").exists(),
+        })
+    return {
+        "ok": True,
+        "master_available": master_exists,
+        "master_stream_url": "/api/video/walkthrough.mp4",
+        "sections": sections,
+    }
+
+
+@app.get("/api/video/walkthrough.mp4", include_in_schema=False)
+@app.head("/api/video/walkthrough.mp4", include_in_schema=False)
+def serve_master_walkthrough_video(download: int = Query(default=0)) -> FileResponse:
+    """Serve or stream the Master Workspace Walkthrough MP4."""
+    root = get_project_root()
+    candidates = [
+        root / "constitution" / "Sentinari_Complete_Workspace_Walkthrough.mp4",
+        Path("D:/Sentinari/constitution/Sentinari_Complete_Workspace_Walkthrough.mp4"),
+        Path("/app/constitution/Sentinari_Complete_Workspace_Walkthrough.mp4"),
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Master walkthrough video is currently compiling.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(target),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="Sentinari_Complete_Workspace_Walkthrough.mp4"',
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=86400",
+        },
+    )
+
+
+@app.get("/api/video/walkthrough/sections/{section_id}", include_in_schema=False)
+@app.head("/api/video/walkthrough/sections/{section_id}", include_in_schema=False)
+def serve_section_walkthrough_video(section_id: str, download: int = Query(default=0)) -> FileResponse:
+    """Serve an individual section clip of the walkthrough video suite."""
+    meta = next((s for s in WALKTHROUGH_SECTIONS_META if s["section_id"] == section_id), None)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Section not found.")
+    root = get_project_root()
+    candidates = [
+        root / "constitution" / "walkthrough_assets" / meta["filename"],
+        Path(f"D:/Sentinari/constitution/walkthrough_assets/{meta['filename']}"),
+        Path(f"/app/constitution/walkthrough_assets/{meta['filename']}"),
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Section video is currently compiling.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(target),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{meta["filename"]}"',
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=86400",
+        },
     )
 
 

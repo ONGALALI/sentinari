@@ -541,7 +541,9 @@
         <span class="brand-badge">CLOUD PRO</span>
       </a>
       <div class="nav-links">
-        <button type="button" onclick="openPresentationModal()" style="background:none;border:none;color:#34d399;font-weight:600;font-size:0.92rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">&#x25B6;&#xFE0F; 10-Min Video</button>
+        <button type="button" onclick="openPresentationModal('walkthrough')" style="background:none;border:none;color:#818cf8;font-weight:600;font-size:0.92rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">&#x1F3AC; Workspace Tour</button>
+        <button type="button" onclick="openPresentationModal('briefing')" style="background:none;border:none;color:#34d399;font-weight:600;font-size:0.92rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">&#x25B6;&#xFE0F; 10-Min Briefing</button>
+        <a href="/reports/the-constitution" target="_blank" rel="noopener" style="color:#fbbf24;font-weight:700;">&#x1F4DC; Constitution</a>
         <a href="#deliverables">Core Deliverables</a>
         <a href="#global-reports">Global Risk Reports (3)</a>
         <a href="#architecture">Architecture</a>
@@ -568,9 +570,13 @@
           Scales past gigabytes to terabytes without hallucinations, catastrophic forgetting, or epistemic decay.
         </p>
         <div class="cta-group">
-          <button type="button" class="btn-primary" onclick="openPresentationModal()" style="background:linear-gradient(135deg, #10b981, #059669);box-shadow:0 4px 18px rgba(16,185,129,0.4);border:1px solid rgba(255,255,255,0.2);cursor:pointer;display:inline-flex;align-items:center;gap:8px;">
+          <button type="button" class="btn-primary" onclick="openPresentationModal('walkthrough')" style="background:linear-gradient(135deg, #6366f1, #4f46e5);box-shadow:0 4px 18px rgba(99,102,241,0.4);border:1px solid rgba(255,255,255,0.2);cursor:pointer;display:inline-flex;align-items:center;gap:8px;">
+            <span>&#x1F3AC;</span>
+            <span>Watch Workspace Tour (6 Sections)</span>
+          </button>
+          <button type="button" class="btn-secondary" onclick="openPresentationModal('briefing')" style="display:inline-flex;align-items:center;gap:8px;border-color:rgba(16,185,129,0.4);color:#34d399;">
             <span>&#x25B6;&#xFE0F;</span>
-            <span>Watch 10-Min Executive Briefing</span>
+            <span>10-Min Constitutional Briefing</span>
           </button>
           <a href="/ui/chat" class="btn-primary">Open Research Console</a>
           <a href="/ui/patterns" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
@@ -717,31 +723,98 @@
           <p>Founded on The Discipline of Responsible Intelligence — prioritizing empirical provenance, Aristotelian causality, and systemic integrity over neural memorization.</p>
         </div>
 
-        <!-- Master 10-Minute Executive Presentation Video Drawer -->
-        <div id="portalVideoDrawer" class="pdf-viewer-drawer" style="margin-bottom:36px;border-color:rgba(16,185,129,0.5);background:rgba(11,17,32,0.96);box-shadow:0 12px 40px rgba(0,0,0,0.6);" hidden>
+        <!-- Master Video Showcase Drawer (Dual Mode: Briefing & Complete Workspace Tour) -->
+        <div id="portalVideoDrawer" class="pdf-viewer-drawer" style="margin-bottom:36px;border-color:rgba(99,102,241,0.5);background:rgba(11,17,32,0.96);box-shadow:0 12px 40px rgba(0,0,0,0.6);" hidden>
           <div class="pdf-viewer-bar" style="background:#090d16;border-bottom:1px solid rgba(255,255,255,0.1);padding:14px 18px;border-radius:12px 12px 0 0;">
             <div style="display:flex;align-items:center;gap:12px;">
-              <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(16,185,129,0.2);color:#34d399;font-size:1.1rem;">&#x25B6;&#xFE0F;</span>
+              <span id="videoDrawerIcon" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(99,102,241,0.2);color:#818cf8;font-size:1.1rem;">&#x1F3AC;</span>
               <div>
-                <strong style="color:#ffffff;font-size:1.1rem;display:block;">Sentinari: The 10-Minute Executive Briefing &amp; Constitutional Architecture</strong>
-                <span style="font-size:0.8rem;color:#94a3b8;">10:50 Runtime &bull; 1080p Full HD &bull; Neural Narration &bull; Conceived, Researched &amp; Engineered by Dr. Pierre C. Wepener</span>
+                <strong id="videoDrawerTitle" style="color:#ffffff;font-size:1.1rem;display:block;">Sentinari: Complete Workspace &amp; Element-by-Element Master Walkthrough</strong>
+                <span id="videoDrawerSubtitle" style="font-size:0.8rem;color:#94a3b8;">6 Core Sections &bull; 1080p Full HD &bull; Neural Narration &bull; Conceived, Researched &amp; Engineered by Dr. Pierre C. Wepener</span>
               </div>
             </div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <a href="/api/presentation/video.mp4?download=1" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4 (15.1 MB)</a>
+              <div style="display:inline-flex;background:rgba(255,255,255,0.06);border-radius:8px;padding:3px;border:1px solid rgba(255,255,255,0.1);">
+                <button type="button" id="tabWalkthroughBtn" onclick="switchVideoMode('walkthrough')" style="background:#6366f1;border:none;color:#ffffff;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">Workspace Tour</button>
+                <button type="button" id="tabBriefingBtn" onclick="switchVideoMode('briefing')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">10-Min Briefing</button>
+              </div>
+              <a id="videoDownloadLink" href="/api/video/walkthrough.mp4?download=1" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4</a>
               <button type="button" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;" onclick="closePresentationModal()">&#x2715; Close Video</button>
             </div>
           </div>
           <div style="padding:20px;">
             <div style="position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.7);margin-bottom:18px;">
               <video id="portalPresentationVideo" controls preload="metadata" poster="/api/presentation/poster.png" style="width:100%;max-height:600px;display:block;outline:none;">
-                <source src="/api/presentation/video.mp4" type="video/mp4">
+                <source id="portalVideoSource" src="/api/video/walkthrough.mp4" type="video/mp4">
                 Your browser does not support HTML5 video streaming. Please use the Download MP4 button.
               </video>
             </div>
 
-            <!-- Interactive Chapter Scrub Bar -->
-            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:14px;">
+            <!-- Panel 1: Walkthrough 6-Section Selector Cards (Active by default) -->
+            <div id="walkthroughControlsPanel" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                <span style="font-size:0.82rem;color:#a5b4fc;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">&#x1F3AC; Workspace Tour Sections &bull; Click to Play Section</span>
+                <span style="font-size:0.75rem;color:#64748b;">Includes in-depth Playground DB reindex &amp; Pattern Discovery breakdown</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:10px;">
+                <div onclick="playWalkthroughSection('sec_01')" style="cursor:pointer;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;transition:all 0.2s;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Section 1</span>
+                    <span style="font-size:0.72rem;color:#34d399;font-weight:600;">&#x25B6;&#xFE0F; Stream Clip</span>
+                  </div>
+                  <strong style="color:#ffffff;font-size:0.88rem;display:block;margin-bottom:4px;">Architecture &amp; The 100-Year Constitution</strong>
+                  <p style="font-size:0.76rem;color:#94a3b8;margin:0;line-height:1.4;">Articles I&ndash;VIII, sovereign zero-cloud doctrine, and the Studio Start Cockpit (/ui/start).</p>
+                </div>
+
+                <div onclick="playWalkthroughSection('sec_02')" style="cursor:pointer;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;transition:all 0.2s;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Section 2</span>
+                    <span style="font-size:0.72rem;color:#34d399;font-weight:600;">&#x25B6;&#xFE0F; Stream Clip</span>
+                  </div>
+                  <strong style="color:#ffffff;font-size:0.88rem;display:block;margin-bottom:4px;">Playground Console &amp; DB Reindexing</strong>
+                  <p style="font-size:0.76rem;color:#94a3b8;margin:0;line-height:1.4;">Synchronous database refresh mechanics, SQLite WAL lock armor, and 21 domain tiles.</p>
+                </div>
+
+                <div onclick="playWalkthroughSection('sec_03')" style="cursor:pointer;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;transition:all 0.2s;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Section 3</span>
+                    <span style="font-size:0.72rem;color:#34d399;font-weight:600;">&#x25B6;&#xFE0F; Stream Clip</span>
+                  </div>
+                  <strong style="color:#ffffff;font-size:0.88rem;display:block;margin-bottom:4px;">New Pattern Discovery &amp; 7-D Matrix</strong>
+                  <p style="font-size:0.76rem;color:#94a3b8;margin:0;line-height:1.4;">Concertina cards, 7-D Gaussian simulator, 15-indicator R&amp;D paper, and Fig 6.4 economics.</p>
+                </div>
+
+                <div onclick="playWalkthroughSection('sec_04')" style="cursor:pointer;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;transition:all 0.2s;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Section 4</span>
+                    <span style="font-size:0.72rem;color:#34d399;font-weight:600;">&#x25B6;&#xFE0F; Stream Clip</span>
+                  </div>
+                  <strong style="color:#ffffff;font-size:0.88rem;display:block;margin-bottom:4px;">Qualia Lab &amp; Forensic Deception Suite</strong>
+                  <p style="font-size:0.76rem;color:#94a3b8;margin:0;line-height:1.4;">Vector trajectory steering, criminal psychology SCAN/CBCA deception, and A4 audit sheets.</p>
+                </div>
+
+                <div onclick="playWalkthroughSection('sec_05')" style="cursor:pointer;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;transition:all 0.2s;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Section 5</span>
+                    <span style="font-size:0.72rem;color:#34d399;font-weight:600;">&#x25B6;&#xFE0F; Stream Clip</span>
+                  </div>
+                  <strong style="color:#ffffff;font-size:0.88rem;display:block;margin-bottom:4px;">Learning Index &amp; Assessment Ladder</strong>
+                  <p style="font-size:0.76rem;color:#94a3b8;margin:0;line-height:1.4;">% Learned progress, Humanity's Last Exam (HLE), and SWE-Bench Pro software grading.</p>
+                </div>
+
+                <div onclick="playWalkthroughSection('sec_06')" style="cursor:pointer;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;transition:all 0.2s;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:0.75rem;color:#818cf8;font-weight:700;text-transform:uppercase;">Section 6</span>
+                    <span style="font-size:0.72rem;color:#34d399;font-weight:600;">&#x25B6;&#xFE0F; Stream Clip</span>
+                  </div>
+                  <strong style="color:#ffffff;font-size:0.88rem;display:block;margin-bottom:4px;">Master Operational Workflow &amp; Vision</strong>
+                  <p style="font-size:0.76rem;color:#94a3b8;margin:0;line-height:1.4;">Full end-to-end user loop across consoles, Dr. Wepener's sole authorship, and partnership.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel 2: 10-Minute Briefing Chapter Scrub Bar (Visible when mode === 'briefing') -->
+            <div id="briefingControlsPanel" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:14px;" hidden>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
                 <span style="font-size:0.8rem;color:#a5b4fc;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">&#x23F1; Jump Directly to Chapter</span>
                 <span style="font-size:0.75rem;color:#64748b;">Click any chapter to seek video instantly</span>
@@ -1070,9 +1143,10 @@
   <script>
   (() => {
     const fmt = (n) => new Intl.NumberFormat().format(Number(n) || 0);
+    const API_BASE = window.API_BASE || '';
     async function refreshPortalTelemetry() {
       try {
-        const res = await fetch('/api/patterns/discovery-status');
+        const res = await fetch(`${API_BASE}/api/patterns/discovery-status`);
         if (!res.ok) return;
         const data = await res.json();
         const totalPats = Number(data.total_patterns || data.candidate_patterns || 0);
@@ -1119,15 +1193,90 @@
       drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    window.openPresentationModal = () => {
-      const drawer = document.getElementById('portalVideoDrawer');
+    window.switchVideoMode = (mode) => {
       const video = document.getElementById('portalPresentationVideo');
+      const vSource = document.getElementById('portalVideoSource');
+      const icon = document.getElementById('videoDrawerIcon');
+      const title = document.getElementById('videoDrawerTitle');
+      const subtitle = document.getElementById('videoDrawerSubtitle');
+      const dlLink = document.getElementById('videoDownloadLink');
+      const tabWalk = document.getElementById('tabWalkthroughBtn');
+      const tabBrief = document.getElementById('tabBriefingBtn');
+      const panelWalk = document.getElementById('walkthroughControlsPanel');
+      const panelBrief = document.getElementById('briefingControlsPanel');
+
+      const isWalk = mode === 'walkthrough';
+      if (tabWalk) {
+        tabWalk.style.background = isWalk ? '#6366f1' : 'transparent';
+        tabWalk.style.color = isWalk ? '#ffffff' : '#94a3b8';
+      }
+      if (tabBrief) {
+        tabBrief.style.background = isWalk ? 'transparent' : '#10b981';
+        tabBrief.style.color = isWalk ? '#94a3b8' : '#ffffff';
+      }
+      if (panelWalk) panelWalk.hidden = !isWalk;
+      if (panelBrief) panelBrief.hidden = isWalk;
+
+      if (isWalk) {
+        if (icon) icon.innerHTML = '&#x1F3AC;';
+        if (title) title.textContent = 'Sentinari: Complete Workspace & Element-by-Element Master Walkthrough';
+        if (subtitle) subtitle.textContent = '6 Core Sections \u2022 1080p Full HD \u2022 Neural Narration \u2022 Conceived, Researched & Engineered by Dr. Pierre C. Wepener';
+        if (dlLink) {
+          dlLink.href = `${API_BASE}/api/video/walkthrough.mp4?download=1`;
+          dlLink.textContent = '\u2B07 Download Full Walkthrough (15.7 MB)';
+        }
+        if (vSource) vSource.src = `${API_BASE}/api/video/walkthrough.mp4`;
+      } else {
+        if (icon) icon.innerHTML = '&#x25B6;&#xFE0F;';
+        if (title) title.textContent = 'Sentinari: The 10-Minute Executive Briefing & Constitutional Architecture';
+        if (subtitle) subtitle.textContent = '10:50 Runtime \u2022 1080p Full HD \u2022 Neural Narration \u2022 Conceived, Researched & Engineered by Dr. Pierre C. Wepener';
+        if (dlLink) {
+          dlLink.href = `${API_BASE}/api/presentation/video.mp4?download=1`;
+          dlLink.textContent = '\u2B07 Download 10-Min Briefing (15.1 MB)';
+        }
+        if (vSource) vSource.src = `${API_BASE}/api/presentation/video.mp4`;
+      }
+      if (video) {
+        video.load();
+        video.play().catch(() => {});
+      }
+    };
+
+    window.playWalkthroughSection = (secId) => {
+      const video = document.getElementById('portalPresentationVideo');
+      const vSource = document.getElementById('portalVideoSource');
+      const dlLink = document.getElementById('videoDownloadLink');
+      const title = document.getElementById('videoDrawerTitle');
+      const titles = {
+        sec_01: 'Section 1: Architecture & The 100-Year Constitution',
+        sec_02: 'Section 2: Playground Console & Synchronous DB Reindexing',
+        sec_03: 'Section 3: New Pattern Discovery Deep Dive & 7-D Matrix',
+        sec_04: 'Section 4: Qualia Lab & Forensic Deception Engine',
+        sec_05: 'Section 5: Learning Index & Benchmark Assessment Ladder',
+        sec_06: 'Section 6: Synthesis & Master Operational Workflow'
+      };
+      if (vSource) {
+        vSource.src = `${API_BASE}/api/video/walkthrough/sections/${secId}`;
+      }
+      if (title && titles[secId]) {
+        title.textContent = `Sentinari Walkthrough: ${titles[secId]}`;
+      }
+      if (dlLink) {
+        dlLink.href = `${API_BASE}/api/video/walkthrough/sections/${secId}?download=1`;
+        dlLink.textContent = `\u2B07 Download ${secId.replace('_', ' ').toUpperCase()} MP4`;
+      }
+      if (video) {
+        video.load();
+        video.play().catch(() => {});
+      }
+    };
+
+    window.openPresentationModal = (mode = 'walkthrough') => {
+      const drawer = document.getElementById('portalVideoDrawer');
       if (!drawer) return;
       drawer.hidden = false;
       drawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (video && video.paused) {
-        video.play().catch(() => {});
-      }
+      window.switchVideoMode(mode);
     };
 
     window.closePresentationModal = () => {
@@ -1148,10 +1297,10 @@
       video.play().catch(() => {});
     };
 
-    if (window.location.hash === '#presentation' || window.location.hash === '#video') {
-      setTimeout(() => {
-        window.openPresentationModal();
-      }, 350);
+    if (window.location.hash === '#walkthrough' || window.location.hash === '#tour') {
+      setTimeout(() => { window.openPresentationModal('walkthrough'); }, 350);
+    } else if (window.location.hash === '#presentation' || window.location.hash === '#video' || window.location.hash === '#briefing') {
+      setTimeout(() => { window.openPresentationModal('briefing'); }, 350);
     }
   })();
   </script>
