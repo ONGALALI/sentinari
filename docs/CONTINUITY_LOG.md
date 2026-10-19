@@ -2083,4 +2083,30 @@ Also observed and worked around this session: the qualia simulate endpoint hit t
 - `docs/index.html` rebuilt and validated.
 - **Cloud Run Production Deployment Live**: Re-authenticated with `rodenbecker.za@gmail.com` and deployed revision `sentinari-core-00035-bxf` to Google Cloud Run (`seninari` project, `us-central1`) with 100% traffic allocation. Probed live endpoints across `https://sentinari-core-250830594433.us-central1.run.app/` — confirmed `HTTP 200 OK` for `/constitution` (5.9 MB), `/api/video/walkthrough.mp4` (16.4 MB), and all 6 individual section MP4s (`sec_01` through `sec_06`).
 
+## §86 — GOOGLE FUNDING DOSSIER & MASTER FUNCTIONAL ARCHITECTURE SCHEMATIC — 2026-10-19
+
+**User Requests:**
+1. Provide a comprehensive application/pitch template tailored to all Google / Alphabet entities interested in funding/investing in Sentinari, complete with direct links to each entity.
+2. Produce a detailed schematic diagram of all functions that Sentinari produces.
+
+**Architecture built & verified:**
+1. **Google Entity Funding & Partnership Dossier (`docs/GOOGLE_FUNDING_APPLICATION_DOSSIER.md`):**
+   - Direct directory and application URLs for:
+     * Google for Startups Cloud Program (AI Track & Start Tier, up to $350k credits): `cloud.google.com/startup`
+     * Gradient Ventures (Alphabet's dedicated AI VC fund, Seed/Series A $500k–$5M+): `gradient.com/founders/`
+     * Google DeepMind & Google Research Outreach (Scientific compute & research grants): `research.google/outreach/` and `deepmind.google/about/partnerships/`
+     * GV (Google Ventures, commercial scale $1M–$10M+): `gv.com`
+     * Google.org (AI for Science & Society philanthropic grants $500k–$3M+): `google.org/our-work/ai/`
+   - Complete 8-section universal application copy-paste template tailored to Dr. Pierre C. Wepener's 100% sole proprietary authorship.
+
+2. **Master Architecture Schematic Diagram Generator (`scripts/build_sentinari_schematic.py`):**
+   - High-definition 2400x1400 PNG visual blueprint mapping the complete functional flow:
+     * Layer 1: Foundational Governance (100-Year Constitution & Articles I–IV).
+     * Layer 2: 4 Core Workspaces (Playground DB Refresh, New Pattern Discovery & 7-D Matrix, Qualia Lab & Forensic Deception Engine, Learning Index & Assessment Ladder).
+     * Layer 3: Unified Dual Execution Plane & Boardroom Deliverables (Local Bare-Metal Offline + Google Cloud Run Production + APA 7th Papers + Fig 6.4 Economics + A4 Audits + Master Walkthrough Video).
+   - Saved to `docs/sentinari_functional_schematic.png` and `static/sentinari_functional_schematic.png`.
+   - Exposed endpoints in `app/main.py`: `GET /schematic` and `GET /architecture-schematic`.
+   - Embedded interactive schematic blueprint card `#schematic` in `templates/portal_landing.html` and compiled into `docs/index.html` for GitHub Pages.
+
+
 
