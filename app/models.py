@@ -250,6 +250,15 @@ class QualiaRecommendationRequest(BaseModel):
     qualia: dict[str, Any] = Field(default_factory=dict)
 
 
+class ForensicAuditRequest(BaseModel):
+    """Payload for Dr. Wepener's Forensic Governance & Courtroom Deception Audit."""
+    source_text: str = Field(min_length=10, max_length=10000)
+    source_title: str = Field(default="High-Priority Governance Source Statement", max_length=200)
+    domain: str = Field(default="Governance & Forensic Cross-Examination", max_length=120)
+    noise_decoupling: bool = Field(default=True)
+    apply_qualia_shift: bool = Field(default=True)
+
+
 class PlaygroundVideoPlanRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=12000)
     language: str = Field(default="English", max_length=60)

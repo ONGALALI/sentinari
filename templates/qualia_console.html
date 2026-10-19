@@ -653,6 +653,142 @@
         <div id="benchmarkStatus" class="status"></div>
       </section>
 
+      <section id="forensicGovernanceSection" style="border: 2px solid #6366f1; background: #ffffff;">
+        <div class="row" style="justify-content: space-between; align-items: flex-start;">
+          <div>
+            <h2 style="color: #4338ca; display: flex; align-items: center; gap: 8px; margin: 0 0 4px 0;">
+              <span>&#x2696;&#xFE0F;</span> Forensic Governance &amp; Courtroom Deception Audit
+            </h2>
+            <div class="hint">
+              Dr. Pierre C. Wepener Architecture: Criminal psychology courtroom statement analysis (SCAN/CBCA), discourse noise decoupling, and merciless APA 7th Edition cross-examination reporting.
+            </div>
+          </div>
+          <span class="pill" id="forensicAuditStatusBadge" style="background:#e0e7ff;border-color:#818cf8;color:#3730a3;font-weight:700;">
+            Engine Ready
+          </span>
+        </div>
+
+        <!-- Exemplars Row -->
+        <div style="margin-top: 14px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <label style="color:#475569;margin-bottom:6px;">Load High-Priority Exemplar:</label>
+          <div class="row" style="gap: 8px;">
+            <button class="ghost" type="button" id="loadExemplarRuUkrBtn" style="font-size:12px;padding:6px 10px;min-height:32px;">
+              &#x1F1F7;&#x1F1FA;&#x1F1FA;&#x1F1E6; Russia-Ukraine Evasion
+            </button>
+            <button class="ghost" type="button" id="loadExemplarCorpBtn" style="font-size:12px;padding:6px 10px;min-height:32px;">
+              &#x1F4BC; Corporate Subpoena Defense
+            </button>
+            <button class="ghost" type="button" id="loadExemplarHealthBtn" style="font-size:12px;padding:6px 10px;min-height:32px;">
+              &#x1F3E5; Institutional Crisis Minimization
+            </button>
+            <button class="ghost" type="button" id="clearForensicBtn" style="font-size:12px;padding:6px 10px;min-height:32px;color:#94a3b8;">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Inputs -->
+        <div class="grid" style="margin-top: 12px;">
+          <div>
+            <label for="forensicTitle">Statement / Source Title</label>
+            <input id="forensicTitle" type="text" value="Official Governance Press &amp; Diplomatic Statement" maxlength="200">
+          </div>
+          <div>
+            <label for="forensicDomain">Governance Domain</label>
+            <select id="forensicDomain">
+              <option value="Geopolitics &amp; Conflict Escalation">Geopolitics &amp; Conflict Escalation</option>
+              <option value="Corporate Governance &amp; Securities Subpoena">Corporate Governance &amp; Securities Subpoena</option>
+              <option value="Constitutional Oversight &amp; Administrative Law">Constitutional Oversight &amp; Administrative Law</option>
+              <option value="Public Health &amp; Crisis Containment">Public Health &amp; Crisis Containment</option>
+              <option value="Fiscal Accounting &amp; Sovereign Debt">Fiscal Accounting &amp; Sovereign Debt</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top: 10px;">
+          <div class="row" style="justify-content: space-between; margin-bottom: 4px;">
+            <label for="forensicSourceText" style="margin-bottom:0;">Source Statement (Up to 5,000 characters)</label>
+            <span id="forensicCharCount" style="font-size: 11px; font-weight: 700; color: #64748b;">0 / 5,000 chars</span>
+          </div>
+          <textarea id="forensicSourceText" style="min-height: 140px; font-family: 'JetBrains Mono', monospace; font-size: 13px;" placeholder="Paste testimony, diplomatic communiqué, or executive transcript to conduct merciless forensic cross-examination..."></textarea>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="row" style="margin-top: 12px; justify-content: space-between;">
+          <div class="row" style="gap: 16px;">
+            <label class="row" style="gap:6px; margin:0; cursor:pointer;">
+              <input type="checkbox" id="forensicNoiseToggle" checked style="width:auto;"> Decouple Discourse Noise (Strip Rhetorical Padding)
+            </label>
+            <label class="row" style="gap:6px; margin:0; cursor:pointer;">
+              <input type="checkbox" id="forensicQualiaBridgeToggle" checked style="width:auto;"> Bridge to Qualia Vectors (Q0/A0/S/&gamma;)
+            </label>
+          </div>
+          <button id="runForensicAuditBtn" style="background:#4f46e5;border-color:#4338ca;padding:10px 18px;">
+            &#x26A1; Execute Merciless Forensic Cross-Examination
+          </button>
+        </div>
+
+        <div id="forensicAuditStatus" class="status"></div>
+
+        <!-- Results Container (Hidden until run) -->
+        <div id="forensicResultsArea" style="display:none; margin-top: 16px;" class="stack">
+          <!-- Metric KPI Grid -->
+          <div class="metric-grid">
+            <div class="metric-card" style="border-left: 4px solid #dc2626;">
+              <div class="label">Deception &amp; Evasion Index</div>
+              <div class="value" id="fresDeceptionIndex" style="color:#dc2626;">0.0%</div>
+              <div class="meta" id="fresRiskTier" style="font-weight:700;">Evaluating...</div>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid #10b981;">
+              <div class="label">Truth-Gradient</div>
+              <div class="value" id="fresTruthGradient" style="color:#10b981;">0.000</div>
+              <div class="meta">Baseline Epistemic Directness</div>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid #06b6d4;">
+              <div class="label">Discourse Noise Removed</div>
+              <div class="value" id="fresNoiseRatio" style="color:#06b6d4;">0.0%</div>
+              <div class="meta">Rhetorical Spin Decoupled</div>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid #818cf8;">
+              <div class="label">Projected Research ROI</div>
+              <div class="value" id="fresResearchVal" style="color:#4f46e5;">0.0%</div>
+              <div class="meta">Inquiry Necessity Rating</div>
+            </div>
+          </div>
+
+          <!-- Markers Breakdown Grid -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+            <h3 style="color:#1e293b; margin-bottom:8px;">Courtroom Criminal Psychology Markers (SCAN / CBCA)</h3>
+            <div class="grid" style="gap:10px;" id="fresMarkersList"></div>
+          </div>
+
+          <!-- Decoupled Reality Pane -->
+          <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
+            <div class="row" style="justify-content:space-between; margin-bottom:6px;">
+              <h3 style="color:#0f172a; margin:0;">Decoupled Material Reality (Residual Factual Assertions)</h3>
+              <span class="pill" style="font-size:11px;padding:2px 8px;background:#e2e8f0;">Noise Stripped</span>
+            </div>
+            <div id="fresCoreReality" style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#334155; line-height:1.5; background:#ffffff; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></div>
+          </div>
+
+          <!-- Merciless 1-Page APA 7 Report Preview -->
+          <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
+            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="color:#1e293b; margin:0;">Merciless Forensic Cross-Examination Sheet (Strict 1-Page A4 / APA 7)</h3>
+              <div class="row" style="gap:8px;">
+                <button class="ghost" type="button" id="copyReportBtn" style="min-height:32px;padding:4px 12px;font-size:12px;">
+                  &#x1F4CB; Copy APA-7 Report
+                </button>
+                <a id="printReportLink" href="#" target="_blank" class="pill" style="text-decoration:none;background:#4f46e5;color:#ffffff;font-weight:700;border:none;padding:6px 14px;cursor:pointer;">
+                  &#x1F5B6; Open &amp; Print 1-Page A4 Sheet &nearr;
+                </a>
+              </div>
+            </div>
+            <pre id="fresReportApa7" style="font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.4; color:#0f172a; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:14px; max-height:420px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;"></pre>
+          </div>
+        </div>
+      </section>
+
       <section>
         <h2>Learning Index Calibration</h2>
         <div class="hint">Cross-checks the Learning Index's examiner against this lab's retrieval-backed pipeline (same questions, one grader). <strong>Paused by default</strong> — enable only when there is power to spare (it pauses the background examiner while a run executes).</div>
@@ -2041,6 +2177,177 @@
       }
     }
 
+    // -------------------------------------------------------------------------
+    // Forensic Governance & Courtroom Deception Audit (Dr. Pierre C. Wepener)
+    // -------------------------------------------------------------------------
+    let forensicExemplars = {};
+
+    async function loadForensicExemplars() {
+      try {
+        const res = await fetch("/api/qualia/forensic-audit/exemplars");
+        const data = await res.json();
+        if (data.ok && data.exemplars) {
+          forensicExemplars = data.exemplars;
+        }
+      } catch (err) {
+        console.warn("Failed to load forensic exemplars:", err);
+      }
+    }
+
+    function updateForensicCharCount() {
+      const el = $("forensicSourceText");
+      const badge = $("forensicCharCount");
+      if (!el || !badge) return;
+      const count = el.value.length;
+      badge.textContent = `${count.toLocaleString()} / 5,000 chars`;
+      if (count > 5000) {
+        badge.style.color = "#dc2626";
+      } else {
+        badge.style.color = "#64748b";
+      }
+    }
+
+    function populateForensicExemplar(key) {
+      const ex = forensicExemplars[key];
+      if (!ex) return;
+      if ($("forensicTitle")) $("forensicTitle").value = ex.title;
+      if ($("forensicDomain")) $("forensicDomain").value = ex.domain;
+      if ($("forensicSourceText")) {
+        $("forensicSourceText").value = ex.text;
+        updateForensicCharCount();
+      }
+      setStatus("forensicAuditStatus", `Loaded high-priority exemplar: ${ex.title}`, true);
+    }
+
+    async function runForensicCrossExamination() {
+      const text = ($("forensicSourceText").value || "").trim();
+      const title = ($("forensicTitle").value || "High-Priority Governance Subject Statement").trim();
+      const domain = ($("forensicDomain").value || "Governance & Forensic Cross-Examination").trim();
+      const noiseDecoupling = $("forensicNoiseToggle") ? $("forensicNoiseToggle").checked : true;
+      const qualiaBridge = $("forensicQualiaBridgeToggle") ? $("forensicQualiaBridgeToggle").checked : true;
+
+      if (!text || text.length < 10) {
+        setStatus("forensicAuditStatus", "Please enter at least 10 characters to audit.", false);
+        return;
+      }
+
+      const runBtn = $("runForensicAuditBtn");
+      runBtn.disabled = true;
+      runBtn.textContent = "Executing Cross-Examination...";
+      setStatus("forensicAuditStatus", "Analyzing courtroom deception markers, calculating truth-gradient, and decoupling discourse noise...", true);
+
+      try {
+        const res = await fetch("/api/qualia/forensic-audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source_text: text,
+            source_title: title,
+            domain: domain,
+            noise_decoupling: noiseDecoupling,
+            apply_qualia_shift: qualiaBridge,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.detail || data.error || "Forensic audit failed.");
+        }
+
+        const audit = data.audit;
+        renderForensicAuditResults(audit);
+        setStatus("forensicAuditStatus", `Audit stamped: ${audit.audit_ref} (${audit.date_stamp})`, true);
+
+        // If Qualia bridge is enabled, apply vector adjustments to lab
+        if (qualiaBridge && audit.qualia_vector_deltas) {
+          const deltas = audit.qualia_vector_deltas;
+          if ($("recVariant")) {
+            const curVar = parseFloat($("variant").value) || 0.1;
+            const tunedVar = Math.max(0.1, Math.min(25.0, (curVar + (audit.deception_index * 0.05)))).toFixed(2);
+            $("recVariant").textContent = tunedVar;
+          }
+          if ($("recGamma")) {
+            const curG = parseFloat($("gamma") ? $("gamma").value : "0.2") || 0.2;
+            const tunedG = Math.max(0.05, Math.min(0.25, (curG + deltas.gamma_delta))).toFixed(2);
+            $("recGamma").textContent = tunedG;
+          }
+          if ($("recReason")) {
+            $("recReason").textContent = `Tuned by Forensic Governance Audit (${audit.audit_ref}): Deception index ${audit.deception_index}%, research value ROI ${audit.research_value_projection}%.`;
+          }
+        }
+      } catch (err) {
+        setStatus("forensicAuditStatus", `Cross-examination failed: ${err.message || err}`, false);
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = "⚡ Execute Merciless Forensic Cross-Examination";
+      }
+    }
+
+    function renderForensicAuditResults(audit) {
+      const area = $("forensicResultsArea");
+      if (!area) return;
+      area.style.display = "grid";
+
+      // KPI cards
+      $("fresDeceptionIndex").textContent = `${audit.deception_index.toFixed(1)}%`;
+      $("fresRiskTier").textContent = audit.risk_tier;
+      if (audit.deception_index > 60) {
+        $("fresDeceptionIndex").style.color = "#dc2626";
+      } else if (audit.deception_index > 35) {
+        $("fresDeceptionIndex").style.color = "#f59e0b";
+      } else {
+        $("fresDeceptionIndex").style.color = "#10b981";
+      }
+
+      $("fresTruthGradient").textContent = audit.truth_gradient.toFixed(3);
+      $("fresNoiseRatio").textContent = `${(audit.discourse_noise_ratio * 100).toFixed(1)}%`;
+      $("fresResearchVal").textContent = `${audit.research_value_projection.toFixed(1)}%`;
+
+      // Markers list
+      const markersEl = $("fresMarkersList");
+      markersEl.innerHTML = "";
+      const markers = audit.forensic_markers || {};
+      const markerLabels = {
+        agency_dissociation: "Agency Dissociation & Loss of Self-Reference",
+        epistemic_equivocation: "Epistemic Equivocation & Perjury Avoidance",
+        cognitive_load_leakage: "Cognitive Load Leakage & Spontaneous Oaths",
+        deflection_and_pivot: "Deflection, Whataboutism & Topic Pivoting",
+        euphemistic_minimization: "Euphemistic Minimization & Semantic Whitewash",
+        temporal_instability: "Temporal Instability & Narrative Fracturing",
+      };
+
+      for (const [key, label] of Object.entries(markerLabels)) {
+        const m = markers[key] || { count: 0, samples: [] };
+        const card = document.createElement("div");
+        card.style.background = "#ffffff";
+        card.style.padding = "8px 10px";
+        card.style.borderRadius = "6px";
+        card.style.border = "1px solid #e2e8f0";
+        const sampleText = (m.samples && m.samples.length > 0) ? m.samples.map(s => `"${s}"`).join(", ") : "None detected";
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong style="font-size:12px;color:#1e293b;">${label}</strong>
+            <span class="pill" style="font-size:11px;padding:1px 8px;font-weight:700;${m.count > 0 ? 'background:#fee2e2;color:#991b1b;' : 'background:#f1f5f9;color:#64748b;'}">${m.count} hits</span>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:3px;font-family:'JetBrains Mono', monospace;">Samples: ${sampleText}</div>
+        `;
+        markersEl.appendChild(card);
+      }
+
+      // Core decoupled reality
+      const coreText = audit.noise_analysis ? audit.noise_analysis.clean_core_text : "";
+      $("fresCoreReality").textContent = coreText || "No verifiable assertions remained.";
+
+      // APA-7 report
+      $("fresReportApa7").textContent = audit.merciless_report_apa7;
+
+      // Print link
+      const printLink = $("printReportLink");
+      if (printLink) {
+        printLink.href = `/api/qualia/forensic-audit/${audit.audit_ref}/report`;
+      }
+    }
+
     $("refreshStatus").addEventListener("click", refreshStatus);
     $("send").addEventListener("click", sendPrompt);
     $("simulate").addEventListener("click", () => simulateOnly().catch((err) => setStatus("qualiaStatus", err.message || String(err), false)));
@@ -2063,6 +2370,30 @@
     $("scienceTest").addEventListener("click", () => {
       $("message").value = "Pierre is studying the golden thread across science. Explain how the scientific method and mathematical modeling connect different fields, then name one practical risk to shared objective reality.";
     });
+
+    $("loadExemplarRuUkrBtn").addEventListener("click", () => populateForensicExemplar("russia_ukraine_evasion"));
+    $("loadExemplarCorpBtn").addEventListener("click", () => populateForensicExemplar("corporate_governance_fraud"));
+    $("loadExemplarHealthBtn").addEventListener("click", () => populateForensicExemplar("public_health_crisis"));
+    $("clearForensicBtn").addEventListener("click", () => {
+      $("forensicSourceText").value = "";
+      updateForensicCharCount();
+      $("forensicResultsArea").style.display = "none";
+      setStatus("forensicAuditStatus", "Cleared.", true);
+    });
+    $("forensicSourceText").addEventListener("input", updateForensicCharCount);
+    $("runForensicAuditBtn").addEventListener("click", runForensicCrossExamination);
+    $("copyReportBtn").addEventListener("click", () => {
+      const text = $("fresReportApa7").textContent;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        setStatus("forensicAuditStatus", "Merciless APA-7 report copied to clipboard.", true);
+      }).catch(() => {
+        setStatus("forensicAuditStatus", "Failed to copy to clipboard.", false);
+      });
+    });
+
+    loadForensicExemplars();
+    updateForensicCharCount();
 
     initQualiaTooltips();
     refreshStatus();

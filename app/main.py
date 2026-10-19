@@ -70,6 +70,7 @@ from .models import (
     PlaygroundQualiaBenchmarkRequest,
     QualiaRecommendationRequest,
     PlaygroundQualiaSimulationRequest,
+    ForensicAuditRequest,
     PlaygroundVideoPlanRequest,
     PlaygroundVideoRenderRequest,
     PlaygroundVideoStitchRequest,
@@ -121,6 +122,14 @@ from .playground import (
     run_autonomous_chat,
 )
 from .qualia_recommendation import build_qualia_recommendation
+from .forensic_governance import (
+    generate_merciless_audit_report,
+    persist_forensic_audit,
+    list_forensic_audits,
+    get_forensic_audit_by_ref,
+    render_standalone_audit_html,
+    EXEMPLARS,
+)
 from .retrieval import search_chunks
 from .skill_review import router as skill_review_router
 from .security import (
@@ -2912,6 +2921,53 @@ def api_playground_qualia_history(
     else:
         items = items[:limit]
     return {"ok": True, "count": len(items), "items": items}
+
+
+@app.post("/api/qualia/forensic-audit")
+def api_qualia_forensic_audit(
+    payload: ForensicAuditRequest,
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """Execute Dr. Wepener's Forensic Governance & Courtroom Deception Audit."""
+    audit = generate_merciless_audit_report(
+        source_text=payload.source_text,
+        source_title=payload.source_title,
+        domain=payload.domain,
+    )
+    with get_connection() as conn:
+        row_id = persist_forensic_audit(conn, audit, payload.source_text)
+    audit["row_id"] = row_id
+    return {"ok": True, "audit": audit}
+
+
+@app.get("/api/qualia/forensic-audit/exemplars")
+def api_qualia_forensic_exemplars() -> dict[str, Any]:
+    """Return pre-loaded high-priority governance cross-examination exemplars."""
+    return {"ok": True, "exemplars": EXEMPLARS}
+
+
+@app.get("/api/qualia/forensic-audit/history")
+def api_qualia_forensic_history(
+    limit: int = Query(default=20, ge=1, le=100),
+    _: None = Depends(_admin_auth_dependency),
+) -> dict[str, Any]:
+    """Retrieve logged, stamped forensic governance audits."""
+    with get_connection() as conn:
+        audits = list_forensic_audits(conn, limit=limit)
+    return {"ok": True, "count": len(audits), "audits": audits}
+
+
+@app.get("/api/qualia/forensic-audit/{audit_ref}/report", response_class=HTMLResponse)
+def api_qualia_forensic_report_html(
+    audit_ref: str,
+) -> HTMLResponse:
+    """Render a standalone, print-optimized 1-page A4 Merciless Forensic Audit sheet."""
+    with get_connection() as conn:
+        audit = get_forensic_audit_by_ref(conn, audit_ref)
+    if not audit:
+        raise HTTPException(status_code=404, detail="Forensic audit reference not found.")
+    html = render_standalone_audit_html(audit)
+    return HTMLResponse(content=html, status_code=200)
 
 
 @app.get("/api/playground/video/status")

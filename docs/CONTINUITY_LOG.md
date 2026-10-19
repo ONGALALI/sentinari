@@ -1989,3 +1989,45 @@ Also observed and worked around this session: the qualia simulate endpoint hit t
 - Updated `README.md` with top-level interactive showroom badges linking to GitHub Pages (`https://rodenbecker.github.io/sentinari/`) and production Cloud Run.
 
 **State at close:** Local server up on :8099, Cloud Run healthy on `sentinari-core-00033-nn2`, GitHub Pages files compiled in `docs/index.html` ready for commit and branch activation.
+
+## §84 — FORENSIC GOVERNANCE & COURTROOM DECEPTION ENGINE (DR. PIERRE C. WEPENER ARCHITECTURE) — 2026-10-19
+
+**Owner vision & mandate:**
+- Focus on High-Priority Governance factors with a "merciless" forensic audit report.
+- Integrate Dr. Pierre C. Wepener's background in criminal psychology and courtroom deception detection (spotting lies based on speech, linguistic distancing, and behavioral leakage).
+- Route statements through the Qualia Lab workspace with a discourse noise decoupling flow that strips rhetorical padding and isolates residual verifiable assertions.
+- Deliver a strict 1-page A4 audit report with APA 7th Edition referencing per paragraph, explicit societal impact dimensions, and a projected % on the value of conducting further research.
+
+**Architecture built & verified:**
+1. `app/forensic_governance.py`:
+   - Forensic Criminal Psychology Marker Taxonomy:
+     * Agency Dissociation & Passive Deflection (Pennebaker et al., 2003; Adams, 1996)
+     * Epistemic Equivocation & Perjury Avoidance (Porter & Yuille, 1996; Vrij, 2008)
+     * Cognitive Load Leakage & Spontaneous Candor Oaths (DePaulo et al., 2003; Vrij, 2008)
+     * Deflection, Whataboutism & Topic Pivoting
+     * Euphemistic Minimization & Semantic Sanitization
+     * Temporal Instability & Narrative Fracturing
+   - Discourse Noise Decoupling Flow: strips rhetorical spin, computes noise ratio, and extracts raw core assertions.
+   - Deception Index (0.0-100.0%) and Truth-Gradient Score (0.0-1.0).
+   - Qualia vector deltas (Q0, A0, S, Gamma) bridging deception tension into the Qualia simulation.
+   - Strict 1-Page A4 Merciless Cross-Examination Report with formal APA 7 referencing and multi-dimensional societal impact matrix (Democratic, Economic, Trust, Legal, Geopolitical).
+   - Dynamic Projected Research Value ROI formula.
+   - Immutable database persistence in `forensic_governance_audits` table.
+   - Pre-loaded 5,000-character exemplars (Russia-Ukraine conflict evasion, corporate governance fraud, public health crisis).
+   - Standalone print-optimized 1-page A4 HTML renderer (`@page { size: A4 portrait; margin: 12mm 15mm; }`).
+
+2. `app/main.py` & `app/models.py`:
+   - Added `ForensicAuditRequest` Pydantic model.
+   - Mounted API routes:
+     * `POST /api/qualia/forensic-audit`
+     * `GET /api/qualia/forensic-audit/exemplars`
+     * `GET /api/qualia/forensic-audit/history`
+     * `GET /api/qualia/forensic-audit/{audit_ref}/report` (HTML print sheet)
+
+3. `templates/qualia_console.html`:
+   - Embedded dedicated "Forensic Governance & Courtroom Deception Audit" suite in the main Qualia Lab.
+   - Interactive 5,000-character input with live character counter badge.
+   - Quick-load exemplar buttons (Russia-Ukraine War, Corporate Governance, Crisis Management).
+   - Real-time result rendering: Deception Index gauge, Truth-Gradient, Noise ratio, Research ROI %, SCAN/CBCA marker distribution cards, Decoupled reality panel, and 1-click A4 print preview.
+
+**State at close:** Verified via TestClient and live server probe on :8099 (HTTP 200 across all endpoints). Deception Index, noise decoupling, and APA 7 report rendering verified end-to-end.
