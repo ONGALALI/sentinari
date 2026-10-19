@@ -1970,3 +1970,22 @@ Also observed and worked around this session: the qualia simulate endpoint hit t
 - The "two run_smi processes" seen in the re-check (24040 + 10384) were **nohup parent + uvicorn child** (10384's parent IS 24040) — ONE server, not two. The genuinely duplicate second core earlier (16736 vs 26368, independent parents) was real and was killed. Cleanup rule for next session: kill by ownership (parent→child chain), not by command-line match, which catches the innocent pair.
 - Second live load (candidate 5325, "Chess State-Space Complexity As Applied To AI And Law"): state=done in 13.7 s, ingested=1, document 14918 stored; 1 sub-item failed inside the batch (honest per-file accounting, not a lock failure).
 - Single core confirmed on 8099 (uvicorn child 10384, healthy, fix compiled in).
+
+## §83 — CLOUD RUN PLAYGROUND RESOLUTION & GITHUB PAGES SHOWROOM DEPLOYMENT — 2026-10-19
+
+**Owner asks / reports:**
+1. "Gemini I still get a server error when logged in to the playground?"
+2. "Is it possible to create a similar landing page on GitHub?"
+
+**Resolution — Cloud Run Playground Error:**
+- Diagnostic revealed `/api/playground/config` returned 500 (`NameError: name '_load_learning_library_progress_snapshot' is not defined`) on the cloud instance because Cloud Run had not been rebuilt since commit `a31604b`.
+- Restored Cloud Build and Artifact Registry IAM permissions for service accounts `250830594433-compute@developer.gserviceaccount.com` and `250830594433@cloudbuild.gserviceaccount.com`.
+- Built and deployed revision `sentinari-core-00033-nn2` with 100% traffic allocation. Verified `HTTP 200 OK` across both Cloud Run and local (:8099) endpoints.
+
+**Built — GitHub Pages Public Landing Page:**
+- Created `scripts/build_github_pages.py` which compiles `templates/portal_landing.html` into a standalone, ultra-fast `docs/index.html` (62 KB).
+- Replaced all relative UI, API, Reports, and Media URLs with direct links to the live Google Cloud Run production service (`https://sentinari-core-250830594433.us-central1.run.app`).
+- Configured dynamic telemetry fetching from Cloud Run with static fallbacks (233+ Discoveries, 15,041+ Curated Works, 1,280+ Analyzed Datasets).
+- Updated `README.md` with top-level interactive showroom badges linking to GitHub Pages (`https://rodenbecker.github.io/sentinari/`) and production Cloud Run.
+
+**State at close:** Local server up on :8099, Cloud Run healthy on `sentinari-core-00033-nn2`, GitHub Pages files compiled in `docs/index.html` ready for commit and branch activation.
