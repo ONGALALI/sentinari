@@ -28,8 +28,13 @@ __pycache__/
 *.gz
 *.mp4
 !constitution/Sentinari_10_Minute_Presentation.mp4
+!constitution/Sentinari_Complete_Workspace_Walkthrough.mp4
+!constitution/walkthrough_assets/section_*.mp4
 constitution/video_assets/*.mp3
 constitution/video_assets/*.mp4
+constitution/walkthrough_assets/*.mp3
+constitution/walkthrough_assets/slide_*.mp4
+constitution/walkthrough_assets/concat_*.txt
 *.bin
 *.pt
 *.safetensors
