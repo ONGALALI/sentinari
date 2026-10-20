@@ -2108,5 +2108,32 @@ Also observed and worked around this session: the qualia simulate endpoint hit t
    - Exposed endpoints in `app/main.py`: `GET /schematic` and `GET /architecture-schematic`.
    - Embedded interactive schematic blueprint card `#schematic` in `templates/portal_landing.html` and compiled into `docs/index.html` for GitHub Pages.
 
+## §87 — GOOGLE BILLING AUDIT & OBSOLETE PROJECT DELETION — 2026-10-20
+
+**User Requests:**
+1. Fix Google Cloud Billing ID credentials for `seninari` project to unlock startup funding/credits.
+2. Delete/shut down obsolete early project `responsible-intelligence` ("Responsible Intelligence") linked to the account.
+
+**Actions Taken & Findings:**
+1. **Audited Active Projects:**
+   - Identified obsolete project `responsible-intelligence` (Project Number `726678530301`). Verified zero Cloud Run services and zero storage buckets.
+   - Successfully deleted via `gcloud projects delete responsible-intelligence --quiet`.
+   - Verified active projects list: `seninari` (Project Number `250830594433`) is now the sole active Sentinari production project.
+
+2. **Audited Google Cloud Billing Accounts:**
+   - Account 1: `01E26C-AB3CF8-573799` (Open: True, Currency: USD)
+     * Display Name: `https://sentinari-core-250830594433.us-central1.run.app`
+     * Linked Project: `seninari` (Billing Enabled: True)
+   - Account 2: `014D11-796E89-0DE2D0` (Open: True, Currency: USD)
+     * Display Name: `My Billing Account`
+     * Linked Projects: 0
+   - Account 3: `0135C5-25D158-8AC3AC` (Open: False, Hackathons)
+
+3. **Resolved Credential Confusion for Google for Startups:**
+   - Project ID to submit: `seninari`
+   - Project Number: `250830594433`
+   - Active Billing Account ID: `01E26C-AB3CF8-573799` (clarified that the alphanumeric ID is required, not the URL display name).
+
+
 
 
