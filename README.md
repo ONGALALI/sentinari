@@ -1,3 +1,5 @@
+View showroom at https://ongalali.github.io/sentinari/ 
+
 # Sentinari
 
 Sentinari is a local-first sovereign knowledge and research platform built around a private SQLite knowledge library, local search, and a strict constitutional firewall. The app is designed to remain operational without cloud inference, without remote API dependencies, and without silently routing work to external providers.
