@@ -291,7 +291,64 @@ _PAPER_CSS = """
   .top-btn:hover { background: #f8fafc; border-color: #94a3b8; }
   .top-btn.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
   .foot { font-size: 11.5px; color: #94a3b8; margin-top: 20px; text-align: center; line-height: 1.7; }
-  @media print { body { background: #fff; } .wrap { max-width: none; } .card { box-shadow: none; break-inside: avoid; } .chartbox { height: 290px; } .top-actions { display: none; } }
+  /* ==========================================================================
+     DRM & INTELLECTUAL PROPERTY ANTI-SCRAPING SHIELD (Dr. Pierre C. Wepener)
+     ========================================================================== */
+  .code-block, pre, code, .math-block, .eng-step-card, .katex-display, #prototypeCodeBlock, #matlabCodeBlock {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+  }
+
+  @media print {
+    body { background: #fff !important; position: relative !important; }
+    .wrap { max-width: none !important; }
+    .card { box-shadow: none !important; break-inside: avoid !important; }
+    .chartbox { height: 290px !important; }
+    .top-actions { display: none !important; }
+    
+    /* Security Watermark on Every Printed Page */
+    body::before {
+      content: "CONFIDENTIAL & PROPRIETARY — DR. PIERRE C. WEPENER — STRICTLY FORBIDDEN TO REPRODUCE OR SCRAPE";
+      position: fixed;
+      top: 38%;
+      left: 2%;
+      width: 96%;
+      font-size: 20pt;
+      color: rgba(220, 38, 38, 0.16);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transform: rotate(-32deg);
+      text-align: center;
+      z-index: 999999;
+      pointer-events: none;
+    }
+
+    /* Redact Raw Simulation Code Blocks on PDF Print */
+    pre, .code-block, #prototypeCodeBlock, #matlabCodeBlock {
+      filter: blur(5px) !important;
+      opacity: 0.15 !important;
+      max-height: 120px !important;
+      overflow: hidden !important;
+    }
+
+    .print-drm-banner {
+      display: block !important;
+      background: #fef2f2 !important;
+      border: 2px dashed #dc2626 !important;
+      color: #991b1b !important;
+      padding: 12px 16px !important;
+      border-radius: 8px !important;
+      font-weight: 700 !important;
+      font-size: 11pt !important;
+      margin: 12px 0 !important;
+      text-align: center !important;
+    }
+  }
+
+  .print-drm-banner { display: none; }
 """
 
 
@@ -2543,8 +2600,15 @@ function copyActiveCode() {{
 function copyPrototypeCode() {{
   const el = document.getElementById('prototypeCodeBlock');
   if (el) {{
-    navigator.clipboard.writeText(el.textContent).then(() => {{
-      alert('Prototype Python code copied to clipboard!');
+    const notice = 
+      "# ==========================================================================\n" +
+      "# PROPRIETARY & CONFIDENTIAL INTELLECTUAL PROPERTY\n" +
+      "# Conceived, Researched & Engineered by Dr. Pierre C. Wepener\n" +
+      "# University of Johannesburg | All Rights Reserved\n" +
+      "# Commercial extraction, unauthorized redistribution or scraping prohibited.\n" +
+      "# ==========================================================================\n\n";
+    navigator.clipboard.writeText(notice + el.textContent).then(() => {{
+      alert('🔒 Copyright Protected: Python Prototype copied to clipboard with Dr. Pierre C. Wepener IP Notice.');
     }});
   }}
 }}
@@ -2552,11 +2616,29 @@ function copyPrototypeCode() {{
 function copyMatlabCode() {{
   const el = document.getElementById('matlabCodeBlock');
   if (el) {{
-    navigator.clipboard.writeText(el.textContent).then(() => {{
-      alert('MATLAB Simulation model code copied to clipboard!');
+    const notice = 
+      "% ==========================================================================\n" +
+      "% PROPRIETARY & CONFIDENTIAL INTELLECTUAL PROPERTY\n" +
+      "% Conceived, Researched & Engineered by Dr. Pierre C. Wepener\n" +
+      "% University of Johannesburg | All Rights Reserved\n" +
+      "% Commercial extraction, unauthorized redistribution or scraping prohibited.\n" +
+      "% ==========================================================================\n\n";
+    navigator.clipboard.writeText(notice + el.textContent).then(() => {{
+      alert('🔒 Copyright Protected: MATLAB Model copied to clipboard with Dr. Pierre C. Wepener IP Notice.');
     }});
   }}
 }}
+
+// Anti-Scraping Context Menu & Keydown Guard on Code Blocks
+document.addEventListener('DOMContentLoaded', () => {{
+  const blocks = document.querySelectorAll('#prototypeCodeBlock, #matlabCodeBlock, .eng-step-card');
+  blocks.forEach(b => {{
+    b.addEventListener('contextmenu', e => {{
+      e.preventDefault();
+      alert('🔒 Intellectual Property Notice: Right-click inspection is disabled on proprietary algorithms.');
+    }});
+  }});
+}});
 
 
 // Interactive Educational Pop-up Tag Manager

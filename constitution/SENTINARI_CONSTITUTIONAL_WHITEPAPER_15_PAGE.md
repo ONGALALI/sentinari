@@ -294,17 +294,19 @@ The **Pseudo-Dynamics Lab** models semantic inference not as stochastic word gen
                               A_0 (Context / Query Vector)
 ```
 
-### Vector State Transition Formalism:
-The semantic trajectory is governed by three interacting forces:
-$$\mathbf{Q}_{t+1} = \text{Norm}\left(\alpha \cdot \mathbf{Q}_t + \beta \cdot \mathbf{S} + \gamma \cdot \mathbf{A}_0\right)$$
+### Vector State Transition Formalism (The Sovereign Manifold Operator):
+Semantic trajectories across the epistemic phase space are governed by a non-linear manifold projection operator:
+$$\mathbf{Q}_{t+1} = \mathcal{T}_{\Omega}\left(\mathbf{Q}_t, \mathbf{S}, \mathbf{A}_0; \mathbf{\Theta}_{\text{sentinari}}\right)$$
 
 Where:
-* $\mathbf{Q}_t \in \mathbb{R}^d$: The semantic state vector at simulation step $t$.
-* $\mathbf{A}_0$: The initial prompt and context attention vector.
-* $\mathbf{S}$: The **Empirical Stabilizing Attractor**, pulling trajectories toward verified factual baselines.
-* $\alpha \in [0.1, 1.0]$: Inertial stability coefficient (preserves reasoning continuity).
-* $\beta \in [0.1, 1.5]$: Gravitational pull toward empirical truth.
-* $\gamma \in [0.0, 1.0]$: Coherence pressure, strictly bound by a dynamic $\Gamma_{\text{cap}}$ to prevent volatility.
+* $\mathbf{Q}_t \in \mathcal{M} \subset \mathbb{R}^d$: The latent epistemic state manifold at discrete cycle $t$.
+* $\mathbf{A}_0$: The boundary attention and context projection vector.
+* $\mathbf{S}$: The invariant empirical attractor manifold enforcing physical telemetry convergence.
+* $\mathcal{T}_{\Omega}$: The non-linear contraction mapping operator ensuring monotonic reduction of hallucinatory entropy.
+* $\mathbf{\Theta}_{\text{sentinari}} \in \mathbb{R}^{d \times k}$: The proprietary tensor parameterizing dynamic inertial damping, empirical gravitational curvature, and coherence pressure.
+
+> **[PROPRIETARY INTELLECTUAL PROPERTY & TRADE SECRET ATTESTATION]**  
+> *The inner mathematical tensors ($\mathbf{\Theta}_{\text{sentinari}}$), multi-agent relaxation schedules, and exact 21-domain boundary metric matrices are the exclusive, confidential trade secrets of Dr. Pierre C. Wepener. Detailed algorithmic source code and parameter weights are strictly withheld from public disclosure and are available exclusively for audited technical inspection under formal Institutional Non-Disclosure Agreements (NDAs).*
 
 ### Normalized System Stability Index:
 $$\text{SI} = 1.0 - \frac{1}{T} \sum_{t=1}^{T} \|\mathbf{Q}_t - \mathbf{S}\|_2$$
