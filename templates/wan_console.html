@@ -587,6 +587,9 @@
         <a href="/ui/learning">Learning Index<small>HLE & SWE-Bench verified</small></a>
         <a href="/ui/chat">Sovereign Chat<small>Grounded dialectic research</small></a>
         <a href="/ui/playground/wan" class="active">Video Studio<small>Workspace tours & neural narration</small></a>
+        <a href="/ui/ace-step">ACE-Step 1.5 Music<small>AI soundscapes & music foundation</small></a>
+        <a href="/ui/wan21">Wan 2.1 T2V-14B<small>14B cinematic video diffusion</small></a>
+        <a href="/ui/help">Help Manual<small>Official operating reference</small></a>
         <a href="/ui/admin">Admin Console<small>Governance & memory state</small></a>
       </nav>
       <div style="margin-top:auto;padding-top:14px;border-top:1px solid var(--card-border);font-size:11px;color:#64748b;">
@@ -719,13 +722,27 @@
               <div class="row" style="align-items:center;margin-bottom:10px;">
                 <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
                   <input id="chkAmbientMusic" type="checkbox" checked style="width:auto;">
-                  Play Soft Ambient Music (ambient_discovery.mp3)
+                  Play Ambient Soundscape
                 </label>
                 <div style="flex:1;display:flex;align-items:center;gap:8px;margin-left:12px;">
                   <span style="font-size:11px;color:var(--text-muted);">Vol:</span>
                   <input id="rangeAmbientVol" type="range" min="0" max="0.5" step="0.02" value="0.12" style="flex:1;">
                   <span id="lblAmbientVol" style="font-size:11px;width:30px;">12%</span>
                 </div>
+              </div>
+
+              <!-- Track Selection and Upload -->
+              <div class="row" style="align-items:center;gap:8px;margin-bottom:12px;">
+                <label for="selAmbientTrack" style="font-size:12px;color:var(--text-muted);white-space:nowrap;margin:0;">Track:</label>
+                <select id="selAmbientTrack" style="flex:1;font-size:12px;padding:6px 10px;border-radius:6px;background:var(--bg-canvas);color:var(--text-main);border:1px solid var(--border-color);outline:none;">
+                  <option value="ambient_discovery.mp3">Ambient Discovery (Synthesizer Calm)</option>
+                  <option value="ambient_epistemic_flow.mp3">Epistemic Flow (Am9/Fmaj7 Drone)</option>
+                  <option value="ambient_sovereign_clarity.mp3">Sovereign Clarity (Dmaj9 Space)</option>
+                </select>
+                <input type="file" id="musicFileInput" accept=".mp3,.wav,.m4a,.ogg" style="display:none;">
+                <button type="button" id="btnUploadMusic" class="btn secondary" style="font-size:11px;padding:6px 10px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;" title="Upload custom audio file from your computer">
+                  <span>📁</span> Upload Track
+                </button>
               </div>
 
               <div class="field" style="margin-top:8px;">
@@ -1987,6 +2004,7 @@
         filename_hint: "sentinari_workspace_tour",
         include_ambient_music: byId('chkAmbientMusic').checked,
         ambient_music_volume: parseFloat(byId('rangeAmbientVol').value) || 0.12,
+        ambient_track: byId('selAmbientTrack') ? byId('selAmbientTrack').value : "ambient_discovery.mp3",
         include_intro: byId('chkIncludeIntro').checked,
         intro_presenter: byId('introPresenter').value.trim(),
         scenes: scenes.map(s => ({
@@ -2144,6 +2162,92 @@
       audioAmbient.volume = v;
     });
 
+    // Soundscape Track Management & Audio Preview
+    async function refreshMusicTracks(selectedId = null) {
+      try {
+        const res = await fetch('/api/playground/video/music-tracks');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sel = byId('selAmbientTrack');
+        if (!sel || !data.tracks) return;
+
+        const currentVal = selectedId || sel.value || "ambient_discovery.mp3";
+        sel.innerHTML = '';
+        data.tracks.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.filename;
+          opt.textContent = `${t.title} ${t.is_custom ? '(Custom)' : ''}`;
+          sel.appendChild(opt);
+        });
+
+        if (Array.from(sel.options).some(o => o.value === currentVal)) {
+          sel.value = currentVal;
+        } else if (sel.options.length > 0) {
+          sel.selectedIndex = 0;
+        }
+        updateAmbientAudioSrc();
+      } catch (e) {
+        console.warn("Could not refresh music tracks:", e);
+      }
+    }
+
+    function updateAmbientAudioSrc() {
+      const sel = byId('selAmbientTrack');
+      if (!sel) return;
+      const trackFile = sel.value || "ambient_discovery.mp3";
+      const newSrc = `/api/playground/video/file/${encodeURIComponent(trackFile)}`;
+      if (!audioAmbient.src.endsWith(encodeURIComponent(trackFile)) && !audioAmbient.src.endsWith(trackFile)) {
+        const wasPlaying = isPlaying && !audioAmbient.paused;
+        audioAmbient.src = newSrc;
+        audioAmbient.load();
+        if (wasPlaying && byId('chkAmbientMusic').checked) {
+          audioAmbient.play().catch(() => {});
+        }
+      }
+    }
+
+    const selAmbientTrack = byId('selAmbientTrack');
+    if (selAmbientTrack) {
+      selAmbientTrack.addEventListener('change', updateAmbientAudioSrc);
+    }
+
+    const btnUploadMusic = byId('btnUploadMusic');
+    const musicFileInput = byId('musicFileInput');
+    if (btnUploadMusic && musicFileInput) {
+      btnUploadMusic.addEventListener('click', () => musicFileInput.click());
+
+      musicFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const origHtml = btnUploadMusic.innerHTML;
+        btnUploadMusic.innerHTML = '<span>⏳</span> Uploading...';
+        btnUploadMusic.disabled = true;
+
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const res = await fetch('/api/playground/video/upload-music', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            throw new Error(data.detail || 'Upload failed');
+          }
+          await refreshMusicTracks(data.filename);
+          updateAmbientAudioSrc();
+          alert(`Track "${data.title}" uploaded and selected!`);
+        } catch (err) {
+          alert(`Failed to upload track: ${err.message}`);
+        } finally {
+          btnUploadMusic.innerHTML = origHtml;
+          btnUploadMusic.disabled = false;
+          e.target.value = '';
+        }
+      });
+    }
+
     byId('btnQuickRecord').addEventListener('click', startQuickBrowserRecord);
     byId('btnRenderMp4').addEventListener('click', submitServerMp4Render);
 
@@ -2270,6 +2374,7 @@
 
     // Boot Studio
     initDefaultScenes();
+    refreshMusicTracks();
 
     // Check for ?workspace=... or #...
     const urlParams = new URLSearchParams(window.location.search);

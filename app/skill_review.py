@@ -12,8 +12,9 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+from .security import is_architect_authorized
 from pydantic import BaseModel, Field
 
 from .config import get_project_root
@@ -597,8 +598,13 @@ def preview_candidate(candidate_id: int) -> dict[str, Any]:
 
 
 @router.get("/candidates/{candidate_id}/download")
-def download_candidate(candidate_id: int):
+def download_candidate(candidate_id: int, request: Request):
     """Download a candidate's stored artifact as .pdf (real PDF when we have one)."""
+    if not is_architect_authorized(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Direct candidate dataset download is restricted to the Chief Architect (Dr. Pierre C. Wepener). Please read this dataset online via the in-system Sovereign E-Book reader.",
+        )
     _ensure_schema()
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM skill_review_candidates WHERE id = ?", (candidate_id,)).fetchone()
@@ -628,8 +634,14 @@ def download_candidate(candidate_id: int):
 
 
 @router.get("/documents/{document_id}/preview")
-def preview_document(document_id: int) -> dict[str, Any]:
-    """HTML preview of a loaded dataset: text chunks rendered as HTML."""
+def preview_document(
+    document_id: int,
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=12, ge=1, le=100),
+    all_chunks: int = Query(default=0),
+) -> dict[str, Any]:
+    """HTML / E-Book preview of a loaded dataset: text chunks rendered for the in-system reader."""
     from html import escape
 
     with library_connection("gemma") as conn:
@@ -639,19 +651,31 @@ def preview_document(document_id: int) -> dict[str, Any]:
         ).fetchone()
         if doc is None:
             raise HTTPException(status_code=404, detail="Document not found in the knowledge library.")
-        chunk_rows = conn.execute(
-            "SELECT chunk_index, content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT 12",
-            (document_id,),
-        ).fetchall()
+        
+        total_chunks = _document_chunk_total(document_id)
+        if all_chunks:
+            chunk_rows = conn.execute(
+                "SELECT chunk_index, content FROM chunks WHERE document_id = ? ORDER BY chunk_index",
+                (document_id,),
+            ).fetchall()
+        else:
+            offset = max(0, (page - 1) * page_size)
+            chunk_rows = conn.execute(
+                "SELECT chunk_index, content FROM chunks WHERE document_id = ? ORDER BY chunk_index LIMIT ? OFFSET ?",
+                (document_id, page_size, offset),
+            ).fetchall()
+
     chunks = [
         {
             "index": int(row["chunk_index"]),
-            "text": str(row["content"] or "")[:2400],
+            "text": str(row["content"] or "")[:4000],
         }
         for row in chunk_rows
     ]
+    is_admin = is_architect_authorized(request)
     return {
         "ok": True,
+        "is_admin": is_admin,
         "document": {
             "id": int(doc["id"]),
             "title": str(doc["title"] or "Untitled"),
@@ -662,15 +686,24 @@ def preview_document(document_id: int) -> dict[str, Any]:
             "authors": str(doc["authors"] or ""),
             "published_date": str(doc["published_date"] or ""),
         },
-        "chunk_total": _document_chunk_total(document_id),
+        "chunk_total": total_chunks,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total_chunks + page_size - 1) // page_size) if total_chunks else 1,
         "preview_chunks": chunks,
-        "truncated": _document_chunk_total(document_id) > len(chunks),
+        "all_chunks_loaded": bool(all_chunks) or len(chunks) >= total_chunks,
+        "truncated": total_chunks > len(chunks) and not all_chunks,
     }
 
 
 @router.get("/documents/{document_id}/download")
-def download_document(document_id: int):
+def download_document(document_id: int, request: Request):
     """Download the stored dataset artifact as a real .pdf when available."""
+    if not is_architect_authorized(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Direct document PDF download is restricted to the Chief Architect (Dr. Pierre C. Wepener). Please read this dataset online via the in-system Sovereign E-Book reader.",
+        )
     with library_connection("gemma") as conn:
         doc = conn.execute(
             "SELECT title, source_path, source_type FROM documents WHERE id = ?",

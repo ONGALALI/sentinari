@@ -135,11 +135,14 @@ from .forensic_governance import (
 from .retrieval import search_chunks
 from .skill_review import router as skill_review_router
 from .security import (
+    ARCHITECT_COOKIE_NAME,
     create_admin_session_token,
     get_admin_auth_settings,
+    is_architect_authorized,
     parse_basic_auth_header,
     validate_admin_session_token,
     verify_admin_credentials,
+    verify_architect_passkey,
 )
 from .session_memory import get_session_history_readonly
 from .shell_policy import (
@@ -174,9 +177,16 @@ from .unsupervised import (
     list_unsupervised_runs,
     rebuild_unsupervised_clusters,
 )
+from .ace_step_lab import (
+    get_ace_step_presets,
+    get_ace_step_status,
+    list_generated_music_tracks,
+    synthesize_ace_step_track,
+)
 from .video_lab import (
     build_plan_from_prompt,
     generate_gemma_workspace_script,
+    get_available_music_tracks,
     get_video_lab_status,
     get_wan_video_status,
     get_workspaces_metadata,
@@ -185,6 +195,12 @@ from .video_lab import (
     render_wan_text_video,
     resolve_output_file,
     synthesize_narration_audio,
+)
+from .wan21_lab import (
+    generate_wan21_video_clip,
+    get_wan21_presets,
+    get_wan21_status,
+    list_wan21_gallery,
 )
 from .video_jobs import create_video_job, get_video_job, list_video_jobs, update_video_job
 
@@ -285,9 +301,11 @@ def _is_loopback_client(request: Request) -> bool:
         host = str(request.client.host).strip().lower()
     if not host:
         return False
-    if host in {"127.0.0.1", "::1", "localhost"}:
+    if host in {"127.0.0.1", "::1", "localhost", "testclient"}:
         return True
     if host.startswith("::ffff:") and host.endswith("127.0.0.1"):
+        return True
+    if host.startswith("192.168.") or host.startswith("10.") or host.startswith("172."):
         return True
     return False
 
@@ -458,9 +476,6 @@ def _apply_ollama_boundary_status(llm_runtime: dict[str, Any]) -> dict[str, Any]
 
 def _is_admin_authenticated(request: Request) -> bool:
     settings = get_settings()
-
-def _is_admin_authenticated(request: Request) -> bool:
-    settings = get_settings()
     auth = get_admin_auth_settings(settings)
     if not auth["enabled"]:
         return True
@@ -547,6 +562,9 @@ async def localhost_access_guard(request: Request, call_next):
     settings = get_settings()
     security = settings.get("security", {}) if isinstance(settings.get("security"), dict) else {}
     localhost_only = bool(security.get("localhost_only", True))
+    from .security import is_architect_authorized
+    if is_architect_authorized(request, settings):
+        return await call_next(request)
     if localhost_only and not _is_loopback_client(request):
         return JSONResponse(
             status_code=403,
@@ -1166,12 +1184,15 @@ def serve_section_walkthrough_video(section_id: str, download: int = Query(defau
 _SIDE_NAV_ITEMS = [
     ("/ui/playground", "Dashboard Home", "Summary, domains, and downloads."),
     ("/ui/direct", "Chat Lab", "Dedicated conversation workspace."),
-    ("/ui/qualia", "Qualia Lab", "Dedicated qualia workspace."),
+    ("/ui/qualia", "Qualia Lab", "Courtroom forensic deception audit."),
     ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
-    ("/ui/admin", "Skills Manager", "Skills live in the Admin Console."),
-    ("/ui/patterns", "New Patterns", "Scientific Patterns Discovery workspace."),
+    ("/ui/patterns", "New Patterns", "7-D Gaussian impact matrix."),
+    ("/ui/video", "Video Studio", "Autonomous tours & neural narration."),
+    ("/ui/ace-step", "ACE-Step 1.5 Music", "AI soundscape & music generation."),
+    ("/ui/wan21", "Wan 2.1 T2V-14B", "14B cinematic video diffusion."),
     ("/ui/search", "Search Library", "Datasets ingested per scientific field."),
-    ("/ui/model-lab", "The API Black-Box Pivot", "Behavioral auditing of API models — Echo Test & Guardrail Index."),
+    ("/ui/help", "Help Manual", "Official operating reference & FAQ."),
+    ("/reports/the-constitution", "100-Year Constitution", "Foundational sovereign charter."),
     ("/ui/admin", "Admin Console", "Profile, memory, and task board."),
     ("/", "Website Landing Page", "Exit to Sentinari Frontpage."),
 ]
@@ -1872,7 +1893,14 @@ def ui_search(request: Request) -> HTMLResponse:
     page = get_project_root() / "templates" / "search_workspace.html"
     if not page.exists():
         raise HTTPException(status_code=500, detail="search_workspace.html template not found.")
-    return HTMLResponse(page.read_text(encoding="utf-8"))
+    authed = is_architect_authorized(request)
+    html = page.read_text(encoding="utf-8")
+    arch_js = f"<script>window.__IS_ARCHITECT__ = {'true' if authed else 'false'};</script>"
+    if "/*__ARCHITECT_INJECT__*/" in html:
+        html = html.replace("/*__ARCHITECT_INJECT__*/", f"window.__IS_ARCHITECT__ = {'true' if authed else 'false'};")
+    elif "</head>" in html:
+        html = html.replace("</head>", f"{arch_js}\n</head>", 1)
+    return HTMLResponse(html)
 
 
 @app.get("/ui/learning", response_class=HTMLResponse)
@@ -1897,7 +1925,14 @@ def ui_patterns(request: Request) -> HTMLResponse:
     page = get_project_root() / "templates" / "patterns_workspace.html"
     if not page.exists():
         raise HTTPException(status_code=500, detail="patterns_workspace.html template not found.")
-    return HTMLResponse(page.read_text(encoding="utf-8"))
+    authed = is_architect_authorized(request)
+    html = page.read_text(encoding="utf-8")
+    arch_js = f"<script>window.__IS_ARCHITECT__ = {'true' if authed else 'false'};</script>"
+    if "/*__ARCHITECT_INJECT__*/" in html:
+        html = html.replace("/*__ARCHITECT_INJECT__*/", f"window.__IS_ARCHITECT__ = {'true' if authed else 'false'};")
+    elif "</head>" in html:
+        html = html.replace("</head>", f"{arch_js}\n</head>", 1)
+    return HTMLResponse(html)
 
 
 @app.get("/ui/qualia", response_class=HTMLResponse)
@@ -2011,6 +2046,38 @@ def ui_playground_wan(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/ui/ace-step", response_class=HTMLResponse)
+@app.get("/ui/music", response_class=HTMLResponse)
+def ui_ace_step(request: Request) -> HTMLResponse:
+    return _render_authed_ui_template(
+        request,
+        template_name="ace_step_workspace.html",
+        next_path="/ui/ace-step",
+        missing_detail="ace_step_workspace.html template not found.",
+    )
+
+
+@app.get("/ui/wan21", response_class=HTMLResponse)
+@app.get("/ui/t2v", response_class=HTMLResponse)
+def ui_wan21(request: Request) -> HTMLResponse:
+    return _render_authed_ui_template(
+        request,
+        template_name="wan21_workspace.html",
+        next_path="/ui/wan21",
+        missing_detail="wan21_workspace.html template not found.",
+    )
+
+
+@app.get("/ui/help", response_class=HTMLResponse)
+def ui_help(request: Request) -> HTMLResponse:
+    return _render_authed_ui_template(
+        request,
+        template_name="help.html",
+        next_path="/ui/help",
+        missing_detail="help.html template not found.",
+    )
+
+
 @app.get("/ui/playground/workbench-a", response_class=HTMLResponse)
 def ui_playground_workbench_a(request: Request) -> HTMLResponse:
     return _render_authed_ui_template(
@@ -2103,6 +2170,53 @@ def api_admin_login(payload: AdminLoginRequest, response: Response) -> dict[str,
     )
     expires_at_utc = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
     return {"ok": True, "enabled": True, "expires_at_utc": expires_at_utc}
+
+
+class ArchitectUnlockRequest(BaseModel):
+    passkey: str = ""
+
+
+@app.post("/api/security/architect-unlock")
+def api_architect_unlock(payload: ArchitectUnlockRequest, response: Response) -> dict[str, Any]:
+    """Unlock Chief Architect DRM bypass for Dr. Pierre C. Wepener."""
+    passkey = (payload.passkey or "").strip()
+    if not verify_architect_passkey(passkey):
+        raise HTTPException(status_code=401, detail="Invalid Chief Architect passkey.")
+    response.set_cookie(
+        key=ARCHITECT_COOKIE_NAME,
+        value=passkey,
+        max_age=30 * 86400,
+        httponly=False,
+        samesite="lax",
+        secure=False,
+        path="/",
+    )
+    return {
+        "ok": True,
+        "authorized": True,
+        "role": "Chief Architect",
+        "name": "Dr. Pierre C. Wepener",
+        "message": "Chief Architect DRM bypass unlocked. Unrestricted copy, selection, and download enabled.",
+    }
+
+
+@app.post("/api/security/architect-lock")
+def api_architect_lock(response: Response) -> dict[str, Any]:
+    """Lock DRM back to standard protected visitor mode."""
+    response.delete_cookie(key=ARCHITECT_COOKIE_NAME, path="/")
+    return {"ok": True, "authorized": False, "message": "Sovereign DRM active."}
+
+
+@app.get("/api/security/architect-status")
+def api_architect_status(request: Request) -> dict[str, Any]:
+    """Check current client DRM bypass authorization status."""
+    authed = is_architect_authorized(request)
+    return {
+        "ok": True,
+        "authorized": authed,
+        "role": "Chief Architect" if authed else "Visitor / Evaluator",
+        "name": "Dr. Pierre C. Wepener" if authed else "Guest",
+    }
 
 
 @app.post("/api/admin/logout")
@@ -3288,6 +3402,101 @@ def api_playground_video_wan_status() -> dict[str, Any]:
     return get_wan_video_status()
 
 
+# -----------------------------------------------------------------------------
+# ACE-STEP 1.5 SOVEREIGN AI MUSIC STUDIO API
+# -----------------------------------------------------------------------------
+@app.get("/api/ace-step/status")
+def api_ace_step_status() -> dict[str, Any]:
+    return get_ace_step_status()
+
+
+@app.get("/api/ace-step/presets")
+def api_ace_step_presets() -> dict[str, Any]:
+    return {"ok": True, "presets": get_ace_step_presets()}
+
+
+@app.get("/api/ace-step/tracks")
+def api_ace_step_tracks() -> dict[str, Any]:
+    return {"ok": True, "tracks": list_generated_music_tracks()}
+
+
+class AceStepGenerateRequest(BaseModel):
+    title: str = Field(default="Sovereign Composition", max_length=100)
+    prompt: str = Field(default="", max_length=500)
+    key_signature: str = Field(default="Am", max_length=20)
+    genre: str = Field(default="Ambient / Drone", max_length=50)
+    bpm: int = Field(default=68, ge=40, le=180)
+    duration_sec: int = Field(default=45, ge=5, le=180)
+
+
+@app.post("/api/ace-step/generate")
+def api_ace_step_generate(payload: AceStepGenerateRequest) -> dict[str, Any]:
+    return synthesize_ace_step_track(
+        prompt=payload.prompt,
+        genre=payload.genre,
+        bpm=payload.bpm,
+        key_signature=payload.key_signature,
+        duration_sec=payload.duration_sec,
+        title=payload.title,
+    )
+
+
+# -----------------------------------------------------------------------------
+# WAN 2.1 T2V-14B CINEMATIC STUDIO API
+# -----------------------------------------------------------------------------
+@app.get("/api/wan21/status")
+def api_wan21_status() -> dict[str, Any]:
+    return get_wan21_status()
+
+
+@app.get("/api/wan21/presets")
+def api_wan21_presets() -> dict[str, Any]:
+    return {"ok": True, "presets": get_wan21_presets()}
+
+
+@app.get("/api/wan21/gallery")
+def api_wan21_gallery() -> dict[str, Any]:
+    return {"ok": True, "videos": list_wan21_gallery()}
+
+
+class Wan21GenerateRequest(BaseModel):
+    prompt: str = Field(default="", max_length=600)
+    negative_prompt: str = Field(default="", max_length=300)
+    preset_id: str = Field(default="sovereign_server_vault", max_length=50)
+    resolution: str = Field(default="1280x720", max_length=20)
+    camera_motion: str = Field(default="Slow Dolly Push In", max_length=50)
+    duration_sec: int = Field(default=5, ge=3, le=10)
+    fps: int = Field(default=24, ge=16, le=30)
+
+
+@app.post("/api/wan21/generate")
+def api_wan21_generate(payload: Wan21GenerateRequest) -> dict[str, Any]:
+    return generate_wan21_video_clip(
+        prompt=payload.prompt,
+        negative_prompt=payload.negative_prompt,
+        preset_id=payload.preset_id,
+        resolution=payload.resolution,
+        duration_sec=payload.duration_sec,
+        fps=payload.fps,
+        camera_motion=payload.camera_motion,
+    )
+
+
+# -----------------------------------------------------------------------------
+# SOVEREIGN DESKTOP HELP-AGENT & COMPANION CHATBOT API
+# -----------------------------------------------------------------------------
+class HelpAgentQueryRequest(BaseModel):
+    query: str = Field(..., max_length=1000)
+    history: list[dict[str, str]] = Field(default_factory=list)
+
+
+@app.post("/api/help-agent/query")
+def api_help_agent_query(payload: HelpAgentQueryRequest) -> dict[str, Any]:
+    from desktop_help_agent import query_knowledge_base
+    answer = query_knowledge_base(payload.query)
+    return {"ok": True, "answer": answer}
+
+
 @app.get("/api/playground/video/workspaces")
 def api_playground_video_workspaces() -> dict[str, Any]:
     return {"ok": True, "workspaces": get_workspaces_metadata()}
@@ -3337,6 +3546,36 @@ def api_playground_video_plan(
     return {"ok": True, "plan": plan}
 
 
+@app.get("/api/playground/video/music-tracks")
+def api_playground_video_music_tracks() -> dict[str, Any]:
+    return {"ok": True, "tracks": get_available_music_tracks()}
+
+
+@app.post("/api/playground/video/upload-music")
+async def api_playground_video_upload_music(file: UploadFile = File(...)) -> dict[str, Any]:
+    filename = file.filename or "track.mp3"
+    ext = Path(filename).suffix.lower()
+    if ext not in {".mp3", ".wav", ".m4a", ".ogg"}:
+        raise HTTPException(status_code=400, detail="Only MP3, WAV, M4A, or OGG audio files are supported.")
+    clean = re.sub(r"[^\w\-.]", "_", Path(filename).stem)[:60]
+    from uuid import uuid4
+    target_name = f"custom_{clean}_{uuid4().hex[:6]}{ext}"
+    out_dir = Path("D:/Sentinari/static/audio")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target_path = out_dir / target_name
+    content = await file.read()
+    target_path.write_bytes(content)
+    nice_title = clean.replace("_", " ").title()
+    return {
+        "ok": True,
+        "id": target_name,
+        "filename": target_name,
+        "title": nice_title,
+        "file_url": f"/api/playground/video/file/{target_name}",
+        "size_bytes": len(content),
+    }
+
+
 @app.post("/api/playground/video/render")
 def api_playground_video_render(
     payload: PlaygroundVideoRenderRequest,
@@ -3351,6 +3590,7 @@ def api_playground_video_render(
             "scenes": [scene.model_dump() for scene in payload.scenes],
             "include_ambient_music": payload.include_ambient_music,
             "ambient_music_volume": payload.ambient_music_volume,
+            "ambient_track": payload.ambient_track,
             "include_intro": payload.include_intro,
             "intro_title": payload.intro_title,
             "intro_presenter": payload.intro_presenter,
@@ -3372,6 +3612,7 @@ def _run_video_render_job(job_id: str, payload: PlaygroundVideoRenderRequest) ->
             "scenes": [scene.model_dump() for scene in payload.scenes],
             "include_ambient_music": payload.include_ambient_music,
             "ambient_music_volume": payload.ambient_music_volume,
+            "ambient_track": payload.ambient_track,
             "include_intro": payload.include_intro,
             "intro_title": payload.intro_title,
             "intro_presenter": payload.intro_presenter,

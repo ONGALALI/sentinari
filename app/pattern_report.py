@@ -494,7 +494,7 @@ def render_report_text(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_report_html(report: dict[str, Any]) -> str:
+def render_report_html(report: dict[str, Any], is_admin: bool = False) -> str:
     e = _html.escape
 
     def pattern_html(p: dict[str, Any]) -> str:
@@ -562,6 +562,19 @@ Generated: {e(str(report['generated_at']))} &middot; {e(str(report['generated_by
 {''.join(pattern_html(p) for p in report['patterns'])}
 {sources}{works}
 <footer>SMi Sentinel &middot; Scientific Patterns Discovery workspace &middot; Report generated from the Sentinel pattern archive.</footer>
+<script>
+if (!{('true' if is_admin else 'false')}) {{
+  document.body.style.userSelect = 'none';
+  document.body.style.webkitUserSelect = 'none';
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('copy', e => e.preventDefault());
+  document.addEventListener('cut', e => e.preventDefault());
+  document.addEventListener('selectstart', e => e.preventDefault());
+  document.addEventListener('keydown', e => {{
+    if ((e.ctrlKey || e.metaKey) && ['c','x','a','p','s','u'].includes(e.key.toLowerCase())) e.preventDefault();
+  }});
+}}
+</script>
 </body></html>"""
 
 

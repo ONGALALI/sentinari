@@ -6,7 +6,8 @@ import json as _json
 import threading as _threading
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
+from .security import is_architect_authorized
 from pydantic import BaseModel, Field
 
 from . import load_progress as _load_progress
@@ -2065,15 +2066,16 @@ def ml_hardening_run(
 
 
 @router.get("/rd-paper/{pattern_id}/report")
-def rd_paper_report_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> Response:
+def rd_paper_report_endpoint(request: Request, pattern_id: int, regenerate: int = Query(default=0)) -> Response:
     """Generate (once, cached in the pattern store) and render the unified R&D
     validation paper for a pattern."""
     try:
         report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
     except ValueError as ex:
         raise HTTPException(status_code=404, detail=str(ex))
+    is_admin = is_architect_authorized(request)
     return Response(
-        content=render_rd_report_html(report),
+        content=render_rd_report_html(report, is_admin=is_admin),
         media_type="text/html; charset=utf-8",
         headers={"Cache-Control": "no-store"},
     )
@@ -2081,8 +2083,13 @@ def rd_paper_report_endpoint(pattern_id: int, regenerate: int = Query(default=0)
 
 @router.get("/{pattern_id}/rd-paper.pdf")
 @router.get("/rd-paper/{pattern_id}/report.pdf")
-def rd_paper_pdf_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> Response:
+def rd_paper_pdf_endpoint(request: Request, pattern_id: int, regenerate: int = Query(default=0)) -> Response:
     """Download the unified 5-Section R&D Validation Paper as a PDF."""
+    if not is_architect_authorized(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Direct R&D paper PDF download is restricted. To download this paper or read further, please sponsor our sovereign scientific research on Patreon: https://patreon.com/Rodenbecker?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink",
+        )
     try:
         report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
     except ValueError as ex:
@@ -2098,9 +2105,14 @@ def rd_paper_pdf_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -
 
 @router.get("/{pattern_id}/appendices.zip")
 @router.get("/rd-paper/{pattern_id}/appendices.zip")
-def rd_paper_appendices_zip_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> Response:
+def rd_paper_appendices_zip_endpoint(request: Request, pattern_id: int, regenerate: int = Query(default=0)) -> Response:
     """Download the complete technical appendices archive (.zip) containing LaTeX proofs,
     instantiated telemetry JSON, empirical evidence excerpts, and SHA-256 verification manifest."""
+    if not is_architect_authorized(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Appendices archive (.zip) download is restricted. To download the verified technical appendices or read further, please sponsor our sovereign scientific research on Patreon: https://patreon.com/Rodenbecker?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink",
+        )
     try:
         report = get_or_generate_rd_report(int(pattern_id), force=bool(regenerate))
     except ValueError as ex:
@@ -2137,7 +2149,7 @@ from .pattern_report import (
 )
 
 
-def _report_response(report: dict, want_pdf: bool) -> Response:
+def _report_response(report: dict, want_pdf: bool, is_admin: bool = False) -> Response:
     if want_pdf:
         data = report_pdf_bytes(report)
         return Response(
@@ -2146,25 +2158,33 @@ def _report_response(report: dict, want_pdf: bool) -> Response:
             headers={"Content-Disposition": f'attachment; filename="{safe_filename(report["title"])}.pdf"'},
         )
     return Response(
-        content=render_report_html(report),
+        content=render_report_html(report, is_admin=is_admin),
         media_type="text/html; charset=utf-8",
         headers={"Cache-Control": "no-store"},
     )
 
 
 @router.get("/reports/container/{container_key:path}/report")
-def container_report_endpoint(container_key: str, format: str = Query(default="html")):  # noqa: A002
+def container_report_endpoint(request: Request, container_key: str, format: str = Query(default="html")):  # noqa: A002
+    want_pdf = (format.lower() == "pdf")
+    if want_pdf and not is_architect_authorized(request):
+        raise HTTPException(status_code=403, detail="Report PDF download is restricted to the Chief Architect (Dr. Pierre C. Wepener).")
     try:
         report = build_report(container_key=container_key)
     except ValueError as ex:
         raise HTTPException(status_code=404, detail=str(ex))
-    return _report_response(report, want_pdf=(format.lower() == "pdf"))
+    is_admin = is_architect_authorized(request)
+    return _report_response(report, want_pdf=want_pdf, is_admin=is_admin)
 
 
 @router.get("/reports/pattern/{pattern_id}/report")
-def pattern_report_endpoint(pattern_id: int, format: str = Query(default="html")):  # Patterns PDFs are container-scoped anyway.
+def pattern_report_endpoint(request: Request, pattern_id: int, format: str = Query(default="html")):  # Patterns PDFs are container-scoped anyway.
+    want_pdf = (format.lower() == "pdf")
+    if want_pdf and not is_architect_authorized(request):
+        raise HTTPException(status_code=403, detail="Report PDF download is restricted to the Chief Architect (Dr. Pierre C. Wepener).")
     report = build_report(container_key=_container_key_for_pattern(int(pattern_id)))
-    return _report_response(report, want_pdf=(format.lower() == "pdf"))
+    is_admin = is_architect_authorized(request)
+    return _report_response(report, want_pdf=want_pdf, is_admin=is_admin)
 
 
 def _container_key_for_pattern(pattern_id: int) -> str:
@@ -2601,3 +2621,68 @@ def run_manual_discovery_request_endpoint(request_id: int) -> dict[str, Any]:
         "async": True,
         "message": f"Running manual pattern discovery for \"{row.get('topic') or row.get('note')}\".",
     }
+
+
+# ---------------------------------------------------------------------------
+# Theoretical Engineering Workbench (§GENERIC ENGINEERING PROCESS)
+# ---------------------------------------------------------------------------
+
+@router.get("/{pattern_id}/theoretical-engineering")
+@router.get("/theoretical-engineering/{pattern_id}")
+def get_theoretical_engineering_endpoint(pattern_id: int, regenerate: int = Query(default=0)) -> dict[str, Any]:
+    """Retrieve or execute the 10-step theoretical engineering test trial for a pattern."""
+    from .theoretical_engineering import get_theoretical_engineering_trial
+    try:
+        data = get_theoretical_engineering_trial(int(pattern_id), force=bool(regenerate))
+        return {"ok": True, "trial": data}
+    except ValueError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+
+@router.post("/{pattern_id}/theoretical-engineering/run")
+def run_theoretical_engineering_endpoint(pattern_id: int) -> dict[str, Any]:
+    """Execute Gemma on the 10-step generic engineering process test trial."""
+    from .theoretical_engineering import get_theoretical_engineering_trial
+    try:
+        data = get_theoretical_engineering_trial(int(pattern_id), force=True)
+        return {"ok": True, "trial": data, "message": "Theoretical engineering test trial executed successfully."}
+    except ValueError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+
+@router.get("/{pattern_id}/theoretical-engineering/download-matlab")
+def download_matlab_endpoint(pattern_id: int) -> Response:
+    """Download the generated MATLAB simulation script."""
+    from .theoretical_engineering import get_theoretical_engineering_trial
+    try:
+        data = get_theoretical_engineering_trial(int(pattern_id))
+        code = data.get("matlab_code") or "% No MATLAB simulation code generated."
+        fname = f"pattern_{int(pattern_id)}_sim_model.m"
+        return Response(
+            content=code.encode("utf-8"),
+            media_type="text/x-matlab; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+
+@router.get("/{pattern_id}/theoretical-engineering/download-prototype")
+def download_prototype_endpoint(pattern_id: int) -> Response:
+    """Download the generated Python prototype simulation script."""
+    from .theoretical_engineering import get_theoretical_engineering_trial
+    try:
+        data = get_theoretical_engineering_trial(int(pattern_id))
+        code = data.get("prototype_code") or "# No prototype code generated."
+        fname = f"pattern_{int(pattern_id)}_prototype_sim.py"
+        return Response(
+            content=code.encode("utf-8"),
+            media_type="text/x-python",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))

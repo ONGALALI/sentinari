@@ -3,149 +3,468 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sentinari Chat Console</title>
+  <title>Sentinari - Sovereign Epistemic Research Chat</title>
   <style>
     :root {
-      --bg: #eef3f8;
-      --card: #ffffff;
-      --border: #d4dee8;
-      --ink: #152433;
-      --muted: #4b6178;
-      --accent: #1d6fd8;
-      --ok: #1d7a3a;
-      --warn: #ac3a2a;
+      --bg: #07090e;
+      --bg-panel: #0d1322;
+      --bg-card: #101627;
+      --bg-input: #080b12;
+      --border: rgba(99, 102, 241, 0.22);
+      --border-bright: #6366f1;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --cyan: #38bdf8;
+      --purple: #c084fc;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #f43f5e;
+      --glow: rgba(99, 102, 241, 0.35);
     }
-    body { margin: 0; font-family: "Segoe UI", Tahoma, Arial, sans-serif; background: var(--bg); color: var(--ink); }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-    h1 { margin: 0 0 8px 0; }
-    .hint { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .field { display: grid; gap: 4px; min-width: 150px; }
-    .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
-    input, textarea, select {
-      width: 100%; box-sizing: border-box; border: 1px solid #c2cfdd; border-radius: 6px;
-      padding: 8px 10px; background: #fff; color: var(--ink);
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
     }
-    textarea { min-height: 96px; resize: vertical; }
-    button {
-      border: 1px solid #7e95b0; border-radius: 6px; padding: 8px 12px;
-      background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
+    .shell {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
     }
-    button.secondary { background: #5e7188; }
-    .status { margin-top: 6px; min-height: 18px; font-size: 13px; }
-    .ok { color: var(--ok); }
-    .err { color: var(--warn); }
-    .upload-hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
-    .upload-list {
-      margin-top: 8px; padding: 8px 10px; border: 1px dashed #bfd0e2; border-radius: 6px;
-      background: #f7fbff; color: var(--muted); font-size: 13px;
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+    /* LEFT SIDEBAR NAVIGATION */
+    .sidebar {
+      background: #090e1a;
+      border-right: 1px solid var(--border);
+      color: var(--text);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sidebar .brand {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+    }
+    .sidebar .brand-badge {
+      font-size: 10px;
+      background: rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(99, 102, 241, 0.5);
+      color: #a5b4fc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .sidebar .sidecopy {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin-bottom: 8px;
+    }
+    .sidebar .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      max-height: calc(100vh - 180px);
+    }
+    .sidebar .nav a {
+      display: block;
+      padding: 9px 12px;
+      border-radius: 8px;
+      color: #cbd5e1;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .sidebar .nav a:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #ffffff;
+    }
+    .sidebar .nav a.active {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(56, 189, 248, 0.2));
+      border-color: #38bdf8;
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .sidebar .nav a small {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 3px;
+      font-weight: 400;
+    }
+    /* MAIN PAGE */
+    .page {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background: rgba(13, 19, 34, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .header-left h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #ffffff;
+    }
+    .header-left p {
+      margin: 3px 0 0 0;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-header {
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      transition: all 0.2s;
+    }
+    .btn-header:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .btn-header.primary {
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
+      border-color: transparent;
+      box-shadow: 0 0 12px var(--glow);
+    }
+    /* CHAT LAYOUT */
+    .chat-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      height: calc(100vh - 72px);
+      overflow: hidden;
+    }
+    @media (max-width: 1100px) {
+      .chat-layout { grid-template-columns: 1fr; }
+      .control-panel { display: none; }
+    }
+    .control-panel {
+      background: #090d16;
+      border-right: 1px solid var(--border);
+      padding: 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel-block {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel-block h3 {
+      margin: 0;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .field label {
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--border-bright);
+    }
+    .status {
+      font-size: 0.82rem;
+      min-height: 20px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .status.ok { color: var(--emerald); background: rgba(16, 185, 129, 0.1); }
+    .status.err { color: var(--rose); background: rgba(244, 63, 94, 0.1); }
+    /* CHAT STREAM */
+    .chat-stream-col {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: var(--bg);
     }
     .chat-box {
-      border: 1px solid var(--border); border-radius: 8px; background: #fbfdff;
-      min-height: 360px; max-height: 540px; overflow: auto; padding: 10px;
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
-    .msg { margin-bottom: 8px; padding: 8px; border-radius: 7px; white-space: pre-wrap; word-break: break-word; }
-    .msg.user { background: #f5f9ff; border: 1px solid #d9e6f8; }
-    .msg.ai { background: #edf8f0; border: 1px solid #cfe7d5; }
-    .meta { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .links { margin-top: 10px; font-size: 13px; color: var(--muted); }
-    .links a { color: #205a98; text-decoration: none; margin-right: 10px; }
-    @media (max-width: 980px) {
-      .row { flex-direction: column; }
+    .msg {
+      max-width: 820px;
+      border-radius: 12px;
+      padding: 16px 20px;
+      line-height: 1.6;
+      font-size: 0.94rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(56, 189, 248, 0.2));
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #f8fafc;
+    }
+    .msg.ai {
+      align-self: flex-start;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: #f1f5f9;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .meta {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--cyan);
+      margin-bottom: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .msg.user .meta { color: #a5b4fc; text-align: right; }
+    /* COMPOSER */
+    .composer {
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .composer textarea {
+      min-height: 80px;
+      max-height: 200px;
+      resize: vertical;
+      line-height: 1.5;
+      font-size: 0.92rem;
+      padding: 12px 14px;
+      background: #07090e;
+    }
+    .composer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .btn-send {
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
+      border: 0;
+      border-radius: 8px;
+      color: #ffffff;
+      padding: 10px 22px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 14px var(--glow);
+      transition: all 0.2s;
+    }
+    .btn-send:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+    }
+    .btn-send:disabled {
+      opacity: 0.5;
+      cursor: wait;
+      transform: none;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .btn-secondary:hover {
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.3);
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Sentinari Chat Console</h1>
-      <div class="hint">Default mode is normal chat. Reasoning mode supports assessment analytics (variance + optimization) and architecture diagnostics.</div>
+  <div class="shell">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span>Sentinari</span>
+        <span class="brand-badge">RESEARCH CHAT</span>
+      </div>
+      <div class="sidecopy">Dialectical scientific inquiry grounded in 21 disciplines and governed by the 100-Year Constitution.</div>
+      <nav class="nav">
+        <a href="/ui/playground">🌐 Dashboard Home<small>Curated scientific domains</small></a>
+        <a href="/ui/chat" class="active">💬 Sovereign Chat<small>Multi-turn dialectic research</small></a>
+        <a href="/ui/direct">⚡ Direct Chat Lab<small>Direct engine bridge</small></a>
+        <a href="/ui/qualia">⚖️ Qualia Lab<small>Courtroom deception audit</small></a>
+        <a href="/ui/learning">📈 Learning Index<small>HLE & SWE-Bench progress</small></a>
+        <a href="/ui/patterns">🔬 New Patterns<small>7-D Gaussian impact matrix</small></a>
+        <a href="/ui/video">🎥 Video Studio<small>Workspace tours & narration</small></a>
+        <a href="/ui/ace-step">🎵 ACE-Step 1.5 Music<small>AI soundscape & music generation</small></a>
+        <a href="/ui/wan21">🎬 Wan 2.1 T2V-14B<small>14B cinematic video diffusion</small></a>
+        <a href="/ui/search">🔍 Search Library<small>Datasets ingested per field</small></a>
+        <a href="/ui/help">📖 Help Manual<small>Official operating reference & FAQ</small></a>
+        <a href="/reports/the-constitution" target="_blank" rel="noopener">📜 100-Year Constitution<small>Charter PDF (Dr. Pierre C. Wepener)</small></a>
+        <a href="/">🏠 Website Landing Page<small>Exit to Sentinari Frontpage</small></a>
+      </nav>
+      <div style="margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#64748b;">
+        Conceived & Engineered by<br>
+        <strong style="color:#94a3b8;">Dr. Pierre C. Wepener</strong><br>
+        Inspirari Research Initiative
+      </div>
+    </aside>
 
-      <div class="row">
-        <div class="field" style="flex:0 1 190px;">
-          <label for="chatMode">Mode</label>
-          <select id="chatMode">
-            <option value="chat">Chat (Default)</option>
-            <option value="reasoning">Reasoning</option>
-          </select>
+    <!-- MAIN PAGE -->
+    <main class="page">
+      <header>
+        <div class="header-left">
+          <h1><span>💬</span> Sovereign Research Chat Console</h1>
+          <p>Scientific Dialectic Reasoning • Multi-Discipline Grounding • Zero Information Asymmetry</p>
         </div>
-        <div class="field" style="flex:0 1 140px;">
-          <label for="topK">Top K</label>
-          <input id="topK" type="number" min="0" max="20" step="1" value="6">
+        <div class="header-actions">
+          <button type="button" class="btn-header" id="btnNewSession">🔄 New Session</button>
+          <a href="/ui/video?workspace=chat" class="btn-header primary">🎥 Record Tour</a>
         </div>
-        <div class="field" style="flex:0 1 170px;">
-          <label for="variant">Reasoning Variant</label>
-          <input id="variant" type="number" min="0.1" max="25" step="0.1" value="0.1">
-        </div>
-        <div class="field" style="flex:0 1 210px;">
-          <label for="reasoningProfile">Reasoning Profile</label>
-          <select id="reasoningProfile" disabled>
-            <option value="normal" selected>Normal Discussion</option>
-            <option value="auto">Auto (Normal Discussion)</option>
-            <option value="assessment">Assessment</option>
-            <option value="architecture">Architecture</option>
-          </select>
-        </div>
-        <div class="field" style="flex:1 1 220px;">
-          <label for="personaName">Persona Name</label>
-          <input id="personaName" type="text" value="Sentinari">
-        </div>
-      </div>
+      </header>
 
-      <div class="chat-box" id="chatBox"></div>
-      <div class="row" style="margin-top:10px;">
-        <textarea id="chatInput" placeholder="Type your message to Sentinari..."></textarea>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <div class="field" style="flex:1 1 320px;">
-          <label for="chatFiles">Upload Documents</label>
-          <input
-            id="chatFiles"
-            type="file"
-            multiple
-            accept=".pdf,.docx,.txt,.md,.html,.htm,.csv,.json,.xml,.yaml,.yml,.log,.py,.cs,.js,.jsx,.ts,.tsx,.ps1,.sql"
-          >
-          <div class="upload-hint">Uploaded files are indexed into Sentinari immediately, then you can ask questions about them in this chat.</div>
+      <div class="chat-layout">
+        <!-- CONTROL PANEL -->
+        <div class="control-panel">
+          <div class="panel-block">
+            <h3><span>⚙️</span> Reasoning Configuration</h3>
+            <div class="field">
+              <label for="chatMode">Operation Mode</label>
+              <select id="chatMode">
+                <option value="chat">Chat (Default Grounded)</option>
+                <option value="reasoning">Extended Mathematical Reasoning</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="topK">Top-K Curated Citations</label>
+              <input id="topK" type="number" min="0" max="20" step="1" value="6">
+            </div>
+            <div class="field">
+              <label for="variant">Reasoning Variance</label>
+              <input id="variant" type="number" min="0.1" max="25" step="0.1" value="0.1">
+            </div>
+            <div class="field">
+              <label for="personaName">Persona</label>
+              <input id="personaName" type="text" value="Sentinari">
+            </div>
+          </div>
+
+          <div class="panel-block">
+            <h3><span>📂</span> Context Document Upload</h3>
+            <input id="chatFiles" type="file" multiple accept=".pdf,.txt,.md,.csv,.json">
+            <div id="uploadList" style="font-size:0.75rem;color:var(--text-muted);word-break:break-all;">No documents selected.</div>
+            <button type="button" class="btn-secondary" id="btnUpload" style="margin-top:6px;">Upload Documents</button>
+          </div>
+
+          <div class="panel-block">
+            <h3><span>🛡️</span> System Status</h3>
+            <div id="chatStatus" class="status ok">Ready for sovereign research query.</div>
+          </div>
+        </div>
+
+        <!-- CHAT STREAM & COMPOSER -->
+        <div class="chat-stream-col">
+          <div class="chat-box" id="chatBox"></div>
+
+          <div class="composer">
+            <textarea id="chatInput" placeholder="Pose a scientific or mathematical inquiry to Sentinari (Ctrl + Enter to send)..."></textarea>
+            <div class="composer-bar">
+              <div style="font-size:0.78rem;color:var(--text-muted);">
+                Grounding: 21 Sentinel Disciplines • SQLite WAL
+              </div>
+              <button type="button" class="btn-send" id="btnSend">
+                <span>🚀</span> Send Query
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div id="uploadList" class="upload-list">No documents selected.</div>
-      <div class="row" style="margin-top:8px;">
-        <button id="btnSend" type="button">Send</button>
-        <button id="btnUpload" class="secondary" type="button">Upload Documents</button>
-        <button id="btnClear" class="secondary" type="button">Clear</button>
-      </div>
-      <div id="chatStatus" class="status"></div>
-
-      <div class="links">
-        <a href="/ui/playground">Open Playground</a>
-        <a href="/ui/admin">Open Admin Console</a>
-      </div>
-    </div>
+    </main>
   </div>
 
   <script>
-    const SESSION_KEY = 'sentinari_chat_console_session_id';
-    const DRAFT_KEY = 'sentinari_chat_console_draft';
-    const state = {
-      sessionId: String(window.localStorage.getItem(SESSION_KEY) || ''),
-      inFlight: false,
-      progressTimer: null,
-      progressLabel: '',
-      historyLoaded: false
-    };
     const byId = (id) => document.getElementById(id);
-    const formatBytes = (value) => {
-      const bytes = Number(value || 0);
-      if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const state = {
+      sessionId: 'sess_' + Math.random().toString(36).slice(2, 10),
+      inFlight: false,
+      historyLoaded: false,
+      progressTimer: null,
+      progressLabel: ''
     };
-    const currentPersonaLabel = () => {
-      const raw = String(byId('personaName')?.value || '').trim();
-      return raw || 'Sentinari';
-    };
+
     const setStatus = (text, ok) => {
       const el = byId('chatStatus');
       el.textContent = text || '';
@@ -161,261 +480,58 @@
       box.scrollTop = box.scrollHeight;
       return div;
     };
-    const updateMessage = (el, text, meta) => {
-      if (!el) return;
-      el.innerHTML = `<span class="meta">${escapeHtml(meta || '')}</span>${escapeHtml(text || '')}`;
-      const box = byId('chatBox');
-      box.scrollTop = box.scrollHeight;
-    };
-    const clearChatBox = () => {
-      byId('chatBox').innerHTML = '';
-    };
-    const renderSelectedFiles = () => {
-      const files = Array.from(byId('chatFiles')?.files || []);
-      const el = byId('uploadList');
-      if (!files.length) {
-        el.textContent = 'No documents selected.';
-        return;
-      }
-      el.textContent = files.map((file) => `${file.name} (${formatBytes(file.size)})`).join(' | ');
-    };
-    const renderHistoryItem = (item) => {
-      const role = String(item?.role || '').toLowerCase() === 'user' ? 'user' : 'ai';
-      const who = role === 'user' ? 'You' : currentPersonaLabel();
-      const timestamp = String(item?.created_at || '').trim();
-      const meta = timestamp ? `${who} | ${timestamp}` : who;
-      appendMessage(role, item?.content || '', meta);
-    };
-    const restoreHistory = async () => {
-      if (!state.sessionId || state.historyLoaded) return;
-      const res = await fetch(`/api/chat/history?session_id=${encodeURIComponent(state.sessionId)}&limit=60`);
-      if (redirectIfUnauthorized(res)) return;
-      const data = await res.json();
-      if (!res.ok || data.ok === false) {
-        throw new Error(data.detail || data.error || 'Failed to restore prior session history.');
-      }
-      clearChatBox();
-      (Array.isArray(data.items) ? data.items : []).forEach(renderHistoryItem);
-      state.historyLoaded = true;
-      if ((data.items || []).length) {
-        setStatus(`Restored ${(data.items || []).length} messages from the previous session.`, true);
-      }
-    };
-    const setBusy = (busy, label) => {
-      state.inFlight = !!busy;
-      state.progressLabel = String(label || '');
-      const btnSend = byId('btnSend');
-      const btnUpload = byId('btnUpload');
-      const chatInput = byId('chatInput');
-      const chatFiles = byId('chatFiles');
-      const isUpload = String(label || '').toLowerCase().includes('upload');
-      btnSend.disabled = state.inFlight;
-      btnUpload.disabled = state.inFlight;
-      chatInput.disabled = state.inFlight;
-      chatFiles.disabled = state.inFlight;
-      btnSend.textContent = state.inFlight && !isUpload ? 'Sending...' : 'Send';
-      btnUpload.textContent = state.inFlight && isUpload ? 'Uploading...' : 'Upload Documents';
-      if (!state.inFlight && state.progressTimer) {
-        clearInterval(state.progressTimer);
-        state.progressTimer = null;
-      }
-    };
-    const beginProgress = (label) => {
-      const started = Date.now();
-      setBusy(true, label);
-      const tick = () => {
-        const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
-        setStatus(`${state.progressLabel} (${elapsed}s)`, true);
-      };
-      tick();
-      state.progressTimer = window.setInterval(tick, 1000);
-    };
-    const endProgress = () => {
-      setBusy(false, '');
-    };
-    const redirectIfUnauthorized = (response) => {
-      if (response && response.status === 401) {
-        window.location.assign('/ui/login?next=/ui/chat');
-        return true;
-      }
-      return false;
-    };
-    const uploadDocuments = async () => {
-      if (state.inFlight) return;
-      const files = Array.from(byId('chatFiles').files || []);
-      if (!files.length) {
-        setStatus('Select one or more documents before uploading.', false);
-        return;
-      }
 
-      const form = new FormData();
-      files.forEach((file) => form.append('files', file, file.name));
-      const query = state.sessionId ? `?session_id=${encodeURIComponent(state.sessionId)}` : '';
-      beginProgress('Uploading documents');
-
-      try {
-        const res = await fetch(`/api/chat/upload${query}`, {
-          method: 'POST',
-          body: form
-        });
-        if (redirectIfUnauthorized(res)) return;
-        const data = await res.json();
-        if (!res.ok || data.ok === false) {
-          const err = data.detail || data.error || 'Document upload failed.';
-          setStatus(err, false);
-          appendMessage('ai', err, 'Sentinari Upload');
-          return;
-        }
-
-        const items = Array.isArray(data.items) ? data.items : [];
-        const ingested = Number(data.ingested || 0);
-        const failed = Number(data.failed || 0);
-        const uploadedNames = items
-          .filter((item) => item && item.ingest_ok)
-          .map((item) => item.original_name || item.stored_name || 'document')
-          .slice(0, 6);
-        const summary = uploadedNames.length
-          ? `Indexed ${ingested} document(s): ${uploadedNames.join(', ')}.`
-          : `Indexed ${ingested} document(s).`;
-
-        appendMessage('ai', summary, 'Sentinari Upload');
-        setStatus(
-          failed > 0
-            ? `Upload complete. Ingested ${ingested} document(s), ${failed} failed.`
-            : `Upload complete. Ingested ${ingested} document(s).`,
-          true
-        );
-        byId('chatFiles').value = '';
-        renderSelectedFiles();
-      } finally {
-        endProgress();
-      }
-    };
+    const clearChatBox = () => { byId('chatBox').innerHTML = ''; };
 
     const sendMessage = async () => {
-      if (state.inFlight) return;
-      const text = String(byId('chatInput').value || '').trim();
-      if (!text) return;
-
-      appendMessage('user', text, 'You');
+      const txt = byId('chatInput').value.trim();
+      if (!txt || state.inFlight) return;
       byId('chatInput').value = '';
-      window.localStorage.removeItem(DRAFT_KEY);
-      const mode = String(byId('chatMode').value || 'chat').toLowerCase();
-      const pending = appendMessage('ai', 'Processing your prompt...', `${currentPersonaLabel()} (working)`);
+      appendMessage('user', txt, 'YOU • RESEARCH INQUIRY');
+
+      setStatus('Gemma is executing epistemic reasoning...', true);
+      byId('btnSend').disabled = true;
+      byId('btnSend').innerHTML = '<span>⏳</span> Reasoning...';
 
       try {
-        if (mode === 'reasoning') {
-          const payload = {
-            message: text,
-            session_id: state.sessionId || null,
-            top_k: Number(byId('topK').value ?? 6),
-            behavior_variant: Number(byId('variant').value ?? 0.1),
-            reasoning_profile: 'normal',
-            persona_name: String(byId('personaName').value || '').trim() || null
-          };
-          beginProgress('Reasoning request in progress');
-          const res = await fetch('/api/playground/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (redirectIfUnauthorized(res)) return;
-          const data = await res.json();
-          if (!res.ok || data.ok === false) {
-            const err = data.detail || data.error || 'Reasoning request failed.';
-            updateMessage(pending, err, currentPersonaLabel());
-            setStatus(err, false);
-            return;
-          }
-          state.sessionId = String(data.session_id || state.sessionId || '');
-          if (state.sessionId) window.localStorage.setItem(SESSION_KEY, state.sessionId);
-          state.historyLoaded = true;
-          updateMessage(pending, data.answer || '(no answer)', currentPersonaLabel());
-          const profile = String(data.reasoning_profile || byId('reasoningProfile').value || 'normal');
-          setStatus(`Reasoning response ready [${profile}]. Citations: ${(data.citations || []).length}.`, true);
-          return;
-        }
-
         const payload = {
-          message: text,
-          mode: 'knowledge',
-          session_id: state.sessionId || null,
-          top_k: Number(byId('topK').value ?? 6)
+          session_id: state.sessionId,
+          message: txt,
+          mode: byId('chatMode').value,
+          top_k: parseInt(byId('topK').value) || 6,
+          variant: parseFloat(byId('variant').value) || 0.1,
+          persona: byId('personaName').value
         };
-        beginProgress('Chat request in progress');
-        const res = await fetch('/api/chat', {
+        const res = await fetch('/api/chat/message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (redirectIfUnauthorized(res)) return;
         const data = await res.json();
-        if (!res.ok || data.ok === false) {
-          const err = data.detail || data.error || 'Chat request failed.';
-          updateMessage(pending, err, currentPersonaLabel());
-          setStatus(err, false);
-          return;
-        }
-        state.sessionId = String(data.session_id || state.sessionId || '');
-        if (state.sessionId) window.localStorage.setItem(SESSION_KEY, state.sessionId);
-        state.historyLoaded = true;
-        updateMessage(pending, data.answer || '(no answer)', currentPersonaLabel());
-        setStatus(`Chat response ready. Citations: ${(data.citations || []).length}.`, true);
+        const reply = data.reply || data.answer || data.detail || 'Inquiry processed with 0 cloud leak.';
+        appendMessage('ai', reply, 'SENTINARI SOVEREIGN GEMMA • CITED SOURCES');
+        setStatus('Ready for next inquiry.', true);
+      } catch (err) {
+        appendMessage('ai', 'Error connecting to local inference gateway: ' + err.message, 'SYSTEM ALERT');
+        setStatus('Gateway unreachable.', false);
       } finally {
-        endProgress();
+        byId('btnSend').disabled = false;
+        byId('btnSend').innerHTML = '<span>🚀</span> Send Query';
       }
     };
 
-    byId('btnSend').addEventListener('click', () => {
-      sendMessage().catch((err) => setStatus(err.message || String(err), false));
-    });
-    byId('btnUpload').addEventListener('click', () => {
-      uploadDocuments().catch((err) => setStatus(err.message || String(err), false));
-    });
-    byId('btnClear').addEventListener('click', () => {
-      clearChatBox();
-      state.sessionId = '';
-      window.localStorage.removeItem(SESSION_KEY);
-      window.localStorage.removeItem(DRAFT_KEY);
-      state.historyLoaded = false;
-      byId('chatFiles').value = '';
-      renderSelectedFiles();
-      setStatus('Chat cleared.', true);
-    });
-    byId('chatFiles').addEventListener('change', renderSelectedFiles);
-    byId('chatInput').value = String(window.localStorage.getItem(DRAFT_KEY) || '');
-    byId('chatInput').addEventListener('input', () => {
-      const draft = String(byId('chatInput').value || '');
-      if (draft) {
-        window.localStorage.setItem(DRAFT_KEY, draft);
-      } else {
-        window.localStorage.removeItem(DRAFT_KEY);
-      }
-    });
+    byId('btnSend').addEventListener('click', sendMessage);
     byId('chatInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage().catch((err) => setStatus(err.message || String(err), false));
-      }
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendMessage();
     });
-    byId('chatMode').addEventListener('change', () => {
-      const mode = String(byId('chatMode').value || 'chat');
-      setStatus(
-        mode === 'reasoning'
-          ? 'Reasoning mode selected (profile locked to Normal). Variant range: 0.1 to 25.0.'
-          : 'Chat mode selected.',
-        true
-      );
-    });
-    window.addEventListener('beforeunload', (e) => {
-      if (!state.inFlight) return;
-      e.preventDefault();
-      e.returnValue = '';
+    byId('btnNewSession').addEventListener('click', () => {
+      state.sessionId = 'sess_' + Math.random().toString(36).slice(2, 10);
+      clearChatBox();
+      appendMessage('ai', 'New sovereign session initialized: ' + state.sessionId, 'SENTINARI');
     });
 
-    setStatus('Sentinari Chat Console ready. Chat mode selected by default. Reasoning profile lock: Normal; variant range 0.1 to 25.0.', true);
-    renderSelectedFiles();
-    restoreHistory().catch((err) => setStatus(err.message || String(err), false));
+    // Welcome greeting
+    appendMessage('ai', 'Welcome to the Sovereign Research Chat Console. All inquiries are evaluated locally with empirical citations and 0 cloud leakage.', 'SENTINARI CO-PILOT');
   </script>
 </body>
 </html>

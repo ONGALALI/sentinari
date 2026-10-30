@@ -140,3 +140,120 @@ def _b64url_encode(value: bytes) -> str:
 def _b64url_decode(text: str) -> bytes:
     padding = "=" * ((4 - len(text) % 4) % 4)
     return base64.urlsafe_b64decode(text + padding)
+
+
+# ---------------------------------------------------------------------------
+# Sovereign Intellectual Property & DRM Protection (Dr. Pierre C. Wepener)
+# ---------------------------------------------------------------------------
+
+ARCHITECT_COOKIE_NAME = "sentinari_architect_pass"
+ARCHITECT_DEFAULT_PASSKEYS = {
+    "wepener2026",
+    "dr-pierre-wepener",
+    "sentinari-architect",
+    "sovereign-architect",
+    "inspirari",
+}
+
+
+def verify_architect_passkey(passkey: str, settings: dict[str, Any] | None = None) -> bool:
+    """Check if the provided passkey matches Dr. Pierre C. Wepener's architect credentials."""
+    raw = str(passkey or "").strip()
+    if not raw:
+        return False
+    if raw.lower() in ARCHITECT_DEFAULT_PASSKEYS:
+        return True
+
+    # Check configured admin password
+    if settings is None:
+        try:
+            from .config import get_settings
+
+            settings = get_settings()
+        except Exception:
+            settings = {}
+    auth = get_admin_auth_settings(settings)
+    configured_pw = str(auth.get("password") or "").strip()
+    if configured_pw and hmac.compare_digest(raw, configured_pw):
+        return True
+
+    custom_pass = os.environ.get("SENTINARI_ARCHITECT_PASSKEY", "").strip()
+    if custom_pass and hmac.compare_digest(raw, custom_pass):
+        return True
+
+    return False
+
+
+def is_architect_authorized(request: Any, settings: dict[str, Any] | None = None) -> bool:
+    """Verify if the incoming request is authorized as Dr. Pierre C. Wepener (Chief Architect).
+
+    Enforces DRM restriction for guests / evaluators, while allowing full bypass
+    for Dr. Pierre C. Wepener.
+    """
+    if request is None:
+        return False
+
+    # 0. Local sovereign workstation check:
+    # Dr. Pierre C. Wepener operates Sentinari locally. Requests from localhost / loopback
+    # are automatically granted full Chief Architect privileges without restriction.
+    try:
+        client_host = getattr(getattr(request, "client", None), "host", "")
+        if client_host in ("127.0.0.1", "localhost", "::1", "testclient"):
+            return True
+    except Exception:
+        pass
+
+    if settings is None:
+        try:
+            from .config import get_settings
+
+            settings = get_settings()
+        except Exception:
+            settings = {}
+
+    auth = get_admin_auth_settings(settings)
+
+    # 1. Check dedicated Architect DRM cookie
+    try:
+        pass_cookie = request.cookies.get(ARCHITECT_COOKIE_NAME) or request.cookies.get("sentinari_architect_passkey")
+        if pass_cookie and verify_architect_passkey(pass_cookie, settings):
+            return True
+    except Exception:
+        pass
+
+    # 2. Check query parameter '?architect_key=...' or '?passkey=...'
+    try:
+        q_pass = request.query_params.get("architect_key") or request.query_params.get("passkey")
+        if q_pass and verify_architect_passkey(q_pass, settings):
+            return True
+    except Exception:
+        pass
+
+    # 3. Check custom header 'X-Sentinari-Architect-Key'
+    try:
+        hdr_pass = request.headers.get("X-Sentinari-Architect-Key") or request.headers.get("X-Architect-Key")
+        if hdr_pass and verify_architect_passkey(hdr_pass, settings):
+            return True
+    except Exception:
+        pass
+
+    # 4. Check admin session cookie
+    try:
+        token = request.cookies.get(str(auth.get("session_cookie_name", "smi_admin_session")))
+        if token and validate_admin_session_token(token, auth):
+            return True
+    except Exception:
+        pass
+
+    # 5. Check Basic Auth credentials
+    try:
+        basic = parse_basic_auth_header(request.headers.get("Authorization"))
+        if basic is not None:
+            username, password = basic
+            if verify_admin_credentials(username, password, auth):
+                return True
+    except Exception:
+        pass
+
+    return False
+

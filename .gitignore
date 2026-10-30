@@ -65,3 +65,8 @@ constitution/walkthrough_assets/slide_*
 constitution/walkthrough_assets/concat_*
 engine/custom_engine_weights/
 
+# Scratch & runtime db
+scratch/
+sentinari.db
+
+

@@ -74,6 +74,6 @@ if not errorlevel 1 (
 echo.
 echo Stack is up:
 echo   Inference   : http://127.0.0.1:8100/health
-echo   Sentinari   : http://127.0.0.1:8099/ui/start
-call "%ROOT%open_url.bat" "http://127.0.0.1:8099/ui/start" "%CORELOG%"
+echo   Sentinari   : http://127.0.0.1:8099/
+call "%ROOT%open_url.bat" "http://127.0.0.1:8099/" "%CORELOG%"
 pause

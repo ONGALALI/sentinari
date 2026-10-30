@@ -1,0 +1,336 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1758.9525499999997 2354.9" width="1758.9525499999997" height="2354.9" style="--bg:#1F1F1F;--fg:#CCCCCC;--line:#CCCCCC;--accent:#0078D4;--muted:#CCCCCCCC;--surface:#181818;--border:#CCCCCC;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="GOVERNANCE" data-label="LAYER 1: FOUNDATIONAL GOVERNANCE &amp; EPISTEMIC ENVELOPE (/constitution)">
+  <rect x="494.86409999999967" y="40" width="610.877" height="181.8" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="494.86409999999967" y="40" width="610.877" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="506.86409999999967" y="54" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">LAYER 1: FOUNDATIONAL GOVERNANCE &amp; EPISTEMIC ENVELOPE (/constitution)</text>
+</g>
+<g class="subgraph" data-id="WS1" data-label="WORKSPACE 1: PLAYGROUND &amp; REINDEXING (/ui/playground)">
+  <rect x="40" y="245.8" width="322.302" height="351.6" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="245.8" width="322.302" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="52" y="259.8" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">WORKSPACE 1: PLAYGROUND &amp; REINDEXING (/ui/playground)</text>
+</g>
+<g class="subgraph" data-id="WS2" data-label="WORKSPACE 2: PATTERN DISCOVERY &amp; R&amp;D PAPERS (/ui/patterns)">
+  <rect x="129.16354999999976" y="713.7" width="916.8480000000001" height="351.6" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="129.16354999999976" y="713.7" width="916.8480000000001" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="141.16354999999976" y="727.7" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">WORKSPACE 2: PATTERN DISCOVERY &amp; R&amp;D PAPERS (/ui/patterns)</text>
+</g>
+<g class="subgraph" data-id="WS3" data-label="WORKSPACE 3: QUALIA LAB &amp; FORENSIC DECEPTION (/ui/qualia)">
+  <rect x="515.1065499999997" y="1193.6" width="1136.776" height="351.6" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="515.1065499999997" y="1193.6" width="1136.776" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="527.1065499999997" y="1207.6" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">WORKSPACE 3: QUALIA LAB &amp; FORENSIC DECEPTION (/ui/qualia)</text>
+</g>
+<g class="subgraph" data-id="WS4" data-label="WORKSPACE 4: LEARNING INDEX &amp; ASSESSMENT LADDER (/ui/learning)">
+  <rect x="750.4970499999998" y="1673.5" width="785.308" height="351.6" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="750.4970499999998" y="1673.5" width="785.308" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="762.4970499999998" y="1687.5" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">WORKSPACE 4: LEARNING INDEX &amp; ASSESSMENT LADDER (/ui/learning)</text>
+</g>
+<g class="subgraph" data-id="EXECUTION" data-label="LAYER 3: UNIFIED DUAL EXECUTION PLANE">
+  <rect x="758.9565499999999" y="2073.1" width="300.99199999999996" height="96.9" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="758.9565499999999" y="2073.1" width="300.99199999999996" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="770.9565499999999" y="2087.1" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">LAYER 3: UNIFIED DUAL EXECUTION PLANE</text>
+</g>
+<g class="subgraph" data-id="DELIVERABLES" data-label="LAYER 4: BOARDROOM &amp; INVESTOR DELIVERABLES">
+  <rect x="380.52904999999976" y="2218" width="1057.847" height="96.9" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="380.52904999999976" y="2218" width="1057.847" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="392.52904999999976" y="2232" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">LAYER 4: BOARDROOM &amp; INVESTOR DELIVERABLES</text>
+</g>
+<polyline class="edge" data-from="GOVERNANCE" data-to="WS1" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="617.0394999999996,221.8 617.0394999999996,233.8 188.78533333333326,233.8 188.78533333333326,245.8" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="GOVERNANCE" data-to="WS2" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="739.2148999999997,221.8 739.2148999999997,627.4000000000001 794.9210499999999,627.4000000000001 794.9210499999999,695.7 768.0910499999998,695.7 768.0910499999998,713.7" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="GOVERNANCE" data-to="WS3" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="861.3902999999997,221.8 861.3902999999997,695.7 1290.29655,695.7 1290.29655,1175.6 1259.4475499999999,1175.6 1259.4475499999999,1193.6" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="GOVERNANCE" data-to="WS4" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="983.5656999999997,221.8 983.5656999999997,683.7 1661.8825499999998,683.7 1661.8825499999998,1655.5 1460.6650499999998,1655.5 1460.6650499999998,1673.5" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="WS1" data-to="EXECUTION" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="337.4765,597.4000000000001 337.4765,615.4000000000001 118.16354999999976,615.4000000000001 118.16354999999976,2061.1 819.1549499999999,2061.1 819.1549499999999,2073.1" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="WS2" data-to="EXECUTION" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="707.5425499999998,1065.3 707.5425499999998,1175.6 504.10654999999974,1175.6 504.10654999999974,2049.1 879.3533499999999,2049.1 879.3533499999999,2073.1" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="WS3" data-to="EXECUTION" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="1259.4475499999999,1545.1999999999998 1259.4475499999999,1587.2 1710.9525499999997,1587.2 1710.9525499999997,2061.1 999.7501499999998,2061.1 999.7501499999998,2073.1" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="WS4" data-to="EXECUTION" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="1113.5810499999998,2025.1 1113.5810499999998,2049.1 939.5517499999999,2049.1 939.5517499999999,2073.1" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="EXECUTION" data-to="DELIVERABLES" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="909.4525499999999,2170 909.4525499999997,2218" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="STORAGE" data-to="DAEMON" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="Indexed Embeddings" points="311.5706666666667,496.5 311.5706666666667,508.5 327.4765,508.5 327.47650000000016,627.4000000000001 731.2610500000001,627.4000000000001 731.2610500000001,695.7 758.09105,695.7 758.0910499999998,757.7" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="MATRIX" data-to="VECTOR" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="Coupled Ethical Tension" points="742.824883333333,964.4000000000001 742.824883333333,976.4000000000001 726.5425499999998,976.4000000000001 726.5425499999998,1107.3000000000002 1089.7130499999998,1107.3000000000002 1089.7130499999998,1175.6000000000001 1249.4475499999999,1175.6000000000001 1249.4475499999999,1237.6" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="AUDIT" data-to="LEARN_GAUGE" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="Empirical Verification" points="1249.4475499999999,1529.1999999999998 1249.44755,1655.5 1450.66505,1655.5 1450.6650499999996,1717.5" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CONST" data-to="A1" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="909.8960999999997,120.9 909.8960999999997,144.9 865.8960999999997,144.9 865.8960999999997,168.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CONST" data-to="A2" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="909.8960999999997,120.9 909.8960999999997,144.9 953.8960999999997,144.9 953.8960999999997,168.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CONST" data-to="A3" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="909.8960999999997,120.9 909.8960999999997,144.9 777.8960999999997,144.9 777.8960999999997,168.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CONST" data-to="A4" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="909.8960999999997,120.9 909.8960999999997,144.9 1041.8960999999995,144.9 1041.8960999999995,168.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CORPUS" data-to="REINDEX" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="294.205,326.70000000000005 294.20500000000004,374.70000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="REINDEX" data-to="STORAGE" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="294.20500000000004,411.6 294.20500000000004,459.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="STORAGE" data-to="DECOUPLE" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="276.83933333333334,496.5 276.83933333333334,508.50000000000006 260.9335,508.50000000000006 260.9335,544.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="DAEMON" data-to="CARDS" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="758.0910499999998,794.6 758.0910499999998,842.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CARDS" data-to="MATRIX" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="758.0910499999998,879.5 758.0910499999997,927.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="MATRIX" data-to="RDPAPER" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="773.3572166666663,964.4000000000001 773.3572166666663,976.4000000000001 789.6395499999998,976.4000000000001 789.6395499999998,1012.4000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="VECTOR" data-to="RADAR" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1249.4475499999999,1274.5 1249.4475499999999,1322.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="RADAR" data-to="SCAN" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1249.4475499999999,1359.3999999999999 1249.4475499999999,1407.3999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="SCAN" data-to="AUDIT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1249.4475499999999,1444.3 1249.4475499999999,1492.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="LEARN_GAUGE" data-to="HLE" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1450.6650499999998,1754.4 1450.6650499999998,1802.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="HLE" data-to="SWE" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1450.6650499999998,1839.3 1450.6650499999998,1887.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="SWE" data-to="GATES" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1450.6650499999998,1924.2 1450.6650499999998,1972.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="STORAGE" data-to="DAEMON" data-label="Indexed Embeddings">
+  <rect x="673.2610500000001" y="634.4000000000001" width="115.66000000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="731.0910500000001" y="649.5500000000001" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Indexed Embeddings</text>
+</g>
+<g class="edge-label" data-from="MATRIX" data-to="VECTOR" data-label="Coupled Ethical Tension">
+  <rect x="1023.7130499999997" y="1114.3" width="131.698" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1089.5620499999998" y="1129.45" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Coupled Ethical Tension</text>
+</g>
+<g class="edge-label" data-from="AUDIT" data-to="LEARN_GAUGE" data-label="Empirical Verification">
+  <rect x="1190.9475499999999" y="1594.2" width="116.84800000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1249.3715499999998" y="1609.3500000000001" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Empirical Verification</text>
+</g>
+<g class="node" data-id="CONST" data-label="CONST" data-shape="rectangle">
+  <rect x="866.6910999999997" y="84" width="86.41" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="909.8960999999997" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CONST</text>
+</g>
+<g class="node" data-id="A1" data-label="A1" data-shape="rectangle">
+  <rect x="835.8960999999997" y="168.9" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="865.8960999999997" y="187.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">A1</text>
+</g>
+<g class="node" data-id="Physical" data-label="Physical" data-shape="rectangle">
+  <rect x="510.86409999999967" y="84" width="93.82000000000001" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="557.7740999999996" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Physical</text>
+</g>
+<g class="node" data-id="A2" data-label="A2" data-shape="rectangle">
+  <rect x="923.8960999999997" y="168.9" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="953.8960999999997" y="187.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">A2</text>
+</g>
+<g class="node" data-id="Zero" data-label="Zero" data-shape="rectangle">
+  <rect x="632.6840999999997" y="84" width="71.59" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="668.4790999999997" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Zero</text>
+</g>
+<g class="node" data-id="A3" data-label="A3" data-shape="rectangle">
+  <rect x="747.8960999999997" y="168.9" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="777.8960999999997" y="187.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">A3</text>
+</g>
+<g class="node" data-id="Confidence" data-label="Confidence" data-shape="rectangle">
+  <rect x="981.1010999999996" y="84" width="108.64" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1035.4210999999996" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Confidence</text>
+</g>
+<g class="node" data-id="A4" data-label="A4" data-shape="rectangle">
+  <rect x="1011.8960999999996" y="168.9" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1041.8960999999995" y="187.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">A4</text>
+</g>
+<g class="node" data-id="Mandatory" data-label="Mandatory" data-shape="rectangle">
+  <rect x="732.2740999999996" y="84" width="106.41699999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="785.4825999999996" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Mandatory</text>
+</g>
+<g class="node" data-id="CORPUS" data-label="CORPUS" data-shape="rectangle">
+  <rect x="246.554" y="289.8" width="95.30199999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="294.205" y="308.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CORPUS</text>
+</g>
+<g class="node" data-id="21" data-label="21" data-shape="rectangle">
+  <rect x="56" y="289.8" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="86" y="308.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">21</text>
+</g>
+<g class="node" data-id="REINDEX" data-label="REINDEX" data-shape="rectangle">
+  <rect x="245.072" y="374.70000000000005" width="98.266" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="294.205" y="393.15000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">REINDEX</text>
+</g>
+<g class="node" data-id="STORAGE" data-label="STORAGE" data-shape="rectangle">
+  <rect x="242.108" y="459.6" width="104.194" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="294.205" y="478.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">STORAGE</text>
+</g>
+<g class="node" data-id="DECOUPLE" data-label="DECOUPLE" data-shape="rectangle">
+  <rect x="204.3905" y="544.5" width="113.086" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="260.9335" y="562.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DECOUPLE</text>
+</g>
+<g class="node" data-id="Brain" data-label="Brain" data-shape="rectangle">
+  <rect x="144" y="289.8" width="74.554" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="181.277" y="308.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Brain</text>
+</g>
+<g class="node" data-id="DAEMON" data-label="DAEMON" data-shape="rectangle">
+  <rect x="709.3285499999997" y="757.7" width="97.525" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="758.0910499999998" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DAEMON</text>
+</g>
+<g class="node" data-id="Surfaces" data-label="Surfaces" data-shape="rectangle">
+  <rect x="584.5445499999998" y="757.7" width="96.78399999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="632.9365499999999" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Surfaces</text>
+</g>
+<g class="node" data-id="233" data-label="233" data-shape="rectangle">
+  <rect x="492.3645499999998" y="757.7" width="64.17999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="524.4545499999998" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">233</text>
+</g>
+<g class="node" data-id="CARDS" data-label="CARDS" data-shape="rectangle">
+  <rect x="714.8860499999997" y="842.6" width="86.41" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="758.0910499999998" y="861.0500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CARDS</text>
+</g>
+<g class="node" data-id="8" data-label="8" data-shape="rectangle">
+  <rect x="258.09154999999976" y="757.7" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="288.09154999999976" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">8</text>
+</g>
+<g class="node" data-id="Overall" data-label="Overall" data-shape="rectangle">
+  <rect x="145.16354999999976" y="757.7" width="84.928" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="187.62754999999976" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Overall</text>
+</g>
+<g class="node" data-id="MATRIX" data-label="MATRIX" data-shape="rectangle">
+  <rect x="712.2925499999997" y="927.5" width="91.59700000000001" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="758.0910499999997" y="945.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">MATRIX</text>
+</g>
+<g class="node" data-id="Closed-Form" data-label="Closed-Form" data-shape="rectangle">
+  <rect x="346.09154999999976" y="757.7" width="118.273" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="405.22804999999977" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Closed-Form</text>
+</g>
+<g class="node" data-id="S_i" data-label="x_i" data-shape="rounded">
+  <rect x="834.8535499999998" y="757.7" width="60" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="864.8535499999998" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">x_i</text>
+</g>
+<g class="node" data-id="Knowledge" data-label="Knowledge" data-shape="rectangle">
+  <rect x="922.8535499999998" y="757.7" width="107.158" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="976.4325499999998" y="776.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Knowledge</text>
+</g>
+<g class="node" data-id="RDPAPER" data-label="RDPAPER" data-shape="rectangle">
+  <rect x="737.5425499999998" y="1012.4000000000001" width="104.194" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="789.6395499999998" y="1030.8500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">RDPAPER</text>
+</g>
+<g class="node" data-id="VECTOR" data-label="VECTOR" data-shape="rectangle">
+  <rect x="1201.7965499999998" y="1237.6" width="95.30199999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1249.4475499999999" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">VECTOR</text>
+</g>
+<g class="node" data-id="Q0" data-label="Q0" data-shape="rectangle">
+  <rect x="1113.7965499999998" y="1237.6" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1143.7965499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Q0</text>
+</g>
+<g class="node" data-id="Alpha" data-label="Alpha" data-shape="rectangle">
+  <rect x="1009.7605499999997" y="1237.6" width="76.036" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1047.7785499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Alpha</text>
+</g>
+<g class="node" data-id="RADAR" data-label="RADAR" data-shape="rectangle">
+  <rect x="1206.24255" y="1322.5" width="86.41" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1249.4475499999999" y="1340.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">RADAR</text>
+</g>
+<g class="node" data-id="Multi-model" data-label="Multi-model" data-shape="rectangle">
+  <rect x="786.6025499999998" y="1237.6" width="107.15799999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="840.1815499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Multi-model</text>
+</g>
+<g class="node" data-id="Quantifies" data-label="Quantifies" data-shape="rectangle">
+  <rect x="658.8545499999998" y="1237.6" width="99.74800000000002" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="708.7285499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Quantifies</text>
+</g>
+<g class="node" data-id="SCAN" data-label="SCAN" data-shape="rectangle">
+  <rect x="1210.6885499999999" y="1407.3999999999999" width="77.518" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1249.4475499999999" y="1425.85" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">SCAN</text>
+</g>
+<g class="node" data-id="Dr" data-label="Dr" data-shape="rectangle">
+  <rect x="921.7605499999997" y="1237.6" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="951.7605499999997" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Dr</text>
+</g>
+<g class="node" data-id="CBCA" data-label="CBCA" data-shape="rectangle">
+  <rect x="1325.0985499999997" y="1237.6" width="77.518" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1363.8575499999997" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CBCA</text>
+</g>
+<g class="node" data-id="AUDIT" data-label="AUDIT" data-shape="rectangle">
+  <rect x="1209.2065499999999" y="1492.3" width="80.482" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1249.4475499999999" y="1510.75" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">AUDIT</text>
+</g>
+<g class="node" data-id="Discourse" data-label="Discourse" data-shape="rectangle">
+  <rect x="1531.6885499999999" y="1237.6" width="104.19399999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1583.7855499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Discourse</text>
+</g>
+<g class="node" data-id="Strict" data-label="Strict" data-shape="rectangle">
+  <rect x="1430.6165499999997" y="1237.6" width="73.072" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1467.1525499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Strict</text>
+</g>
+<g class="node" data-id="Projected" data-label="Projected" data-shape="rectangle">
+  <rect x="531.1065499999997" y="1237.6" width="99.748" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="580.9805499999998" y="1256.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Projected</text>
+</g>
+<g class="node" data-id="LEARN_GAUGE" data-label="LEARN_GAUGE" data-shape="rectangle">
+  <rect x="1381.5250499999997" y="1717.5" width="138.27999999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1450.6650499999996" y="1735.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">LEARN_GAUGE</text>
+</g>
+<g class="node" data-id="Audits" data-label="Audits" data-shape="rectangle">
+  <rect x="1274.5250499999997" y="1717.5" width="79" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1314.0250499999997" y="1735.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Audits</text>
+</g>
+<g class="node" data-id="HLE" data-label="HLE" data-shape="rectangle">
+  <rect x="1416.35205" y="1802.4" width="68.62599999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1450.66505" y="1820.8500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">HLE</text>
+</g>
+<g class="node" data-id="Demanding" data-label="Demanding" data-shape="rectangle">
+  <rect x="1139.3670499999998" y="1717.5" width="107.158" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1192.9460499999998" y="1735.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Demanding</text>
+</g>
+<g class="node" data-id="SWE" data-label="SWE" data-shape="rectangle">
+  <rect x="1415.24055" y="1887.3" width="70.849" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1450.66505" y="1905.75" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">SWE</text>
+</g>
+<g class="node" data-id="Autonomous" data-label="Autonomous" data-shape="rectangle">
+  <rect x="895.7270499999998" y="1717.5" width="114.568" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="953.0110499999998" y="1735.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Autonomous</text>
+</g>
+<g class="node" data-id="GATES" data-label="GATES" data-shape="rectangle">
+  <rect x="1407.4600499999997" y="1972.2" width="86.41" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1450.6650499999996" y="1990.65" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">GATES</text>
+</g>
+<g class="node" data-id="Formative" data-label="Formative" data-shape="rectangle">
+  <rect x="766.4970499999998" y="1717.5" width="101.22999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="817.1120499999998" y="1735.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Formative</text>
+</g>
+<g class="node" data-id="Brier" data-label="Brier" data-shape="rectangle">
+  <rect x="1038.2950499999997" y="1717.5" width="73.072" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1074.8310499999998" y="1735.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Brier</text>
+</g>
+<g class="node" data-id="LOCAL_ENV" data-label="LOCAL_ENV" data-shape="rectangle">
+  <rect x="774.9565499999999" y="2117.1" width="120.49599999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="835.2045499999999" y="2135.5499999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">LOCAL_ENV</text>
+</g>
+<g class="node" data-id="CLOUD_ENV" data-label="CLOUD_ENV" data-shape="rectangle">
+  <rect x="923.4525499999999" y="2117.1" width="120.49599999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="983.7005499999998" y="2135.5499999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CLOUD_ENV</text>
+</g>
+<g class="node" data-id="DELIV_PAPERS" data-label="DELIV_PAPERS" data-shape="rectangle">
+  <rect x="547.9890499999998" y="2262" width="141.24399999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="618.6110499999998" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DELIV_PAPERS</text>
+</g>
+<g class="node" data-id="APA" data-label="APA" data-shape="rectangle">
+  <rect x="996.4410499999998" y="2262" width="68.62599999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1030.7540499999998" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">APA</text>
+</g>
+<g class="node" data-id="DELIV_ECON" data-label="DELIV_ECON" data-shape="rectangle">
+  <rect x="396.52904999999976" y="2262" width="123.45999999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="458.2590499999998" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DELIV_ECON</text>
+</g>
+<g class="node" data-id="5-Year" data-label="5-Year" data-shape="rectangle">
+  <rect x="1185.2470499999995" y="2262" width="82.705" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1226.5995499999995" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">5-Year</text>
+</g>
+<g class="node" data-id="DELIV_AUDIT" data-label="DELIV_AUDIT" data-shape="rectangle">
+  <rect x="1295.9520499999999" y="2262" width="126.42399999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1359.1640499999999" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DELIV_AUDIT</text>
+</g>
+<g class="node" data-id="Forensic" data-label="Forensic" data-shape="rectangle">
+  <rect x="717.2330499999998" y="2262" width="96.78399999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="765.6250499999999" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Forensic</text>
+</g>
+<g class="node" data-id="DELIV_VIDEO" data-label="DELIV_VIDEO" data-shape="rectangle">
+  <rect x="842.0170499999997" y="2262" width="126.42399999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="905.2290499999997" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DELIV_VIDEO</text>
+</g>
+<g class="node" data-id="Full" data-label="Full" data-shape="rectangle">
+  <rect x="1093.0670499999997" y="2262" width="64.17999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1125.1570499999996" y="2280.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Full</text>
+</g>
+</svg>

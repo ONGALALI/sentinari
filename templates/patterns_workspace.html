@@ -131,9 +131,15 @@
     <nav class="nav">
       <a href="/ui/playground">Dashboard Home<small>Main workspace console.</small></a>
       <a href="/ui/patterns" class="active">New Patterns<small>Scientific Patterns Discovery workspace.</small></a>
-      <a href="/ui/playground#sentinel-grid">Knowledge Domains<small>Scientific fields feeding the engine.</small></a>
+      <a href="/ui/video">🎥 Video Studio<small>Workspace tours & neural narration.</small></a>
+      <a href="/ui/ace-step">🎵 ACE-Step 1.5 Music<small>AI soundscape & music generation.</small></a>
+      <a href="/ui/wan21">🎬 Wan 2.1 T2V-14B<small>14B cinematic video diffusion.</small></a>
+      <a href="/ui/direct">💬 Chat Lab<small>Dedicated conversation workspace.</small></a>
+      <a href="/ui/qualia">⚖️ Qualia Lab<small>Courtroom deception audit.</small></a>
+      <a href="/ui/learning">📈 Learning Index<small>% Learned, exams, and calibration.</small></a>
+      <a href="/ui/help">📖 Help Manual<small>Official operating reference & FAQ.</small></a>
       <a href="/reports/the-constitution" target="_blank" rel="noopener" style="border-top:1px solid rgba(255,255,255,0.14);margin-top:8px;padding-top:10px;color:#fbbf24;">&#128220; 100-Year Constitution<small>Charter PDF (Dr. Pierre C. Wepener).</small></a>
-      <a href="/">Website Landing Page<small>Exit to Sentinari Frontpage.</small></a>
+      <a href="/">🌐 Website Landing Page<small>Exit to Sentinari Frontpage.</small></a>
     </nav>
   </aside>
 
@@ -475,7 +481,7 @@
       ? `<div class="storage-note" style="margin-top:6px;"><b>Source dataset(s):</b> ${sources.map((s) => {
           const docId = Number(s.document_id || 0);
           const by = s.authors ? ` (${esc(s.authors)}${s.published_date ? ', ' + esc(String(s.published_date).slice(0, 4)) : ''})` : '';
-          const dlLink = docId > 0 ? ` <a href="/api/skill-review/documents/${docId}/download" target="_blank" rel="noopener">[Dataset PDF]</a>` : '';
+          const dlLink = docId > 0 ? (window.__IS_ARCHITECT__ ? ` <a href="/api/skill-review/documents/${docId}/download" target="_blank" rel="noopener">[Dataset PDF]</a>` : ` <span style="opacity:0.65;font-size:11px;" title="Dataset download restricted to Chief Architect">[Protected Dataset]</span>`) : '';
           const extLink = s.source_url ? ` <a href="${esc(s.source_url)}" target="_blank" rel="noopener">[Source]</a>` : '';
           return `<span>${esc(s.title)}${by}${dlLink}${extLink}</span>`;
         }).join(' · ')}</div>`
@@ -517,10 +523,16 @@
       ${benefitsBlock}
       <div class="report-actions">
         <a class="btn-link" href="/api/patterns/rd-paper/${encodeURIComponent(p.id)}/report" target="_blank" rel="noopener">&#128196; Open Unified R&amp;D Paper (${indDone}/${indTotal})</a>
-        <a class="btn-link secondary" href="/api/patterns/${encodeURIComponent(p.id)}/rd-paper.pdf">&#11015; R&amp;D Paper PDF</a>
-        <a class="btn-link secondary" href="/api/patterns/${encodeURIComponent(p.id)}/appendices.zip" style="background:#f1f5f9;color:#0f172a;border-color:#cbd5e1;">&#128230; Appendices (.zip)</a>
-        <button type="button" data-role="pattern-report" data-id="${p.id}">Container Report (HTML)</button>
-        <button type="button" class="pdf" data-role="pattern-report" data-id="${p.id}" data-format="pdf">Container PDF</button>
+        ${window.__IS_ARCHITECT__ ? `
+          <a class="btn-link secondary" href="/api/patterns/${encodeURIComponent(p.id)}/rd-paper.pdf">&#11015; R&amp;D Paper PDF</a>
+          <a class="btn-link secondary" href="/api/patterns/${encodeURIComponent(p.id)}/appendices.zip" style="background:#f1f5f9;color:#0f172a;border-color:#cbd5e1;">&#128230; Appendices (.zip)</a>
+          <button type="button" data-role="pattern-report" data-id="${p.id}">Container Report (HTML)</button>
+          <button type="button" class="pdf" data-role="pattern-report" data-id="${p.id}" data-format="pdf">Container PDF</button>
+        ` : `
+          <a class="btn-link secondary" href="https://patreon.com/Rodenbecker?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink" target="_blank" rel="noopener noreferrer" style="background:#fff1f2;color:#e11d48;border-color:#fecdd3;font-weight:700;" title="Sponsor on Patreon to download full R&amp;D paper and appendices or read further">&#128150; Sponsor on Patreon to Download</a>
+          <button type="button" data-role="pattern-report" data-id="${p.id}">Container Report (HTML)</button>
+          <button type="button" onclick="openPatternsArchitectUnlockModal()" style="font-size:11.5px;padding:3px 9px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">&#128273; Architect Unlock</button>
+        `}
         ${indDone < indTotal ? `<button type="button" data-role="advance-indicators" data-id="${p.id}">Develop R&amp;D Indicators</button>` : ''}
       </div>
       <div class="actions">
@@ -844,6 +856,10 @@
     } else if (btn.dataset.role === 'pattern-report' || btn.dataset.role === 'container-report') {
       const key = btn.dataset.key ? encodeURIComponent(btn.dataset.key) : '';
       const fmt = btn.dataset.format === 'pdf' ? 'pdf' : 'html';
+      if (fmt === 'pdf' && !window.__IS_ARCHITECT__) {
+        alert('🔒 Sentinari Sovereign DRM: Direct PDF download is restricted to the Chief Architect (Dr. Pierre C. Wepener). Please read the report online via the HTML view.');
+        return;
+      }
       const url = btn.dataset.role === 'pattern-report'
         ? `/api/patterns/reports/pattern/${id}/report?format=${fmt}`
         : `/api/patterns/reports/container/${key}/report?format=${fmt}`;
@@ -1356,5 +1372,121 @@
   })();
 })();
 </script>
+
+<!-- DRM Protection & Architect Unlock Modal for Patterns -->
+<div id="patternsDrmToast" style="position:fixed;bottom:24px;right:24px;background:#0f172a;color:#f8fafc;border:1px solid #f43f5e;border-radius:10px;padding:12px 18px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,0.5);z-index:99999;display:none;align-items:center;gap:10px;max-width:440px;line-height:1.5;">
+  <span style="font-size:20px;">&#128274;</span>
+  <div><b>Sentinari Sovereign DRM Active:</b> Pattern R&amp;D data is copy-protected to preserve proprietary research integrity. In-system evaluation authorized.</div>
+</div>
+
+<div id="patternsArchitectModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100000;">
+  <div style="background:#0f172a;border:1px solid #334155;border-radius:14px;padding:24px;width:min(440px, 92vw);color:#f8fafc;box-shadow:0 20px 50px rgba(0,0,0,0.8);">
+    <h3 style="margin-top:0;margin-bottom:8px;font-size:1.15rem;color:#f8fafc;">&#128273; Chief Architect DRM Bypass</h3>
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:16px;line-height:1.5;">Dr. Pierre C. Wepener authorization. Enter your Chief Architect passkey to unlock unrestricted text selection, copying, and raw R&amp;D paper PDF / Appendices ZIP downloads.</p>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:0.75rem;font-weight:700;color:#cbd5e1;text-transform:uppercase;margin-bottom:6px;">Architect Passkey / PIN</label>
+      <input type="password" id="patternsArchitectPassInput" placeholder="Enter passkey (e.g. wepener2026)" style="width:100%;box-sizing:border-box;padding:10px 12px;background:#1e293b;border:1px solid #475569;border-radius:8px;color:#fff;font-size:0.95rem;">
+    </div>
+    <div id="patternsUnlockError" style="color:#f43f5e;font-size:0.8rem;margin-bottom:12px;display:none;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button type="button" onclick="closePatternsArchitectUnlockModal()" style="padding:8px 14px;background:transparent;border:1px solid #475569;color:#cbd5e1;border-radius:6px;cursor:pointer;">Cancel</button>
+      <button type="button" onclick="submitPatternsArchitectUnlock()" style="padding:8px 16px;background:#1d6fd8;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;">Unlock Full Access</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPatternsDrmToast() {
+  const t = document.getElementById('patternsDrmToast');
+  if (!t) return;
+  t.style.display = 'flex';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function openPatternsArchitectUnlockModal() {
+  const m = document.getElementById('patternsArchitectModal');
+  if (m) {
+    m.style.display = 'flex';
+    document.getElementById('patternsArchitectPassInput').focus();
+  }
+}
+
+function closePatternsArchitectUnlockModal() {
+  const m = document.getElementById('patternsArchitectModal');
+  if (m) m.style.display = 'none';
+  const err = document.getElementById('patternsUnlockError');
+  if (err) err.style.display = 'none';
+}
+
+async function submitPatternsArchitectUnlock() {
+  const key = document.getElementById('patternsArchitectPassInput').value.trim();
+  const err = document.getElementById('patternsUnlockError');
+  if (!key) {
+    err.textContent = 'Please enter your passkey.';
+    err.style.display = 'block';
+    return;
+  }
+  try {
+    const res = await fetch('/api/security/architect-unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passkey: key })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Authorization failed.');
+    window.location.reload();
+  } catch (ex) {
+    err.textContent = ex.message || 'Passkey verification failed.';
+    err.style.display = 'block';
+  }
+}
+
+if (!window.__IS_ARCHITECT__) {
+  // Apply DRM restriction to pattern view cards
+  document.addEventListener('DOMContentLoaded', () => {
+    const pageShell = document.querySelector('.page-shell');
+    if (pageShell) {
+      pageShell.style.userSelect = 'none';
+      pageShell.style.webkitUserSelect = 'none';
+    }
+  });
+
+  document.addEventListener('contextmenu', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return true;
+    e.preventDefault();
+    showPatternsDrmToast();
+    return false;
+  });
+
+  document.addEventListener('copy', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return true;
+    e.preventDefault();
+    showPatternsDrmToast();
+    return false;
+  });
+
+  document.addEventListener('cut', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return true;
+    e.preventDefault();
+    showPatternsDrmToast();
+    return false;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'a', 'p', 's', 'u'].includes(e.key.toLowerCase())) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return true;
+      e.preventDefault();
+      showPatternsDrmToast();
+      return false;
+    }
+    if (e.key === 'F12') {
+      e.preventDefault();
+      showPatternsDrmToast();
+      return false;
+    }
+  });
+}
+</script>
+
 </body>
 </html>

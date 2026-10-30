@@ -42,8 +42,8 @@ REM two servers share one SQLite database and lock each other out.
 REM Robust probe: REST first, then netstat listener fallback.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [System.Net.WebRequest]::DefaultWebProxy = $null; $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8099/health' -TimeoutSec 2; if ($h.ok) { exit 0 } } catch {}; if (Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction SilentlyContinue) { exit 0 }; exit 1"
 if not errorlevel 1 (
-    echo Sentinari core is already running. Opening the front door...
-    call "%ROOT%open_url.bat" "http://127.0.0.1:8099/ui/start" "%LOG%"
+    echo Sentinari core is already running. Opening the web landing page...
+    call "%ROOT%open_url.bat" "http://127.0.0.1:8099/" "%LOG%"
     pause
     exit /b 0
 )
@@ -65,6 +65,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Sentinari core is running. Opening the front door...
-call "%ROOT%open_url.bat" "http://127.0.0.1:8099/ui/start" "%LOG%"
+echo Sentinari core is running. Opening the web landing page...
+call "%ROOT%open_url.bat" "http://127.0.0.1:8099/" "%LOG%"
 pause

@@ -287,6 +287,7 @@ class PlaygroundVideoRenderRequest(BaseModel):
     filename_hint: str = Field(default="ttv", max_length=40)
     include_ambient_music: bool = Field(default=True)
     ambient_music_volume: float = Field(default=0.12, ge=0.0, le=1.0)
+    ambient_track: str = Field(default="ambient_discovery.mp3", max_length=120)
     include_intro: bool = Field(default=True)
     intro_title: str = Field(default="SENTINARI: SOVEREIGN EPISTEMIC INTELLIGENCE", max_length=200)
     intro_presenter: str = Field(default="Dr. Pierre C. Wepener • Founder & Chief Architect", max_length=200)

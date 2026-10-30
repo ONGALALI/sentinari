@@ -198,6 +198,44 @@ WORKSPACES = {
             "perpetually operational."
         ),
     },
+    "ace_step": {
+        "id": "ace_step",
+        "name": "ACE-Step 1.5 Music Studio",
+        "route": "/ui/ace-step",
+        "badge": "COMMERCIAL-GRADE LOCAL MUSIC MODEL • ACE-STEP 1.5",
+        "category": "NEURAL AUDIO & SOUNDSCAPE SYNTHESIS",
+        "title": "ACE-STEP 1.5 SOVEREIGN AI MUSIC & SOUNDSCAPE STUDIO",
+        "subtitle": "Local Diffusion Audio Synthesis, Prompt-Driven Soundscapes & 10-Minute Epistemic Compositions",
+        "user_activities": "Composing prompt-driven soundscapes, tuning BPM/Keys, and exporting ambient tracks directly to Video Studio.",
+        "daemons": "Diffusion audio decoders, harmonic overtone synthesizers, and automated Video Studio soundscape linking.",
+        "outcomes": "Zero-dependency local acoustic generation, custom ambient backing pads, and seamless broadcast video soundtracks.",
+        "default_zoom": "card1",
+        "script": (
+            "Welcome to the ACE-Step 1.5 Music Studio at /ui/ace-step. Conceived by Dr. Pierre C. Wepener and integrating the "
+            "acclaimed open-source foundation model by ACE Studio and StepFun, this console synthesizes commercial-grade musical "
+            "compositions and ambient soundscapes entirely on local hardware. Researchers can shape harmonic keys, tempos, and "
+            "lyrical textures, instantly routing fresh compositions into Sentinari's video rendering engine."
+        ),
+    },
+    "wan21": {
+        "id": "wan21",
+        "name": "Wan 2.1 T2V-14B Studio",
+        "route": "/ui/wan21",
+        "badge": "14B DIFFUSION TRANSFORMER • CINEMATIC PHOTOREALISTIC VIDEO",
+        "category": "GENERATIVE CINEMATIC VIDEO",
+        "title": "WAN 2.1 T2V-14B SOVEREIGN CINEMATIC VIDEO STUDIO",
+        "subtitle": "14-Billion Parameter Open Foundation Model, Flow Matching & Cinematic Camera Synthesis",
+        "user_activities": "Synthesizing 1080p photorealistic text-to-video, setting camera motions (dolly, orbit, crane), and queuing DiT renders.",
+        "daemons": "3D Causal VAE video decoders, flow-matching DiT attention engines, and GPU VRAM quantization optimizers.",
+        "outcomes": "Cinematic 1080p generative video sequences, authentic lighting physics, and modular integration with Video Studio walkthroughs.",
+        "default_zoom": "card2",
+        "script": (
+            "Here in the Wan 2.1 Studio at /ui/wan21, Sentinari harnesses the fourteen-billion parameter diffusion transformer "
+            "pioneered by Wan-AI. Operating entirely under local sovereign execution with FP8 and BF16 quantization, the studio "
+            "synthesizes photorealistic cinematic scenes, dramatic camera orbits, and complex lighting dynamics, providing next-generation "
+            "visual capability without reliance on external cloud APIs."
+        ),
+    },
 }
 
 
@@ -243,6 +281,24 @@ def get_wan_video_status() -> dict[str, Any]:
 
 def get_workspaces_metadata() -> list[dict[str, Any]]:
     return list(WORKSPACES.values())
+
+
+def get_available_music_tracks() -> list[dict[str, Any]]:
+    audio_dir = Path("D:/Sentinari/static/audio")
+    tracks: list[dict[str, Any]] = []
+    if audio_dir.exists():
+        for p in sorted(audio_dir.iterdir()):
+            if p.suffix.lower() in {".mp3", ".wav", ".m4a", ".ogg"}:
+                nice_name = p.stem.replace("ambient_", "").replace("custom_", "").replace("_", " ").title()
+                tracks.append({
+                    "id": p.name,
+                    "filename": p.name,
+                    "title": nice_name,
+                    "url": f"/api/playground/video/file/{p.name}",
+                    "is_custom": p.name.startswith("custom_"),
+                    "size_bytes": p.stat().st_size,
+                })
+    return tracks
 
 
 # -----------------------------------------------------------------------------
@@ -782,11 +838,19 @@ def render_text_plan(plan: dict[str, Any], *, filename_hint: str = "") -> dict[s
 
     # 6. Mix ambient background music if requested
     final_mp4 = OUTPUT_DIR / f"{base_hint}_{job_uuid}.mp4"
-    if include_ambient and AMBIENT_MUSIC_PATH.exists():
+    track_name = str(plan.get("ambient_track") or "ambient_discovery.mp3").strip()
+    music_candidates = [
+        Path("D:/Sentinari/static/audio") / track_name,
+        Path("D:/Sentinari/static/audio") / Path(track_name).name,
+        AMBIENT_MUSIC_PATH,
+    ]
+    target_music = next((p for p in music_candidates if p.exists() and p.is_file()), AMBIENT_MUSIC_PATH)
+
+    if include_ambient and target_music.exists():
         cmd_mix = [
             ffmpeg_exe, "-y",
             "-i", str(raw_master),
-            "-stream_loop", "-1", "-i", str(AMBIENT_MUSIC_PATH),
+            "-stream_loop", "-1", "-i", str(target_music),
             "-filter_complex", f"[1:a]volume={ambient_vol:.2f}[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
             "-map", "0:v", "-map", "[aout]",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
@@ -890,6 +954,7 @@ def resolve_output_file(file_name: str) -> Path | None:
         Path("D:/Sentinari/constitution") / clean_name,
         Path("D:/Sentinari/constitution/video_assets") / clean_name,
         Path("D:/Sentinari/static/audio") / clean_name,
+        Path("D:/Sentinari/static/video") / clean_name,
     ]
     for c in candidates:
         if c.exists() and c.is_file():

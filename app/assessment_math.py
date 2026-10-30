@@ -108,11 +108,65 @@ ENGINEERING_WEIGHTS: dict[str, float] = {
 assert abs(sum(ENGINEERING_WEIGHTS.values()) - 1.0) < 1e-9
 
 
+# Impact level bands calibrated against assessments/new-assessment-matrix.xlsx:
+# 1-15% Level 1 (Low Impact), 16-50% Level 2 (Medium Impact), 51-100% Level 3 (High Impact)
 LEVEL_BANDS = [
-    (33.33, "Low Impact (Level 1)"),
-    (67.67, "Medium Impact (Level 2)"),
+    (15.0, "Low Impact (Level 1)"),
+    (50.0, "Medium Impact (Level 2)"),
     (100.0, "High Impact (Level 3)"),
 ]
+
+ASSESSMENT_MATRIX_RUBRIC: dict[str, dict[str, str]] = {
+    "Knowledge": {
+        "title": "Knowledge Impact",
+        "low": "Refines or simplifies localized, existing formulas.",
+        "medium": "Fills a major conceptual gap or uncovers new theoretical linkages.",
+        "high": "Establishes an entirely new paradigm or field of study.",
+        "indicators": "Introduces new knowledge. Connects previously unrelated domains. Corrects faulty assumptions. Refines existing theories. Improves understanding across disciplines.",
+    },
+    "Intelligence": {
+        "title": "Intelligence Impact",
+        "low": "Automates basic, rule-based computational operations.",
+        "medium": "Enables adaptive learning or dynamic heuristics in bounded domains.",
+        "high": "Powers generalized reasoning or emergent synthetic cognitive processing.",
+        "indicators": "Increases pattern-recognition capacity. Supports adaptive learning. Improves problem-solving effectiveness.",
+    },
+    "Decision": {
+        "title": "Decision Impact",
+        "low": "Informs transactional, low-consequence actions.",
+        "medium": "Guides tactical institutional policies or mid-term resource allocation.",
+        "high": "Directs irreversible strategic paths or macro socio-economic interventions.",
+        "indicators": "Reduces decision-making errors. Improves evidence-based reasoning. Enhances accountability. Improves risk evaluation. Maintains human accountability.",
+    },
+    "Human Agency": {
+        "title": "Human Agency Impact",
+        "low": "Acts as a passive tool; replaces only manual computational work.",
+        "medium": "Introduces automation bias; shifts humans from creators to supervisors.",
+        "high": "Completely abstracts human oversight; forces behavioral structural conformity.",
+        "indicators": "Supports human decision-making. Protects autonomy. Preserves human oversight. Prevents automation bias. Empowers human agency.",
+    },
+    "Societal": {
+        "title": "Societal Impact",
+        "low": "Affects specialized technical user groups with minimal public footprint.",
+        "medium": "Reshapes consumer behavior or standardizes industry markets.",
+        "high": "Fundamentally alters socioeconomic structures, equity, or wealth distribution.",
+        "indicators": "Supports professional expertise. Encourages critical evaluation. Prevents blind reliance on AI systems. Maintains human accountability.",
+    },
+    "Scientific": {
+        "title": "Scientific Impact",
+        "low": "Serves as an incremental tool for localized data analysis.",
+        "medium": "Accelerates cross-disciplinary discoveries as an analytical bridge.",
+        "high": "Unlocks new empirical realities, physical laws, or monumental breakthroughs.",
+        "indicators": "Generates new hypotheses. Opens new research domains. Creates cross-disciplinary opportunities. Strengthens theory development. Produces testable propositions.",
+    },
+    "Risk": {
+        "title": "Risk Impact",
+        "low": "Errors cause self-contained, easily reversible computational glitches.",
+        "medium": "Errors trigger localized systemic failures, economic bias, or penalties.",
+        "high": "Errors precipitate catastrophic, cascading global systemic collapse.",
+        "indicators": "Potential for misuse. High implementation risk. Significant ethical concerns. Vulnerability to manipulation. Possible unintended consequences.",
+    },
+}
 
 
 def gaussian(x: float, mu: float, sigma: float, amplitude: float) -> float:
@@ -145,11 +199,19 @@ def apply_coupling(params: dict[str, dict[str, float]], x: dict[str, float]) -> 
 
 
 def _level_band(impact_percent: float) -> str:
-    """Evaluate Level Band against the document's 0-100% capacity threshold."""
-    for ceiling, label in LEVEL_BANDS:
-        if impact_percent <= ceiling:
-            return label
-    return LEVEL_BANDS[-1][1]
+    """Evaluate Level Band against the document's 0-100% capacity threshold.
+    Calibrated against assessments/new-assessment-matrix.xlsx:
+      - 1 to 15%: Low Impact (Level 1)
+      - 16 to 50%: Medium Impact (Level 2)
+      - 51 to 100%: High Impact (Level 3)
+    """
+    p = float(impact_percent)
+    if p <= 15.0:
+        return "Low Impact (Level 1)"
+    elif p <= 50.0:
+        return "Medium Impact (Level 2)"
+    else:
+        return "High Impact (Level 3)"
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +358,7 @@ def evaluate_pattern_matrix(pattern: dict[str, Any], graph: dict[str, Any] | Non
         "g_values": {d: round(g_values[d], 4) for d in target_dims},
         "weights": target_weights,
         "nsis": round(nsis, 4),
+        "overall_band": _level_band(nsis * 100.0),
         "sd_percent": sd_percent,
         "level_bands": level_bands,
         "curve_x": xs,
