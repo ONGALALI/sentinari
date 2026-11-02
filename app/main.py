@@ -799,25 +799,25 @@ _LANDING_REFERENCE_REPORTS: dict[str, dict[str, str]] = {
     },
     "the-constitution": {
         "slug": "the-constitution",
-        "title": "The 100-Year Sentinari Constitution",
+        "title": "The Sentinari Constitution 3.0",
         "filename": "Constitution.pdf",
-        "download_name": "Sentinari_Constitution.pdf",
+        "download_name": "Sentinari_Constitution_3.0.pdf",
         "subtitle": "Foundational Sovereign Epistemic Charter · Dr. Pierre C. Wepener",
-        "description": "The foundational 100-Year Constitution and Intellectual Property Charter governing the Sentinari architecture.",
+        "description": "The foundational Constitution 3.0 (99 Pages) and Intellectual Property Charter governing the Sentinari architecture.",
     },
     "Constitution.pdf": {
         "slug": "the-constitution",
-        "title": "The 100-Year Sentinari Constitution",
+        "title": "The Sentinari Constitution 3.0",
         "filename": "Constitution.pdf",
-        "download_name": "Sentinari_Constitution.pdf",
+        "download_name": "Sentinari_Constitution_3.0.pdf",
         "subtitle": "Foundational Sovereign Epistemic Charter · Dr. Pierre C. Wepener",
         "description": "",
     },
     "constitution": {
         "slug": "the-constitution",
-        "title": "The 100-Year Sentinari Constitution",
+        "title": "The Sentinari Constitution 3.0",
         "filename": "Constitution.pdf",
-        "download_name": "Sentinari_Constitution.pdf",
+        "download_name": "Sentinari_Constitution_3.0.pdf",
         "subtitle": "Foundational Sovereign Epistemic Charter · Dr. Pierre C. Wepener",
         "description": "",
     },
@@ -864,6 +864,7 @@ def serve_constitution_direct(download: int = Query(default=0)) -> FileResponse:
     """Direct route for viewing or downloading the 100-Year Sentinari Constitution PDF."""
     root = get_project_root()
     candidates = [
+        root / "constitution" / "Constitution3.0.pdf",
         root / "static" / "reports" / "Constitution.pdf",
         Path("D:/Constitution.pdf"),
         root / "docs" / "Constitution.pdf",
@@ -876,7 +877,7 @@ def serve_constitution_direct(download: int = Query(default=0)) -> FileResponse:
         path=str(target),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'{disposition}; filename="Sentinari_Constitution.pdf"',
+            "Content-Disposition": f'{disposition}; filename="Sentinari_Constitution_3.0.pdf"',
             "Cache-Control": "public, max-age=3600",
         },
     )

@@ -1,6 +1,7 @@
 # Sentinari by Inspirari
 
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary%20%26%20All%20Rights%20Reserved-red.svg?style=for-the-badge)](LICENSE.md)
+[![Constitution 3.0: 99-Page Charter](https://img.shields.io/badge/Constitution%203.0-99--Page%20Charter-purple.svg?style=for-the-badge)](docs/Constitution.pdf)
 [![White Paper: 15-Page Edition](https://img.shields.io/badge/White%20Paper-15--Page%20Constitutional%20Edition-0066cc.svg?style=for-the-badge)](constitution/SENTINARI_CONSTITUTIONAL_WHITEPAPER_15_PAGE.md)
 [![Assessment Matrix: Societal Manifesto](https://img.shields.io/badge/Assessment%20Matrix-7--D%20Societal%20Manifesto-10b981.svg?style=for-the-badge)](constitution/THE_7_DIMENSIONAL_ASSESSMENT_MATRIX_FOR_SOCIETY.md)
 [![User Guide: Official PDF Manual](https://img.shields.io/badge/User%20Guide-Official%20PDF%20Manual-e11d48.svg?style=for-the-badge)](docs/SENTINARI_USER_GUIDE_AND_HELP_INDEX.pdf)
@@ -23,6 +24,7 @@ Direct, one-click links to the foundational constitutional documents and mathema
 
 | Flagship Document / Framework | Scope & Description | Direct One-Click Link |
 | :--- | :--- | :---: |
+| 📜 **Sentinari Constitution 3.0 (99-Page Charter)** | *Responsible Intelligence: The Foundational Epistemic Charter*. Conceived and authored by Dr. Pierre C. Wepener. Complete 99-page charter covering Aristotle's Four Causes, Pseudo-Dynamics Lab, 12 Domains, Superposition Pattern Discovery, Complete Terminology List, and full academic references. | [**📜 Read Official PDF (99 Pages)**](docs/Constitution.pdf)<br>[**📝 Source Docx**](constitution/Constituion3.0.docx) |
 | 📄 **The 15-Page Constitutional White Paper** | *A Paradigm Shift from Speculative Fluency to Mathematically Accountable, Constitutional Discovery*. Complete with all 8 Articles, Aristotelian Causality, 7-D Assessment Matrix, Pseudo-Dynamics vector field physics, and empirical oncology/radar proofs. | [**📖 Read White Paper (.md)**](constitution/SENTINARI_CONSTITUTIONAL_WHITEPAPER_15_PAGE.md) |
 | ⚖️ **The 7-Dimensional Assessment Matrix for Society** | *A Mathematical Manifesto for a Sustainable Society*. An un-falsifiable coupled Gaussian bell-curve framework ($K, I, D, H, S, E, R$) to measure, balance, and safeguard human agency, knowledge, ethics, and systemic risk. Free for worldwide distribution under Creative Commons CC BY-NC-SA 4.0. | [**⚖️ Read 7-D Matrix (.md)**](constitution/THE_7_DIMENSIONAL_ASSESSMENT_MATRIX_FOR_SOCIETY.md) |
 | 🏛️ **Institutional Showcase Portal & Investor Vault** | Public investor gateway containing the Due Diligence Protocol, Mutual NDA template, and executive briefing for Google Cloud, DeepMind, sovereign funds, and research alliances. | [**🏛️ Open Showcase Portal**](showcase_portal/README.md) |
