@@ -2664,8 +2664,12 @@ def download_matlab_endpoint(pattern_id: int) -> Response:
         fname = f"pattern_{int(pattern_id)}_sim_model.m"
         return Response(
             content=code.encode("utf-8"),
-            media_type="text/x-matlab; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+            media_type="application/octet-stream; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}"',
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
         )
     except Exception as ex:
         raise HTTPException(status_code=500, detail=str(ex))
@@ -2681,8 +2685,12 @@ def download_prototype_endpoint(pattern_id: int) -> Response:
         fname = f"pattern_{int(pattern_id)}_prototype_sim.py"
         return Response(
             content=code.encode("utf-8"),
-            media_type="text/x-python",
-            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+            media_type="application/octet-stream; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}"',
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
         )
     except Exception as ex:
         raise HTTPException(status_code=500, detail=str(ex))

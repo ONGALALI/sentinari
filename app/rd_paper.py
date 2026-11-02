@@ -157,7 +157,7 @@ _PAPER_CSS = """
   .eng-step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
   .eng-step-num { font-weight: 800; font-size: 11px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 999px; }
   .eng-step-title { font-weight: 700; font-size: 13.5px; color: #0f172a; }
-  .eng-step-body { font-size: 13px; line-height: 1.65; color: #334155; white-space: pre-wrap; word-break: break-word; }
+  .eng-step-body { font-size: 13px; line-height: 1.65; color: #334155; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; padding: 2px 0; margin: 0; }
 
   /* Parameter Guide Card & Math Legend */
   .param-guide-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 18px 20px; margin: 18px 0; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
@@ -1995,7 +1995,9 @@ def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str
         for key, label in step_keys:
             st = steps_dict.get(key) or {}
             st_title = st.get("title") or label
-            st_content = st.get("content") or ""
+            st_content = str(st.get("content") or "").strip()
+            # Clean any redundant leading markdown step heading inside body
+            st_content = re.sub(r"^(?:#{1,4}\s*)?(?:Step\s*)?\d+[\.\:\-\s]*[^\n\r]*\n", "", st_content).strip()
             fmt_content = _format_prose_with_inline_citations(st_content, len(bib))
             eng_steps_html_parts.append(
                 f"<div class='eng-step-card' id='eng-step-{key}'>"
@@ -2309,8 +2311,8 @@ def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str
 
     <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
       <button type="button" class="top-btn" onclick="runEngineeringTrial()" style="background:#0f172a;color:#fff;font-weight:700;border:none;cursor:pointer;padding:8px 16px;">⚙️ Run Theoretical Engineering Trial with Gemma</button>
-      <a class="top-btn" href="/api/patterns/{pid}/theoretical-engineering/download-prototype" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700;padding:8px 16px;">📥 Download Prototype Code (.py)</a>
-      <a class="top-btn" href="/api/patterns/{pid}/theoretical-engineering/download-matlab" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700;padding:8px 16px;">📐 Download MATLAB Model (.m)</a>
+      <a class="top-btn" href="/api/patterns/{pid}/theoretical-engineering/download-prototype" download="pattern_{pid}_prototype_sim.py" onclick="downloadPrototypeFile(); return false;" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700;padding:8px 16px;cursor:pointer;">📥 Download Prototype Code (.py)</a>
+      <a class="top-btn" href="/api/patterns/{pid}/theoretical-engineering/download-matlab" download="pattern_{pid}_sim_model.m" onclick="downloadMatlabFile(); return false;" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700;padding:8px 16px;cursor:pointer;">📐 Download MATLAB Model (.m)</a>
       <button type="button" class="top-btn" onclick="copyPrototypeCode()" style="background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer;padding:8px 16px;">📋 Copy Python Code</button>
       <button type="button" class="top-btn" onclick="copyMatlabCode()" style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;cursor:pointer;padding:8px 16px;font-weight:600;">📐 Copy MATLAB Code</button>
       <span id="engTrialSpinner" style="display:none;font-size:12px;color:#b45309;font-weight:600;">🔄 Gemma is synthesizing 10-Step Engineering Blueprint...</span>
@@ -2626,6 +2628,67 @@ function copyMatlabCode() {{
     navigator.clipboard.writeText(notice + el.textContent).then(() => {{
       alert('🔒 Copyright Protected: MATLAB Model copied to clipboard with Dr. Pierre C. Wepener IP Notice.');
     }});
+  }}
+}}
+
+function downloadPrototypeFile() {{
+  const el = document.getElementById('prototypeCodeBlock');
+  const code = el ? el.textContent : '';
+  if (!code) {{
+    window.location.href = '/api/patterns/{pid}/theoretical-engineering/download-prototype';
+    return;
+  }}
+  try {{
+    const blob = new Blob([code], {{ type: 'text/x-python;charset=utf-8' }});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pattern_{pid}_prototype_sim.py';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showDownloadToast('pattern_{pid}_prototype_sim.py');
+  }} catch (err) {{
+    window.location.href = '/api/patterns/{pid}/theoretical-engineering/download-prototype';
+  }}
+}}
+
+function downloadMatlabFile() {{
+  const el = document.getElementById('matlabCodeBlock');
+  const code = el ? el.textContent : '';
+  if (!code) {{
+    window.location.href = '/api/patterns/{pid}/theoretical-engineering/download-matlab';
+    return;
+  }}
+  try {{
+    const blob = new Blob([code], {{ type: 'text/x-matlab;charset=utf-8' }});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pattern_{pid}_sim_model.m';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showDownloadToast('pattern_{pid}_sim_model.m');
+  }} catch (err) {{
+    window.location.href = '/api/patterns/{pid}/theoretical-engineering/download-matlab';
+  }}
+}}
+
+function showDownloadToast(fname) {{
+  const toast = document.getElementById('drmToast');
+  if (toast) {{
+    toast.innerHTML = '<span>📥 <b>Download Initiated:</b> <code>' + fname + '</code> saved to your device. (Dr. Pierre C. Wepener IP Protected).</span>';
+    toast.style.background = '#065f46';
+    toast.style.borderColor = '#10b981';
+    toast.style.display = 'flex';
+    setTimeout(() => {{
+      toast.style.display = 'none';
+      toast.style.background = '#0f172a';
+      toast.style.borderColor = '#334155';
+    }}, 4500);
   }}
 }}
 
