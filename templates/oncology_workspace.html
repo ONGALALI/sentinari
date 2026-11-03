@@ -460,6 +460,77 @@
   .metric-val { font-size: 22px; font-weight: 800; color: #ffffff; }
   .metric-label { font-size: 11.5px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
   .metric-sub { font-size: 11px; color: #6ee7b7; margin-top: 3px; }
+
+  /* ======================================================== */
+  /* ONCOLOGY & TDA POP-UP TAG & TOOLTIP STYLES              */
+  /* ======================================================== */
+  .info-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgba(6, 182, 212, 0.22);
+    border: 1px solid rgba(6, 182, 212, 0.55);
+    color: #67e8f9;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 5px;
+    vertical-align: middle;
+    line-height: 1;
+    text-transform: none;
+    font-style: normal;
+  }
+  .info-pill:hover, .info-pill:focus {
+    background: #06b6d4;
+    color: #0b1320;
+    transform: scale(1.18);
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+  }
+  .onco-tooltip-modal {
+    position: absolute;
+    background: #0f1c2d;
+    color: #e2e8f0;
+    border: 1px solid #38bdf8;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75);
+    max-width: 320px;
+    z-index: 10000;
+    display: none;
+    animation: fadeInTooltip 0.15s ease-out;
+  }
+  @keyframes fadeInTooltip {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .onco-tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    color: #67e8f9;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+  }
+  .onco-tooltip-close {
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .onco-tooltip-close:hover { color: #f43f5e; }
 </style>
 </head>
 <body>
@@ -561,17 +632,17 @@
     <div class="grid-3">
       <div class="metric-card">
         <div class="metric-val" style="color: #34d399;">CI = 0.380</div>
-        <div class="metric-label">Chou-Talalay Synergism</div>
+        <div class="metric-label">Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span></div>
         <div class="metric-sub">&check; Strong pharmacological synergy at ED<sub>90</sub> (CI &lt; 1.0)</div>
       </div>
       <div class="metric-card">
         <div class="metric-val" style="color: #38bdf8;">DRI = 2.85&times;</div>
-        <div class="metric-label">Cytotoxic Dose Sparing</div>
+        <div class="metric-label">Cytotoxic Dose Sparing <span class="info-pill" title="Dose Reduction Index (DRI = Dx / D). Quantifies how many-fold the dose of each drug in combination may be reduced while maintaining target tumor suppression." data-tooltip="Dose Reduction Index (DRI = Dx / D). Quantifies how many-fold the dose of each drug in combination may be reduced while maintaining target tumor suppression." onclick="showOncoTooltip(event, this, 'Cytotoxic Dose Sparing')">?</span></div>
         <div class="metric-sub">&check; 64.9% dose reduction, 91.9% volumetric suppression</div>
       </div>
       <div class="metric-card">
         <div class="metric-val" style="color: #a78bfa;">95.4% Viability</div>
-        <div class="metric-label">Healthy Tissue Envelope</div>
+        <div class="metric-label">Healthy Tissue Envelope <span class="info-pill" title="Percentage of non-cancerous cells surviving under synergistic combination dosing, confirming US FDA 21 CFR 312 and ICH S9 non-clinical safety compliance." data-tooltip="Percentage of non-cancerous cells surviving under synergistic combination dosing, confirming US FDA 21 CFR 312 and ICH S9 non-clinical safety compliance." onclick="showOncoTooltip(event, this, 'Healthy Tissue Envelope')">?</span></div>
         <div class="metric-sub">&check; US FDA 21 CFR 312 &amp; ICH S9 Regulatory Compliance</div>
       </div>
     </div>
@@ -592,7 +663,7 @@
 
       <div class="form-row">
         <div>
-          <label>Malignancy Classification</label>
+          <label>Malignancy Classification <span class="info-pill" title="Primary hematologic or solid neoplasm subtype classification governing cellular lineage, targeted clonal vulnerability, and therapeutic protocols." data-tooltip="Primary hematologic or solid neoplasm subtype classification governing cellular lineage, targeted clonal vulnerability, and therapeutic protocols." onclick="showOncoTooltip(event, this, 'Malignancy Classification')">?</span></label>
           <select id="p_cancer_type" onchange="updatePatientCalculations()">
             <option value="AML">Acute Myeloid Leukemia (AML)</option>
             <option value="ALL">Acute Lymphoblastic Leukemia (ALL)</option>
@@ -602,15 +673,15 @@
           </select>
         </div>
         <div>
-          <label>Patient Age &amp; Cohort</label>
+          <label>Patient Age <span class="info-pill" title="Patient chronological age in years. Influences physiological organ reserve, baseline frailty, and eligibility for intensive vs targeted low-intensity regimens." data-tooltip="Patient chronological age in years. Influences physiological organ reserve, baseline frailty, and eligibility for intensive vs targeted low-intensity regimens." onclick="showOncoTooltip(event, this, 'Patient Age')">?</span> &amp; Cohort</label>
           <input type="number" id="p_age" value="62" min="18" max="100" onchange="updatePatientCalculations()">
         </div>
         <div>
-          <label>Targeted Genetic Mutations (NGS)</label>
+          <label>Targeted Genetic Mutations (NGS) <span class="info-pill" title="Next-Generation Sequencing panel detecting actionable oncogenic driver mutations (e.g. FLT3-ITD, NPM1, IDH1/2, TP53) to determine targeted therapy susceptibility." data-tooltip="Next-Generation Sequencing panel detecting actionable oncogenic driver mutations (e.g. FLT3-ITD, NPM1, IDH1/2, TP53) to determine targeted therapy susceptibility." onclick="showOncoTooltip(event, this, 'Targeted Genetic Mutations (NGS)')">?</span></label>
           <input type="text" id="p_mutations" value="FLT3-ITD (VAF 0.42), NPM1, IDH2" oninput="updatePatientCalculations()">
         </div>
         <div>
-          <label>Karyotyping / Cytogenetics</label>
+          <label>Karyotyping / Cytogenetics <span class="info-pill" title="High-resolution chromosomal banding analysis (46,XX/XY vs translocations or complex aneuploidy) defining baseline ELN cytogenetic risk tier." data-tooltip="High-resolution chromosomal banding analysis (46,XX/XY vs translocations or complex aneuploidy) defining baseline ELN cytogenetic risk tier." onclick="showOncoTooltip(event, this, 'Karyotyping / Cytogenetics')">?</span></label>
           <input type="text" id="p_karyotype" value="Normal Karyotype 46,XX [Intermediate Risk]" oninput="updatePatientCalculations()">
         </div>
       </div>
@@ -631,7 +702,7 @@
           </select>
         </div>
         <div>
-          <label>HCT-CI Comorbidity Score (0 - 5+)</label>
+          <label>HCT-CI Comorbidity Score <span class="info-pill" title="Hematopoietic Cell Transplantation-Specific Comorbidity Index (0-1: low risk, 2: intermediate, >=3: high non-relapse mortality risk) quantifying organ dysfunction." data-tooltip="Hematopoietic Cell Transplantation-Specific Comorbidity Index (0-1: low risk, 2: intermediate, >=3: high non-relapse mortality risk) quantifying organ dysfunction." onclick="showOncoTooltip(event, this, 'HCT-CI Comorbidity Score')">?</span> (0 - 5+)</label>
           <input type="number" id="p_hctci" value="2" min="0" max="10" onchange="updatePatientCalculations()">
         </div>
         <div>
@@ -919,7 +990,7 @@
             <span>&#x1F3AC;</span>
             <span>Watch TDA Video (60 MB) &nearr;</span>
           </a>
-          <span style="font-size: 12px; color: #94a3b8;">Filtration Radius (&epsilon;):</span>
+          <span style="font-size: 12px; color: #94a3b8;">Filtration Radius (&epsilon;): <span class="info-pill" title="Metric spatial scale parameter ε in Vietoris-Rips filtration. Closed balls expand around data points; simplices form when balls pairwise intersect at distance <= 2ε." data-tooltip="Metric spatial scale parameter ε in Vietoris-Rips filtration. Closed balls expand around data points; simplices form when balls pairwise intersect at distance <= 2ε." onclick="showOncoTooltip(event, this, 'Filtration Radius (ε)')">?</span></span>
           <input type="range" id="tda_radius" min="10" max="90" value="45" style="width: 140px;" oninput="updateTdaVisualization()">
           <span id="tda_radius_val" style="font-size: 13px; font-weight: 700; color: #38bdf8; min-width: 40px;">0.45</span>
         </div>
@@ -1103,7 +1174,7 @@
 
       <div class="grid-2">
         <div>
-          <h3 style="margin: 0 0 8px; font-size: 14.5px; color: #f1f5f9;">Live Chou-Talalay Synergism Proof</h3>
+          <h3 style="margin: 0 0 8px; font-size: 14.5px; color: #f1f5f9;">Live Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span> Proof</h3>
           <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 12px;">
             The combination of cytotoxic antineoplastic agents with calibrated HMG-CoA/SREBP-2 downregulating adjuvants satisfies the Median-Effect Principle and the Chou-Talalay Combination Index equation:
           </p>
@@ -1843,5 +1914,46 @@ window.addEventListener('load', () => {
   searchClinicalTrials();
 });
 </script>
-</body>
+<script>
+// Interactive Pop-up Tag Modal Controller for Oncology & TDA
+function showOncoTooltip(event, el, title) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  let modal = document.getElementById('oncoGlobalTooltip');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'oncoGlobalTooltip';
+    modal.className = 'onco-tooltip-modal';
+    document.body.appendChild(modal);
+    document.addEventListener('click', function(e) {
+      if (!modal.contains(e.target) && !e.target.classList.contains('info-pill')) {
+        modal.style.display = 'none';
+      }
+    });
+  }
+  const desc = el.getAttribute('data-tooltip') || el.getAttribute('title') || 'Clinical and mathematical parameter documentation.';
+  modal.innerHTML = `
+    <div class="onco-tooltip-header">
+      <span>&#x1F4D6; ${title}</span>
+      <span class="onco-tooltip-close" onclick="document.getElementById('oncoGlobalTooltip').style.display='none';">&times;</span>
+    </div>
+    <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${desc}</div>
+  `;
+  const rect = el.getBoundingClientRect();
+  modal.style.display = 'block';
+  let top = rect.top + window.scrollY - modal.offsetHeight - 8;
+  let left = rect.left + window.scrollX - (modal.offsetWidth / 2) + (rect.width / 2);
+  if (top < window.scrollY + 10) {
+    top = rect.bottom + window.scrollY + 8;
+  }
+  if (left < 10) left = 10;
+  if (left + modal.offsetWidth > window.innerWidth - 10) {
+    left = window.innerWidth - modal.offsetWidth - 10;
+  }
+  modal.style.top = top + 'px';
+  modal.style.left = left + 'px';
+}
+</script></body>
 </html>

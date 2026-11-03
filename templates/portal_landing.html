@@ -944,7 +944,78 @@
       font-size: 0.85rem;
       cursor: pointer;
     }
-  </style>
+  
+  /* ======================================================== */
+  /* ONCOLOGY & TDA POP-UP TAG & TOOLTIP STYLES              */
+  /* ======================================================== */
+  .info-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgba(6, 182, 212, 0.22);
+    border: 1px solid rgba(6, 182, 212, 0.55);
+    color: #67e8f9;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 5px;
+    vertical-align: middle;
+    line-height: 1;
+    text-transform: none;
+    font-style: normal;
+  }
+  .info-pill:hover, .info-pill:focus {
+    background: #06b6d4;
+    color: #0b1320;
+    transform: scale(1.18);
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+  }
+  .onco-tooltip-modal {
+    position: absolute;
+    background: #0f1c2d;
+    color: #e2e8f0;
+    border: 1px solid #38bdf8;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75);
+    max-width: 320px;
+    z-index: 10000;
+    display: none;
+    animation: fadeInTooltip 0.15s ease-out;
+  }
+  @keyframes fadeInTooltip {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .onco-tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    color: #67e8f9;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+  }
+  .onco-tooltip-close {
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .onco-tooltip-close:hover { color: #f43f5e; }
+</style>
 <style>
 
   /* ======================================================== */
@@ -1378,8 +1449,8 @@
                 Overcoming Multidrug Resistance (MDR) and P-glycoprotein drug efflux in metastatic solid tumors via calibrated metabolic adjuvant targeting. Mathematically engineered through Sentinari's breakthrough cross-functional pattern discovery equations built on the principles of Quantum Mechanics and the 4 Causes (Aristotle) Critical Thinking Design Approach. Conceived within the sovereign epistemic architecture by <b>Dr. Pierre C. Wepener</b> (Industrial &amp; Organisational Psychologist).
               </p>
               <ul class="report-highlights">
-                <li><span>&#x25B8;</span><span><b>Chou-Talalay Synergism (CI = 0.380):</b> Strong pharmacological synergy at ED<sub>90</sub> (CI &lt; 1.0, p &lt; 0.001), disproving independent drug additivity and establishing potent neoplastic cell kill.</span></li>
-                <li><span>&#x25B8;</span><span><b>Cytotoxic Dose Sparing (DRI = 2.85&times;):</b> Enables a 64.9% cytotoxic chemotherapy dose reduction while achieving 91.9% volumetric tumor suppression and maintaining a 95.4% healthy tissue viability envelope (US FDA 21 CFR 312 / ICH S9 compliant).</span></li>
+                <li><span>&#x25B8;</span><span><b>Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span> (CI = 0.380):</b> Strong pharmacological synergy at ED<sub>90</sub> (CI &lt; 1.0, p &lt; 0.001), disproving independent drug additivity and establishing potent neoplastic cell kill.</span></li>
+                <li><span>&#x25B8;</span><span><b>Cytotoxic Dose Sparing <span class="info-pill" title="Dose Reduction Index (DRI = Dx / D). Quantifies how many-fold the dose of each drug in combination may be reduced while maintaining target tumor suppression." data-tooltip="Dose Reduction Index (DRI = Dx / D). Quantifies how many-fold the dose of each drug in combination may be reduced while maintaining target tumor suppression." onclick="showOncoTooltip(event, this, 'Cytotoxic Dose Sparing')">?</span> (DRI = 2.85&times;):</b> Enables a 64.9% cytotoxic chemotherapy dose reduction while achieving 91.9% volumetric tumor suppression and maintaining a 95.4% healthy tissue viability envelope (US FDA 21 CFR 312 / ICH S9 compliant).</span></li>
               </ul>
             </div>
             <div class="report-actions">
@@ -1817,17 +1888,17 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:24px;">
             <div class="onco-metric-card">
               <div class="onco-metric-val" style="color:#34d399;">CI = 0.380</div>
-              <div class="onco-metric-label">Chou-Talalay Synergism</div>
+              <div class="onco-metric-label">Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span></div>
               <div class="onco-metric-sub">&check; Strong pharmacological synergy at ED<sub>90</sub> (CI &lt; 1.0)</div>
             </div>
             <div class="onco-metric-card">
               <div class="onco-metric-val" style="color:#38bdf8;">DRI = 2.85&times;</div>
-              <div class="onco-metric-label">Cytotoxic Dose Sparing</div>
+              <div class="onco-metric-label">Cytotoxic Dose Sparing <span class="info-pill" title="Dose Reduction Index (DRI = Dx / D). Quantifies how many-fold the dose of each drug in combination may be reduced while maintaining target tumor suppression." data-tooltip="Dose Reduction Index (DRI = Dx / D). Quantifies how many-fold the dose of each drug in combination may be reduced while maintaining target tumor suppression." onclick="showOncoTooltip(event, this, 'Cytotoxic Dose Sparing')">?</span></div>
               <div class="onco-metric-sub">&check; 64.9% dose reduction, 91.9% volumetric suppression</div>
             </div>
             <div class="onco-metric-card">
               <div class="onco-metric-val" style="color:#a78bfa;">95.4% Viability</div>
-              <div class="onco-metric-label">Healthy Tissue Envelope</div>
+              <div class="onco-metric-label">Healthy Tissue Envelope <span class="info-pill" title="Percentage of non-cancerous cells surviving under synergistic combination dosing, confirming US FDA 21 CFR 312 and ICH S9 non-clinical safety compliance." data-tooltip="Percentage of non-cancerous cells surviving under synergistic combination dosing, confirming US FDA 21 CFR 312 and ICH S9 non-clinical safety compliance." onclick="showOncoTooltip(event, this, 'Healthy Tissue Envelope')">?</span></div>
               <div class="onco-metric-sub">&check; US FDA 21 CFR 312 &amp; ICH S9 Regulatory Compliance</div>
             </div>
           </div>
@@ -1848,7 +1919,7 @@
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:14px;">
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Malignancy Classification</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Malignancy Classification <span class="info-pill" title="Primary hematologic or solid neoplasm subtype classification governing cellular lineage, targeted clonal vulnerability, and therapeutic protocols." data-tooltip="Primary hematologic or solid neoplasm subtype classification governing cellular lineage, targeted clonal vulnerability, and therapeutic protocols." onclick="showOncoTooltip(event, this, 'Malignancy Classification')">?</span></label>
                 <select id="p_cancer_type" onchange="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
                   <option value="AML">Acute Myeloid Leukemia (AML)</option>
                   <option value="ALL">Acute Lymphoblastic Leukemia (ALL)</option>
@@ -1858,34 +1929,34 @@
                 </select>
               </div>
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Patient Age</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Patient Age <span class="info-pill" title="Patient chronological age in years. Influences physiological organ reserve, baseline frailty, and eligibility for intensive vs targeted low-intensity regimens." data-tooltip="Patient chronological age in years. Influences physiological organ reserve, baseline frailty, and eligibility for intensive vs targeted low-intensity regimens." onclick="showOncoTooltip(event, this, 'Patient Age')">?</span></label>
                 <input type="number" id="p_age" value="62" min="18" max="100" onchange="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
               </div>
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Targeted Genetic Mutations (NGS)</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Targeted Genetic Mutations (NGS) <span class="info-pill" title="Next-Generation Sequencing panel detecting actionable oncogenic driver mutations (e.g. FLT3-ITD, NPM1, IDH1/2, TP53) to determine targeted therapy susceptibility." data-tooltip="Next-Generation Sequencing panel detecting actionable oncogenic driver mutations (e.g. FLT3-ITD, NPM1, IDH1/2, TP53) to determine targeted therapy susceptibility." onclick="showOncoTooltip(event, this, 'Targeted Genetic Mutations (NGS)')">?</span></label>
                 <input type="text" id="p_mutations" value="FLT3-ITD (VAF 0.42), NPM1, IDH2" oninput="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
               </div>
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Karyotyping / Cytogenetics</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Karyotyping / Cytogenetics <span class="info-pill" title="High-resolution chromosomal banding analysis (46,XX/XY vs translocations or complex aneuploidy) defining baseline ELN cytogenetic risk tier." data-tooltip="High-resolution chromosomal banding analysis (46,XX/XY vs translocations or complex aneuploidy) defining baseline ELN cytogenetic risk tier." onclick="showOncoTooltip(event, this, 'Karyotyping / Cytogenetics')">?</span></label>
                 <input type="text" id="p_karyotype" value="Normal Karyotype 46,XX [Intermediate Risk]" oninput="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
               </div>
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;margin-bottom:14px;">
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">WBC Count (&times;10&#8313;/L)</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">WBC Count (&times;10&#8313;/L) <span class="info-pill" title="Peripheral white blood cell count. Counts >= 50 elevate Tumor Lysis Syndrome (TLS) risk; counts >= 100 indicate emergent leukostasis requiring urgent cytoreduction." data-tooltip="Peripheral white blood cell count. Counts >= 50 elevate Tumor Lysis Syndrome (TLS) risk; counts >= 100 indicate emergent leukostasis requiring urgent cytoreduction." onclick="showOncoTooltip(event, this, 'WBC Count')">?</span></label>
                 <input type="number" id="p_wbc" value="84" min="0" max="300" onchange="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
               </div>
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">ECOG Performance Status (0&ndash;4)</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">ECOG Performance Status (0&ndash;4) <span class="info-pill" title="Eastern Cooperative Oncology Group functional capacity index: 0 (fully active) to 4 (completely bedbound/disabled). Informs patient treatment tolerance." data-tooltip="Eastern Cooperative Oncology Group functional capacity index: 0 (fully active) to 4 (completely bedbound/disabled). Informs patient treatment tolerance." onclick="showOncoTooltip(event, this, 'ECOG Performance Status')">?</span></label>
                 <input type="number" id="p_ecog" value="1" min="0" max="4" onchange="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
               </div>
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">HCT-CI Comorbidity Score</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">HCT-CI Comorbidity Score <span class="info-pill" title="Hematopoietic Cell Transplantation-Specific Comorbidity Index (0-1: low risk, 2: intermediate, >=3: high non-relapse mortality risk) quantifying organ dysfunction." data-tooltip="Hematopoietic Cell Transplantation-Specific Comorbidity Index (0-1: low risk, 2: intermediate, >=3: high non-relapse mortality risk) quantifying organ dysfunction." onclick="showOncoTooltip(event, this, 'HCT-CI Comorbidity Score')">?</span></label>
                 <input type="number" id="p_hctci" value="2" min="0" max="10" onchange="updatePatientCalculations()" style="width:100%;padding:8px 12px;background:#0d1829;border:1px solid #233a5b;border-radius:8px;color:#fff;">
               </div>
               <div>
-                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Stratified Risk Profile</label>
+                <label style="display:block;font-size:11.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;">Stratified Risk Profile <span class="info-pill" title="European LeukemiaNet (ELN 2022) genetic & clinical risk stratification tier (Favorable, Intermediate, Adverse) guiding clinical maintenance strategy." data-tooltip="European LeukemiaNet (ELN 2022) genetic & clinical risk stratification tier (Favorable, Intermediate, Adverse) guiding clinical maintenance strategy." onclick="showOncoTooltip(event, this, 'Stratified Risk Profile')">?</span></label>
                 <div id="p_risk_badge" style="padding:9px 12px;background:rgba(245,158,11,0.2);color:#fcd34d;border:1px solid rgba(245,158,11,0.4);border-radius:8px;font-size:12px;font-weight:700;">Intermediate Risk (ELN 2022)</div>
               </div>
             </div>
@@ -1913,7 +1984,7 @@
             <!-- Slider Control Row -->
             <div style="background:#0d1829;border:1px solid #233a5b;border-radius:10px;padding:14px 18px;margin-bottom:18px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
-                <span style="font-size:13px;font-weight:700;color:#cbd5e1;">Filtration Radius (&epsilon;): <span id="tda_radius_val" style="color:#10b981;font-family:monospace;font-size:15px;">0.65</span></span>
+                <span style="font-size:13px;font-weight:700;color:#cbd5e1;">Filtration Radius (&epsilon;): <span class="info-pill" title="Metric spatial scale parameter ε in Vietoris-Rips filtration. Closed balls expand around data points; simplices form when balls pairwise intersect at distance <= 2ε." data-tooltip="Metric spatial scale parameter ε in Vietoris-Rips filtration. Closed balls expand around data points; simplices form when balls pairwise intersect at distance <= 2ε." onclick="showOncoTooltip(event, this, 'Filtration Radius (ε)')">?</span> <span id="tda_radius_val" style="color:#10b981;font-family:monospace;font-size:15px;">0.65</span></span>
                 <span id="tda_components_badge" class="pill" style="background:rgba(16,185,129,0.18);border-color:rgba(16,185,129,0.45);color:#6ee7b7;font-size:12px;font-weight:800;">&beta;&#8320; = 3 | &beta;&#8321; = 2 (Persistent Loop Present)</span>
               </div>
               <input type="range" id="tda_radius" min="10" max="150" value="65" oninput="updateTdaVisualization()" style="width:100%;accent-color:#10b981;cursor:pointer;">
@@ -1923,7 +1994,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:16px;">
               <div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;text-transform:uppercase;">Vietoris-Rips Simplicial Complex</span>
+                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;text-transform:uppercase;">Vietoris-Rips Simplicial Complex <span class="info-pill" title="An abstract topological simplicial complex built on a metric point cloud. 0-simplices are points, 1-simplices are edges, 2-simplices are filled triangles, capturing multidimensional shape." data-tooltip="An abstract topological simplicial complex built on a metric point cloud. 0-simplices are points, 1-simplices are edges, 2-simplices are filled triangles, capturing multidimensional shape." onclick="showOncoTooltip(event, this, 'Vietoris-Rips Simplicial Complex')">?</span></span>
                   <span style="font-size:11px;color:#94a3b8;">Cyan: Normal &bull; Rose: Leukemic Blasts</span>
                 </div>
                 <canvas id="tdaCanvas" width="520" height="340" style="width:100%;height:auto;background:#09121d;border-radius:8px;border:1px solid #233a5b;display:block;"></canvas>
@@ -1931,7 +2002,7 @@
 
               <div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;text-transform:uppercase;">Persistent Homology Barcode</span>
+                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;text-transform:uppercase;">Persistent Homology Barcode <span class="info-pill" title="Diagram tracking the birth (b) and death (d) of topological features across filtration parameter ε. Longer bars represent robust biological invariants." data-tooltip="Diagram tracking the birth (b) and death (d) of topological features across filtration parameter ε. Longer bars represent robust biological invariants." onclick="showOncoTooltip(event, this, 'Persistent Homology Barcode')">?</span></span>
                   <span style="font-size:11px;color:#94a3b8;">Green: H&#8320; &bull; Blue: H&#8321; &bull; Gold: Current &epsilon;</span>
                 </div>
                 <canvas id="barcodeCanvas" width="520" height="340" style="width:100%;height:auto;background:#09121d;border-radius:8px;border:1px solid #233a5b;display:block;"></canvas>
@@ -1940,7 +2011,7 @@
 
             <!-- Topological Interpretation Banner -->
             <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.3);border-radius:10px;padding:14px 18px;font-size:12.5px;color:#cbd5e1;line-height:1.6;">
-              <strong style="color:#67e8f9;">Topological Interpretation:</strong> Invariant 1-dimensional persistent homology cycles (blue bars persisting across filtration $\epsilon \in [0.28, 0.82]$) demonstrate true geometrical voids in gene co-expression space, separating drug-resistant leukemic stem cells from normal progenitor hematopoietic cells.
+              <strong style="color:#67e8f9;">Topological Interpretation: <span class="info-pill" title="Biomathematical translation of high-persistence invariants into biological reality: persistent loops reveal distinct subclonal populations evading standard therapy." data-tooltip="Biomathematical translation of high-persistence invariants into biological reality: persistent loops reveal distinct subclonal populations evading standard therapy." onclick="showOncoTooltip(event, this, 'Topological Interpretation')">?</span></strong> Invariant 1-dimensional persistent homology cycles (blue bars persisting across filtration $\epsilon \in [0.28, 0.82]$) demonstrate true geometrical voids in gene co-expression space, separating drug-resistant leukemic stem cells from normal progenitor hematopoietic cells.
             </div>
           </div>
 
@@ -1981,7 +2052,7 @@
               <table class="onco-table">
                 <thead>
                   <tr>
-                    <th style="width:130px;">NCT Identifier</th>
+                    <th style="width:130px;">NCT Identifier <span class="info-pill" title="National Clinical Trial unique 8-digit identification number assigned by ClinicalTrials.gov ensuring global provenance and regulatory auditability." data-tooltip="National Clinical Trial unique 8-digit identification number assigned by ClinicalTrials.gov ensuring global provenance and regulatory auditability." onclick="showOncoTooltip(event, this, 'NCT Identifier')">?</span></th>
                     <th>Trial Title &amp; Condition</th>
                     <th style="width:100px;">Phase</th>
                     <th style="width:120px;">Status</th>
@@ -1995,11 +2066,11 @@
             </div>
           </div>
 
-          <!-- SECTION 7: Pattern #24 Chemosensitization & Chou-Talalay Synergism Dossier -->
+          <!-- SECTION 7: Pattern #24 Chemosensitization & Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span> Dossier -->
           <div class="onco-card">
             <div class="onco-card-header">
               <div>
-                <h3>&#x1F48A; Section 7: Pattern #24 Chemosensitization &amp; Chou-Talalay Synergism Dossier</h3>
+                <h3>&#x1F48A; Section 7: Pattern #24 Chemosensitization &amp; Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span> Dossier</h3>
                 <div class="onco-card-subtitle">Mathematical formulation and isobologram verification of dual-pathway metabolic chemosensitization kinetics.</div>
               </div>
               <span class="pill" style="background:rgba(16,185,129,0.18);border-color:rgba(16,185,129,0.45);color:#6ee7b7;font-weight:700;">CI = 0.380 &bull; Strong Synergy</span>
@@ -2007,7 +2078,7 @@
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:20px;margin-bottom:16px;">
               <div style="background:#0d1829;border:1px solid #233a5b;border-radius:10px;padding:18px;">
-                <div style="font-size:12px;font-weight:700;color:#38bdf8;text-transform:uppercase;margin-bottom:8px;">Live Chou-Talalay Synergism Proof</div>
+                <div style="font-size:12px;font-weight:700;color:#38bdf8;text-transform:uppercase;margin-bottom:8px;">Live Chou-Talalay Synergism <span class="info-pill" title="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." data-tooltip="Combination Index: CI = (D1/Dx1) + (D2/Dx2) + α(D1D2/Dx1Dx2). CI < 1 indicates true pharmacological synergy; CI = 1 is additive; CI > 1 is antagonistic." onclick="showOncoTooltip(event, this, 'Chou-Talalay Synergism')">?</span> Proof</div>
                 <div style="font-size:1.1rem;color:#ffffff;font-family:'JetBrains Mono',monospace;margin-bottom:8px;background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;">
                   CI = (D&#8321; / D_x&#8321;) + (D&#8322; / D_x&#8322;) + &alpha;(D&#8321;D&#8322; / D_x&#8321;D_x&#8322;)
                 </div>
@@ -2017,7 +2088,7 @@
               </div>
 
               <div style="background:#0d1829;border:1px solid #233a5b;border-radius:10px;padding:18px;">
-                <div style="font-size:12px;font-weight:700;color:#10b981;text-transform:uppercase;margin-bottom:8px;">Dose Reduction Index (DRI)</div>
+                <div style="font-size:12px;font-weight:700;color:#10b981;text-transform:uppercase;margin-bottom:8px;">Dose Reduction Index (DRI) <span class="info-pill" title="DRI measures therapeutic ratio enhancement: higher DRI allows lower toxic drug exposure without sacrificing antitumor efficacy." data-tooltip="DRI measures therapeutic ratio enhancement: higher DRI allows lower toxic drug exposure without sacrificing antitumor efficacy." onclick="showOncoTooltip(event, this, 'Dose Reduction Index (DRI)')">?</span></div>
                 <div style="font-size:1.1rem;color:#ffffff;font-family:'JetBrains Mono',monospace;margin-bottom:8px;background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;">
                   DRI&#8321; = 2.85&times; &bull; DRI&#8322; = 3.12&times;
                 </div>
@@ -2045,38 +2116,38 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:18px;">
               <div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8321; Epistemic Coherence (x_k)</span><span id="val_xk" style="color:#10b981;">7.50</span></div>
+                  <div class="onco-dim-label"><span>D&#8321; Epistemic Coherence (x_k) <span class="info-pill" title="Degree of internal mathematical consistency, physical law grounding, and formal proof validity of the discovered pattern." data-tooltip="Degree of internal mathematical consistency, physical law grounding, and formal proof validity of the discovered pattern." onclick="showOncoTooltip(event, this, 'Epistemic Coherence (D1)')">?</span></span><span id="val_xk" style="color:#10b981;">7.50</span></div>
                   <input type="range" id="slider_xk" min="0" max="10" step="0.1" value="7.5" oninput="updateMatrixCalculations()">
                 </div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8322; Biological Solvency (x_so)</span><span id="val_xso" style="color:#10b981;">6.00</span></div>
+                  <div class="onco-dim-label"><span>D&#8322; Biological Solvency (x_so) <span class="info-pill" title="Biochemical and physiological feasibility, ensuring mechanisms conform to cellular energetics without organ failure." data-tooltip="Biochemical and physiological feasibility, ensuring mechanisms conform to cellular energetics without organ failure." onclick="showOncoTooltip(event, this, 'Biological Solvency (D2)')">?</span></span><span id="val_xso" style="color:#10b981;">6.00</span></div>
                   <input type="range" id="slider_xso" min="0" max="10" step="0.1" value="6.0" oninput="updateMatrixCalculations()">
                 </div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8323; Scientific Reproducibility (x_sc)</span><span id="val_xsc" style="color:#10b981;">8.00</span></div>
+                  <div class="onco-dim-label"><span>D&#8323; Scientific Reproducibility (x_sc) <span class="info-pill" title="Replicability of the empirical findings across independent clinical trial datasets, public omics repositories, and in vitro studies." data-tooltip="Replicability of the empirical findings across independent clinical trial datasets, public omics repositories, and in vitro studies." onclick="showOncoTooltip(event, this, 'Scientific Reproducibility (D3)')">?</span></span><span id="val_xsc" style="color:#10b981;">8.00</span></div>
                   <input type="range" id="slider_xsc" min="0" max="10" step="0.1" value="8.0" oninput="updateMatrixCalculations()">
                 </div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8324; Clinical De-Risking (x_d)</span><span id="val_xd" style="color:#10b981;">6.50</span></div>
+                  <div class="onco-dim-label"><span>D&#8324; Clinical De-Risking (x_d) <span class="info-pill" title="Mitigation of patient adverse events, elimination of known drug resistance pathways, and elevation of phase 2/3 trial success probability." data-tooltip="Mitigation of patient adverse events, elimination of known drug resistance pathways, and elevation of phase 2/3 trial success probability." onclick="showOncoTooltip(event, this, 'Clinical De-Risking (D4)')">?</span></span><span id="val_xd" style="color:#10b981;">6.50</span></div>
                   <input type="range" id="slider_xd" min="0" max="10" step="0.1" value="6.5" oninput="updateMatrixCalculations()">
                 </div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8325; Translational Velocity (x_i)</span><span id="val_xi" style="color:#10b981;">7.00</span></div>
+                  <div class="onco-dim-label"><span>D&#8325; Translational Velocity (x_i) <span class="info-pill" title="Efficiency and speed with which the computational discovery transitions to synthesized molecular formulations and clinical trials." data-tooltip="Efficiency and speed with which the computational discovery transitions to synthesized molecular formulations and clinical trials." onclick="showOncoTooltip(event, this, 'Translational Velocity (D5)')">?</span></span><span id="val_xi" style="color:#10b981;">7.00</span></div>
                   <input type="range" id="slider_xi" min="0" max="10" step="0.1" value="7.0" oninput="updateMatrixCalculations()">
                 </div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8326; Societal / Patient Impact (x_h)</span><span id="val_xh" style="color:#10b981;">7.00</span></div>
+                  <div class="onco-dim-label"><span>D&#8326; Societal / Patient Impact (x_h) <span class="info-pill" title="Therapeutic benefit to patient survival, reduction in healthcare costs, and quality-adjusted life years (QALY) delivered to society." data-tooltip="Therapeutic benefit to patient survival, reduction in healthcare costs, and quality-adjusted life years (QALY) delivered to society." onclick="showOncoTooltip(event, this, 'Societal Impact (D6)')">?</span></span><span id="val_xh" style="color:#10b981;">7.00</span></div>
                   <input type="range" id="slider_xh" min="0" max="10" step="0.1" value="7.0" oninput="updateMatrixCalculations()">
                 </div>
                 <div class="onco-dim-group">
-                  <div class="onco-dim-label"><span>D&#8327; Systemic Toxicity / Risk (x_r)</span><span id="val_xr" style="color:#38bdf8;">2.00</span></div>
+                  <div class="onco-dim-label"><span>D&#8327; Systemic Toxicity / Risk (x_r) <span class="info-pill" title="Quantification of acute and cumulative physiological toxicity. Lower score indicates superior safety envelope (inverted for net scoring)." data-tooltip="Quantification of acute and cumulative physiological toxicity. Lower score indicates superior safety envelope (inverted for net scoring)." onclick="showOncoTooltip(event, this, 'Systemic Toxicity (D7)')">?</span></span><span id="val_xr" style="color:#38bdf8;">2.00</span></div>
                   <input type="range" id="slider_xr" min="0" max="10" step="0.1" value="2.0" oninput="updateMatrixCalculations()">
                 </div>
               </div>
 
               <div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;text-transform:uppercase;">Net Sustainability Envelope Curve</span>
+                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;text-transform:uppercase;">Net Sustainability Envelope Curve <span class="info-pill" title="Coupled dynamic Gaussian distribution curve comparing baseline population kinetics (red) against TDA-enhanced therapeutic synergy (green)." data-tooltip="Coupled dynamic Gaussian distribution curve comparing baseline population kinetics (red) against TDA-enhanced therapeutic synergy (green)." onclick="showOncoTooltip(event, this, 'Net Sustainability Envelope Curve')">?</span></span>
                   <span style="font-size:11px;color:#94a3b8;">Red: Baseline &bull; Green: TDA Enhanced</span>
                 </div>
                 <canvas id="envelopeCanvas" width="520" height="340" style="width:100%;height:auto;background:#09121d;border-radius:8px;border:1px solid #233a5b;display:block;margin-bottom:12px;"></canvas>
@@ -3499,6 +3570,47 @@ document.addEventListener('DOMContentLoaded', function() {
   searchClinicalTrials();
 });
 </script>
-</body>
+<script>
+// Interactive Pop-up Tag Modal Controller for Oncology & TDA
+function showOncoTooltip(event, el, title) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  let modal = document.getElementById('oncoGlobalTooltip');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'oncoGlobalTooltip';
+    modal.className = 'onco-tooltip-modal';
+    document.body.appendChild(modal);
+    document.addEventListener('click', function(e) {
+      if (!modal.contains(e.target) && !e.target.classList.contains('info-pill')) {
+        modal.style.display = 'none';
+      }
+    });
+  }
+  const desc = el.getAttribute('data-tooltip') || el.getAttribute('title') || 'Clinical and mathematical parameter documentation.';
+  modal.innerHTML = `
+    <div class="onco-tooltip-header">
+      <span>&#x1F4D6; ${title}</span>
+      <span class="onco-tooltip-close" onclick="document.getElementById('oncoGlobalTooltip').style.display='none';">&times;</span>
+    </div>
+    <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${desc}</div>
+  `;
+  const rect = el.getBoundingClientRect();
+  modal.style.display = 'block';
+  let top = rect.top + window.scrollY - modal.offsetHeight - 8;
+  let left = rect.left + window.scrollX - (modal.offsetWidth / 2) + (rect.width / 2);
+  if (top < window.scrollY + 10) {
+    top = rect.bottom + window.scrollY + 8;
+  }
+  if (left < 10) left = 10;
+  if (left + modal.offsetWidth > window.innerWidth - 10) {
+    left = window.innerWidth - modal.offsetWidth - 10;
+  }
+  modal.style.top = top + 'px';
+  modal.style.left = left + 'px';
+}
+</script></body>
 </html>
 
