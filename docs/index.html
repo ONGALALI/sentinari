@@ -167,6 +167,111 @@
     }
 
     /* Sub-Ribbon for Foundational Publications */
+    
+    /* Patreon Membership Ribbon Just Below Top Menu */
+    .patreon-banner-ribbon {
+      margin-top: 10px;
+      background: linear-gradient(90deg, rgba(255, 66, 77, 0.16) 0%, rgba(15, 23, 42, 0.9) 45%, rgba(255, 66, 77, 0.14) 100%);
+      border: 1px solid rgba(255, 66, 77, 0.38);
+      border-radius: 8px;
+      padding: 7px 14px;
+      box-shadow: 0 0 16px rgba(255, 66, 77, 0.14);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .patreon-banner-ribbon:hover {
+      border-color: rgba(255, 66, 77, 0.6);
+      box-shadow: 0 0 22px rgba(255, 66, 77, 0.22);
+    }
+    .patreon-banner-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .patreon-banner-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .patreon-logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #FF424D;
+      box-shadow: 0 0 10px rgba(255, 66, 77, 0.6);
+      flex-shrink: 0;
+    }
+    .patreon-badge-glow {
+      background: rgba(255, 66, 77, 0.22);
+      color: #ff9da2;
+      border: 1px solid rgba(255, 66, 77, 0.45);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .patreon-banner-text {
+      color: #e2e8f0;
+      font-size: 0.86rem;
+    }
+    .patreon-banner-text strong {
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .patreon-banner-desc {
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+    .patreon-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #FF424D 0%, #e0323c 100%);
+      color: #ffffff !important;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 6px;
+      text-decoration: none;
+      box-shadow: 0 2px 10px rgba(255, 66, 77, 0.45);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .patreon-action-btn:hover {
+      background: linear-gradient(135deg, #ff5963 0%, #ff424d 100%);
+      box-shadow: 0 4px 18px rgba(255, 66, 77, 0.7);
+      transform: translateY(-1px);
+    }
+    .nav-patreon-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 66, 77, 0.16);
+      border: 1px solid rgba(255, 66, 77, 0.45);
+      padding: 5px 11px;
+      border-radius: 6px;
+      color: #ff8e94 !important;
+      font-weight: 700;
+      font-size: 0.84rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-patreon-link:hover {
+      background: rgba(255, 66, 77, 0.3);
+      border-color: rgba(255, 66, 77, 0.7);
+      color: #ffffff !important;
+      box-shadow: 0 0 12px rgba(255, 66, 77, 0.4);
+    }
+
     .nav-sub-ribbon {
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       margin-top: 10px;
@@ -840,7 +945,27 @@
         <a href="#architecture">Architecture</a>
         <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/patterns" target="_blank" rel="noopener">New Patterns (<span id="navPatternsCount">233</span>)</a>
         <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/help" target="_blank" rel="noopener" style="color:#a5b4fc;font-weight:600;">&#x1F4D6; Help Manual</a>
+                <a href="https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link" target="_blank" rel="noopener" class="nav-patreon-link" title="Obtain Membership Plan at Patreon">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#FF424D" style="display:inline-block;vertical-align:middle;"><path d="M15.386.002c-4.764 0-8.64 3.876-8.64 8.64 0 4.75 3.876 8.613 8.64 8.613 4.75 0 8.614-3.864 8.614-8.613C24 3.878 20.136.002 15.386.002m-15.386 24h4.488V.002H0z"/></svg>
+          <span>Patreon</span>
+        </a>
         <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/start" target="_blank" rel="noopener" class="btn-launch">Launch Studio &rarr;</a>
+      </div>
+    </div>
+    <!-- Patreon Membership Ribbon Just Below Top Menu -->
+    <div class="patreon-banner-ribbon">
+      <div class="patreon-banner-inner">
+        <div class="patreon-banner-left">
+          <span class="patreon-logo-badge" title="Patreon Membership">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="#ffffff" style="display:inline-block;vertical-align:middle;"><path d="M15.386.002c-4.764 0-8.64 3.876-8.64 8.64 0 4.75 3.876 8.613 8.64 8.613 4.75 0 8.614-3.864 8.614-8.613C24 3.878 20.136.002 15.386.002m-15.386 24h4.488V.002H0z"/></svg>
+          </span>
+          <span class="patreon-badge-glow">PATREON MEMBERSHIP</span>
+          <span class="patreon-banner-text"><strong>Obtain Membership Plan at Patreon</strong> &mdash; <span class="patreon-banner-desc">Empower Sentinari Sovereign Intelligence &amp; Constitutional Discovery</span></span>
+        </div>
+        <a href="https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link" target="_blank" rel="noopener" class="patreon-action-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#ffffff" style="display:inline-block;vertical-align:middle;"><path d="M15.386.002c-4.764 0-8.64 3.876-8.64 8.64 0 4.75 3.876 8.613 8.64 8.613 4.75 0 8.614-3.864 8.614-8.613C24 3.878 20.136.002 15.386.002m-15.386 24h4.488V.002H0z"/></svg>
+          <span>Obtain Membership Plan &rarr;</span>
+        </a>
       </div>
     </div>
     <div class="nav-sub-ribbon">

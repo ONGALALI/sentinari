@@ -12,6 +12,7 @@
 
 * **Live Production Platform**: [https://sentinari-core-250830594433.us-central1.run.app](https://sentinari-core-250830594433.us-central1.run.app)
 * **Founder & Chief Architect**: Dr. Pierre C. Wepener (`wepener.pierre@gmail.com`)
+* **Patreon Membership**: [Obtain Membership Plan at Patreon (Dr. Pierre C. Wepener)](https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link)
 * **Foundational Charter**: [Sentinari Constitution 3.0 (99-Page Official PDF)](Sentinari_Constitution_3.0.pdf)
 * **Executive Summary**: [The 15-Page Constitutional White Paper](SENTINARI_CONSTITUTIONAL_WHITEPAPER_15_PAGE.md)
 
