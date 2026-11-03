@@ -18,6 +18,7 @@ def main() -> None:
     )
 
     # 2. Update relative URLs to Cloud Run production service
+    html = html.replace('href="/reports/cancer-breakthrough"', 'href="./Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf" target="_blank" rel="noopener"')
     html = html.replace('href="/reports/the-constitution"', 'href="./Constitution.pdf" target="_blank" rel="noopener"')
     html = html.replace('href="/reports/whitepaper"', 'href="./Whitepaper.pdf"')
     html = html.replace('href="/whitepaper?download=1"', 'href="./Whitepaper.pdf" download="Sentinari_Whitepaper.pdf"')

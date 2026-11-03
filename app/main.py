@@ -737,6 +737,22 @@ def ui_portal_landing() -> HTMLResponse:
 
 
 _LANDING_REFERENCE_REPORTS: dict[str, dict[str, str]] = {
+    "cancer-breakthrough": {
+        "slug": "cancer-breakthrough",
+        "title": "Pattern #24: Oncology Chemosensitization Breakthrough",
+        "filename": "Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf",
+        "download_name": "Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf",
+        "subtitle": "Dual-Pathway Adjuvant Synergy & SREBP-2/HMG-CoA Downregulation · Dr. Pierre C. Wepener",
+        "description": "Preclinical oncology formulation, Chou-Talalay synergism proof (CI=0.380), 64.9% cytotoxic sparing (DRI=2.85), and FDA/ICH S9 regulatory benchmarks.",
+    },
+    "oncology-dossier": {
+        "slug": "cancer-breakthrough",
+        "title": "Pattern #24: Oncology Chemosensitization Breakthrough",
+        "filename": "Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf",
+        "download_name": "Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf",
+        "subtitle": "Dual-Pathway Adjuvant Synergy & SREBP-2/HMG-CoA Downregulation · Dr. Pierre C. Wepener",
+        "description": "Preclinical oncology formulation, Chou-Talalay synergism proof (CI=0.380), 64.9% cytotoxic sparing (DRI=2.85), and FDA/ICH S9 regulatory benchmarks.",
+    },
     "the-global-risk-index": {
         "slug": "the-global-risk-index",
         "title": "1) The Global Risk Index (2025/2026)",
