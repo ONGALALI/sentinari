@@ -622,6 +622,74 @@
       </div>
     </div>
 
+    <!-- SECTION 1B: ClinicalTrials.gov Live Trial & Drug Matcher (API v2.0.5 Priority Ingest) -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>&#x1F50E; Section 1B: ClinicalTrials.gov Live Trial &amp; Drug Matcher (API v2.0.5 Priority Ingest)</h2>
+          <div class="card-subtitle">Real-time pipeline querying ClinicalTrials.gov in CSV format, prioritizing trials by highest clinical achievement rate and audited outcome data.</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="pill pill-cyan">No API Key Required &bull; Free Ingest</span>
+          <span class="pill pill-emerald" id="ct_stream_badge">CSV Priority Stream Active</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Condition Query (query.cond)</label>
+          <input type="text" id="ct_query_cond" value="Acute Myeloid Leukemia">
+        </div>
+        <div>
+          <label>Molecular / Drug Term (query.term)</label>
+          <input type="text" id="ct_query_term" value="FLT3">
+        </div>
+        <div>
+          <label>Study Status Filter</label>
+          <select id="ct_status">
+            <option value="COMPLETED" selected>COMPLETED (Highest Reliability)</option>
+            <option value="RECRUITING">RECRUITING (Active Enrollment)</option>
+            <option value="ACTIVE_NOT_RECRUITING">ACTIVE_NOT_RECRUITING</option>
+            <option value="">ALL STATUSES</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: flex-end;">
+          <button type="button" class="btn btn-primary" style="width: 100%; height: 42px;" onclick="searchClinicalTrials()">
+            &#x1F50D; Ingest &amp; Rank Highest Achievement
+          </button>
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div id="ct_results_container" style="margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 13px; color: #cbd5e1;" id="ct_results_summary">
+            Loaded benchmark trials ranked by Achievement Rate (100-pt Evidentiary Scale).
+          </div>
+          <button type="button" class="btn btn-secondary" style="font-size: 11.5px; padding: 4px 12px;" onclick="exportTrialsCsv()">
+            &#x2B07; Export Ranked CSV
+          </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="matrix-table" id="ct_trials_table">
+            <thead>
+              <tr>
+                <th style="width: 14%;">NCT ID &amp; Phase</th>
+                <th style="width: 36%;">Study Title &amp; Interventions</th>
+                <th style="width: 14%;">Results &amp; Status</th>
+                <th style="width: 10%;">Enrollment</th>
+                <th style="width: 26%;">Achievement Score &amp; Evidentiary Drivers</th>
+              </tr>
+            </thead>
+            <tbody id="ct_trials_tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- SECTION 2: 3-Phase Dynamic Clinical Context Checklist -->
     <div class="card">
       <div class="card-header">

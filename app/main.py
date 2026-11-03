@@ -1933,6 +1933,22 @@ def ui_oncology(request: Request) -> HTMLResponse:
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
+@app.get("/api/oncology/clinical-trials")
+def api_oncology_clinical_trials(
+    condition: str = Query("Acute Myeloid Leukemia", description="Malignancy or disease condition"),
+    term: str = Query("", description="Molecular target, drug, or gene mutation"),
+    status: str = Query("COMPLETED", description="Study status filter"),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    from app.clinical_trials import fetch_highest_achievement_trials
+    return fetch_highest_achievement_trials(
+        condition=condition,
+        term=term,
+        status=status,
+        page_size=page_size,
+    )
+
+
 @app.get("/ui/learning", response_class=HTMLResponse)
 def ui_learning(request: Request) -> HTMLResponse:
     """Learning Index workspace: % Learned, exams, and calibration controls."""
