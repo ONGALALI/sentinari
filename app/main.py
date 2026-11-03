@@ -326,6 +326,16 @@ app = FastAPI(
     redoc_url=None if _boot_is_runtime else "/redoc",
     openapi_url=None if _boot_is_runtime else "/openapi.json",
 )
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 _STARTUP_STATE: dict[str, Any] = {"ready": False, "error": ""}
 app.include_router(skill_review_router)
 from .load_queue import get_load_queue as _get_load_queue  # noqa: E402

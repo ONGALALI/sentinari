@@ -12,9 +12,9 @@ def main() -> None:
 
     # 1. Fill template counts
     html = (
-        raw.replace("{{PATTERNS_COUNT}}", "233")
-        .replace("{{DOCS_COUNT}}", "15,041")
-        .replace("{{ANALYZED_COUNT}}", "1,280")
+        raw.replace("{{PATTERNS_COUNT}}", "278")
+        .replace("{{DOCS_COUNT}}", "15,415")
+        .replace("{{ANALYZED_COUNT}}", "5,377")
     )
 
     # 2. Update relative URLs to Cloud Run production service
