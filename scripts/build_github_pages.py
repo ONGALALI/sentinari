@@ -29,6 +29,7 @@ def main() -> None:
     html = html.replace('href="/schematic?download=1"', 'href="./sentinari_functional_schematic.png" download="Sentinari_Master_Functional_Schematic.png"')
     html = html.replace('href="/schematic"', 'href="./sentinari_functional_schematic.png" target="_blank" rel="noopener"')
     html = html.replace('src="/static/sentinari_functional_schematic.png"', 'src="./sentinari_functional_schematic.png"')
+    html = html.replace('src="/static/patreon_logo.png"', 'src="./patreon_logo.png"')
     html = re.sub(r'href="/(ui/[^"]*)"', f'href="{cloud_url}/\\1" target="_blank" rel="noopener"', html)
     html = re.sub(r'href="/(api/[^"]*)"', f'href="{cloud_url}/\\1" target="_blank" rel="noopener"', html)
     html = re.sub(r'href="/(reports/[^"]*)"', f'href="{cloud_url}/\\1" target="_blank" rel="noopener"', html)

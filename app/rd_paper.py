@@ -184,17 +184,16 @@ _PAPER_CSS = """
   .chip-level-2 { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
   .chip-level-3 { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
 
-  /* Full Assessment Matrix Table */
-  .rubric-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; margin: 12px 0; font-size: 12px; line-height: 1.5; }
-  .rubric-table th { padding: 10px 12px; font-weight: 700; text-align: left; border-bottom: 2px solid #cbd5e1; border-right: 1px solid #e2e8f0; }
-  .rubric-table td { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
-  .rubric-table tr:last-child td { border-bottom: none; }
-  .rubric-table th:last-child, .rubric-table td:last-child { border-right: none; }
-  .rubric-dim-head { font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px; }
+  /* 7-Dimension Assessment Matrix: Minimalist Thin Row Line Separation (No Block/Table Box) */
+  .assessment-matrix-wrap { margin-top: 18px; border: none; background: transparent; }
+  .rubric-table { width: 100%; border-collapse: collapse; border: none; margin: 12px 0; font-size: 12px; line-height: 1.55; }
+  .rubric-table th { padding: 10px 8px; font-weight: 700; text-align: left; border-top: 1px solid #cbd5e1; border-bottom: 1.5px solid #0f172a; border-left: none; border-right: none; background: transparent; color: #0f172a; }
+  .rubric-table td { padding: 14px 8px; vertical-align: top; border-top: none; border-left: none; border-right: none; border-bottom: 1px solid #e2e8f0; background: transparent; }
+  .rubric-dim-head { font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 3px; }
   .rubric-dim-scores { font-size: 11px; color: #64748b; line-height: 1.4; }
-  .rubric-active-high { background: #ecfdf5 !important; border: 2px solid #10b981 !important; color: #064e3b; font-weight: 600; }
-  .rubric-active-med { background: #fffbeb !important; border: 2px solid #f59e0b !important; color: #78350f; font-weight: 600; }
-  .rubric-active-low { background: #f8fafc !important; border: 2px solid #94a3b8 !important; color: #334155; }
+  .rubric-active-high { color: #065f46; font-weight: 600; background: rgba(16, 185, 129, 0.05) !important; border: none !important; border-bottom: 1px solid #e2e8f0 !important; }
+  .rubric-active-med { color: #92400e; font-weight: 600; background: rgba(245, 158, 11, 0.05) !important; border: none !important; border-bottom: 1px solid #e2e8f0 !important; }
+  .rubric-active-low { color: #334155; background: transparent !important; border: none !important; border-bottom: 1px solid #e2e8f0 !important; }
   .active-badge-tag { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px; }
   .active-tag-high { background: #10b981; color: #fff; }
   .active-tag-med { background: #f59e0b; color: #fff; }
@@ -253,9 +252,9 @@ _PAPER_CSS = """
   .computed { font-family: Consolas, 'Courier New', monospace; font-size: 12px; background: #0f172a; color: #a5f3fc; border-radius: 12px; padding: 16px 18px; overflow-x: auto; line-height: 1.65; white-space: pre-wrap; }
   .computed .k { color: #fbbf24; }
   .computed .c { color: #64748b; }
-  table.calc { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12.5px; font-family: Consolas, monospace; }
-  table.calc th, table.calc td { border: 1px solid #e2e8f0; padding: 6px 9px; text-align: right; }
-  table.calc th { background: #f1f5f9; font-weight: 700; }
+  table.calc { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; font-family: Consolas, monospace; border: none; }
+  table.calc th, table.calc td { border-top: none; border-left: none; border-right: none; border-bottom: 1px solid #e2e8f0; padding: 7px 10px; text-align: right; }
+  table.calc th { border-top: 1px solid #cbd5e1; border-bottom: 1.5px solid #0f172a; background: transparent; font-weight: 700; color: #0f172a; }
   table.calc td:first-child, table.calc th:first-child { text-align: left; }
   .band-1 { color: #64748b; } .band-2 { color: #b45309; font-weight: 700; } .band-3 { color: #15803d; font-weight: 700; }
   .cite-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; }
@@ -1688,7 +1687,7 @@ def generate_appendices_zip_bytes(report: dict[str, Any]) -> bytes:
     return buf.getvalue()
 
 
-PATREON_SPONSOR_URL = "https://patreon.com/Rodenbecker?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink"
+PATREON_SPONSOR_URL = "https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link"
 
 
 def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str:
@@ -1859,7 +1858,7 @@ def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str
             f"<td class='{low_cls}'>{low_tag}{e(low_t)}</td>"
             f"<td class='{med_cls}'>{med_tag}{e(med_t)}</td>"
             f"<td class='{high_cls}'>{high_tag}{e(high_t)}</td>"
-            f"<td style='font-size:11px;color:#475569;background:#fafafa;'>{e(ind_t)}</td>"
+            f"<td style='font-size:11px;color:#475569;'>{e(ind_t)}</td>"
             f"</tr>"
         )
     rubric_rows_html = "".join(rubric_rows_list)
@@ -2284,9 +2283,9 @@ def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str
           <thead>
             <tr>
               <th style="width:16%;">Dimension &amp; Score</th>
-              <th style="width:23%;background:#f1f5f9;color:#334155;">Low Impact (Level 1)<br><small style="font-weight:400;">1 &ndash; 15% Impact Value</small></th>
-              <th style="width:23%;background:#fef3c7;color:#92400e;">Medium Impact (Level 2)<br><small style="font-weight:400;">16 &ndash; 50% Impact Value</small></th>
-              <th style="width:23%;background:#dcfce7;color:#166534;">High Impact (Level 3)<br><small style="font-weight:400;">51 &ndash; 100% Impact Value</small></th>
+              <th style="width:23%;">Low Impact (Level 1)<br><small style="font-weight:400;color:#64748b;">1 &ndash; 15% Impact Value</small></th>
+              <th style="width:23%;">Medium Impact (Level 2)<br><small style="font-weight:400;color:#64748b;">16 &ndash; 50% Impact Value</small></th>
+              <th style="width:23%;">High Impact (Level 3)<br><small style="font-weight:400;color:#64748b;">51 &ndash; 100% Impact Value</small></th>
               <th style="width:15%;">High Scores Evident Through</th>
             </tr>
           </thead>
@@ -2467,6 +2466,15 @@ def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str
     <div class="affiliation">Inspirari Research Initiative &middot; Sentinari Sovereign Intelligence Architecture</div>
     <div class="attestation">Peer-Review Certified &middot; Cryptographically Sealed (SHA-256) &middot; Academic Archival Standard</div>
   </section>
+
+  <!-- EXPERT MODERATION & VERIFICATION NOTICE -->
+  <div class="moderation-notice-card" style="margin-top:20px;padding:16px 22px;background:#f8fafc;border:1px solid #cbd5e1;border-left:4px solid #f59e0b;border-radius:10px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+    <span style="font-size:24px;line-height:1;flex-shrink:0;">⚠️</span>
+    <div style="font-size:13px;line-height:1.6;color:#334155;">
+      <b style="color:#0f172a;font-size:13.5px;">Expert Moderation &amp; Verification Notice:</b><br>
+      This paper must still be moderated and verified by an expert. Treat this as informational until verified.
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -3110,5 +3118,13 @@ def rd_report_pdf_bytes(report: dict[str, Any]) -> bytes:
     for idx, b in enumerate(bib, start=1):
         lines.extend(_w(f"  {idx}. {b.get('full_reference', '')}"))
         lines.append("")
+
+    lines.extend([
+        "=" * 76,
+        "EXPERT MODERATION & VERIFICATION NOTICE:",
+        "This paper must still be moderated and verified by an expert. Treat this as informational until verified.",
+        "=" * 76,
+        "",
+    ])
 
     return build_pdf_bytes("\n".join(lines), title=str(report.get("paper_title") or "R&D Validation Paper")[:110])
