@@ -962,6 +962,7 @@
         <a href="#deliverables">Deliverables</a>
         <a href="#architecture">Architecture</a>
         <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/patterns" target="_blank" rel="noopener">New Patterns (<span id="navPatternsCount">278</span>)</a>
+        <a href="javascript:void(0)" onclick="openPresentationModal('topology')" style="color:#818cf8;font-weight:700;">&#x1F4D0; TDA Video</a>
         <a href="./oncology.html" style="color:#6ee7b7;font-weight:700;">&#x1F9EC; Oncology Precision</a>
         <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/help" target="_blank" rel="noopener" style="color:#a5b4fc;font-weight:600;">&#x1F4D6; Help Manual</a>
                 <a href="https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link" target="_blank" rel="noopener" class="nav-patreon-link" title="Obtain Membership Plan at Patreon">
@@ -1046,6 +1047,10 @@
             <span>&#x25B6;&#xFE0F;</span>
             <span>10-Min Constitutional Briefing</span>
           </button>
+          <button type="button" class="btn-secondary" onclick="openPresentationModal('topology')" style="display:inline-flex;align-items:center;gap:8px;border-color:rgba(99,102,241,0.5);color:#818cf8;background:rgba(99,102,241,0.12);">
+            <span>&#x1F4D0;</span>
+            <span>Watch TDA Video (60 MB)</span>
+          </button>
           <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/chat" target="_blank" rel="noopener" class="btn-primary">Open Research Console</a>
           <a href="https://sentinari-core-250830594433.us-central1.run.app/ui/patterns" target="_blank" rel="noopener" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">278</span>)</a>
           <a href="#global-reports" class="btn-secondary">Oncology Breakthrough &amp; Global Reports (4)</a>
@@ -1062,21 +1067,24 @@
             <img src="./patreon_logo.png" alt="Support Sentinari on Patreon" style="max-height:36px;width:auto;display:block;">
           </a>
 
-          <!-- BOX 2: TOPOLOGICAL DATA ANALYSIS (TDA) BREAKTHROUGH & FUNDING RATIONALE -->
-          <div class="hero-strip-card topology-card"
-               style="background:rgba(15, 23, 42, 0.75);border:1px solid rgba(99, 102, 241, 0.35);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(12px);box-shadow:0 4px 18px rgba(0,0,0,0.2);">
-            <div style="width:42px;height:42px;border-radius:10px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">
+          <!-- BOX 2: TOPOLOGICAL DATA ANALYSIS (TDA) BREAKTHROUGH & VIDEO LAUNCH -->
+          <a href="javascript:void(0)" onclick="openPresentationModal('topology')"
+             class="hero-strip-card topology-card"
+             style="background:rgba(15, 23, 42, 0.85);border:1px solid rgba(99, 102, 241, 0.55);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(12px);box-shadow:0 4px 20px rgba(99,102,241,0.25);text-decoration:none;cursor:pointer;transition:all 0.25s ease;"
+             title="Click to launch Topological Data Analysis Video Briefing">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(99,102,241,0.25);border:1px solid rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">
               📐
             </div>
             <div style="flex:1;">
-              <div style="font-size:0.75rem;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">
-                Sovereign Topology Breakthrough &bull; AI Society Driven
+              <div style="font-size:0.75rem;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;display:flex;align-items:center;gap:8px;">
+                <span>Sovereign Topology Breakthrough</span>
+                <span style="background:rgba(99,102,241,0.25);color:#c7d2fe;padding:1px 7px;border-radius:4px;font-size:0.68rem;border:1px solid rgba(99,102,241,0.4);">&#x25B6;&#xFE0F; WATCH VIDEO</span>
               </div>
               <div style="font-size:0.88rem;color:#e2e8f0;line-height:1.45;">
-                This is a breakthrough project in <b>Topology</b> done without Big Tech and Funding &mdash; please support our cause on Patreon. AI Society Solution Driven.
+                This is a breakthrough project in <b>Topology &amp; TDA</b> done without Big Tech &mdash; click to stream the <b>TDA Video Briefing (60 MB)</b>.
               </div>
             </div>
-          </div>
+          </a>
 
           <!-- BOX 3: MUST READ: POSSIBLE CANCER BREAKTHROUGH INDICATORS -->
           <a href="./oncology.html"
@@ -1291,6 +1299,7 @@
               <div style="display:inline-flex;background:rgba(255,255,255,0.06);border-radius:8px;padding:3px;border:1px solid rgba(255,255,255,0.1);">
                 <button type="button" id="tabWalkthroughBtn" onclick="switchVideoMode('walkthrough')" style="background:#6366f1;border:none;color:#ffffff;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">Workspace Tour</button>
                 <button type="button" id="tabBriefingBtn" onclick="switchVideoMode('briefing')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">10-Min Briefing</button>
+                <button type="button" id="tabTopologyBtn" onclick="switchVideoMode('topology')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">&#x1F4D0; Topology &amp; TDA Video</button>
               </div>
               <a id="videoDownloadLink" href="https://sentinari-core-250830594433.us-central1.run.app/api/video/walkthrough.mp4?download=1" target="_blank" rel="noopener" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4</a>
               <button type="button" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;" onclick="closePresentationModal()">&#x2715; Close Video</button>
@@ -2065,19 +2074,37 @@
       const panelWalk = document.getElementById('walkthroughControlsPanel');
       const panelBrief = document.getElementById('briefingControlsPanel');
 
+      const tabTopo = document.getElementById('tabTopologyBtn');
       const isWalk = mode === 'walkthrough';
+      const isBrief = mode === 'briefing';
+      const isTopo = mode === 'topology' || mode === 'tda';
+
       if (tabWalk) {
         tabWalk.style.background = isWalk ? '#6366f1' : 'transparent';
         tabWalk.style.color = isWalk ? '#ffffff' : '#94a3b8';
       }
       if (tabBrief) {
-        tabBrief.style.background = isWalk ? 'transparent' : '#10b981';
-        tabBrief.style.color = isWalk ? '#94a3b8' : '#ffffff';
+        tabBrief.style.background = isBrief ? '#10b981' : 'transparent';
+        tabBrief.style.color = isBrief ? '#ffffff' : '#94a3b8';
+      }
+      if (tabTopo) {
+        tabTopo.style.background = isTopo ? '#818cf8' : 'transparent';
+        tabTopo.style.color = isTopo ? '#0f172a' : '#94a3b8';
       }
       if (panelWalk) panelWalk.hidden = !isWalk;
-      if (panelBrief) panelBrief.hidden = isWalk;
+      if (panelBrief) panelBrief.hidden = isWalk || isTopo;
 
-      if (isWalk) {
+      if (isTopo) {
+        if (icon) icon.innerHTML = '&#x1F4D0;';
+        if (title) title.textContent = 'Topological Data Analysis (TDA) & Sovereign Epistemic Mathematics';
+        if (subtitle) subtitle.textContent = 'Simplicial Complexes, Persistent Homology & High-Dimensional Geometry \u2022 Conceived by Dr. Pierre C. Wepener';
+        if (dlLink) {
+          dlLink.href = './Topological Data Analysis.mp4';
+          dlLink.download = 'Topological Data Analysis.mp4';
+          dlLink.textContent = '\u2B07 Download TDA Video (60.4 MB)';
+        }
+        if (vSource) vSource.src = './Topological Data Analysis.mp4';
+      } else if (isWalk) {
         if (icon) icon.innerHTML = '&#x1F3AC;';
         if (title) title.textContent = 'Sentinari: Complete Workspace & Element-by-Element Master Walkthrough';
         if (subtitle) subtitle.textContent = '6 Core Sections \u2022 1080p Full HD \u2022 Neural Narration \u2022 Conceived, Researched & Engineered by Dr. Pierre C. Wepener';
@@ -2201,6 +2228,8 @@
       setTimeout(() => { window.openPresentationModal('walkthrough'); }, 350);
     } else if (window.location.hash === '#presentation' || window.location.hash === '#video' || window.location.hash === '#briefing') {
       setTimeout(() => { window.openPresentationModal('briefing'); }, 350);
+    } else if (window.location.hash === '#topology' || window.location.hash === '#tda') {
+      setTimeout(() => { window.openPresentationModal('topology'); }, 350);
     }
   })();
   </script>
