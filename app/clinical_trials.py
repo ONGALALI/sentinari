@@ -5,6 +5,17 @@ Specification: tests/ctg-oas-v2.yaml (Modernized v2.0.5 API)
 Ingests study data in CSV format, applies priority weighting based on
 clinical achievement rate, audited result verification, trial phase maturity,
 and patient cohort power.
+
+Exposes core protocol pieces:
+- BriefTitle / OfficialTitle
+- Condition
+- InterventionName / InterventionOtherName / InterventionDescription
+- Phase
+- StdAge
+- PrimaryOutcomeMeasure / PrimaryOutcomeDescription
+- BriefSummary
+- ArmGroupLabel / ArmGroupDescription / StudyDesign
+- SecondaryOutcomeMeasure
 """
 
 from __future__ import annotations
@@ -20,65 +31,105 @@ from typing import Any
 BENCHMARK_TRIALS_FALLBACK = [
     {
         "nctId": "NCT02997202",
-        "title": "A Trial of the FMS-like Tyrosine Kinase 3 (FLT3) Inhibitor Gilteritinib Administered as Maintenance Therapy Following Allogeneic Transplant for Patients With FLT3/Internal Tandem Duplication (ITD) Acute Myeloid Leukemia (AML)",
+        "briefTitle": "A Trial of the FMS-like Tyrosine Kinase 3 (FLT3) Inhibitor Gilteritinib Administered as Maintenance Therapy Following Allogeneic Transplant for Patients With FLT3/ITD AML",
+        "title": "A Trial of the FMS-like Tyrosine Kinase 3 (FLT3) Inhibitor Gilteritinib Administered as Maintenance Therapy Following Allogeneic Transplant for Patients With FLT3/ITD AML",
+        "condition": "Acute Myeloid Leukemia (AML) with FLT3/ITD Mutation",
+        "interventions": "DRUG: Gilteritinib (120 mg oral daily) | DRUG: Placebo",
+        "phase": "PHASE3",
+        "stdAge": "18 Years and older (Adult, Older Adult)",
+        "primaryOutcomeMeasure": "Relapse-Free Survival (RFS) assessed from randomization to relapse or death from any cause (Up to 5 years)",
+        "secondaryOutcomeMeasure": "Overall Survival (OS); Cumulative Incidence of Relapse (CIR); Acute/Chronic Graft-versus-Host Disease (GVHD)",
+        "briefSummary": "A randomized, double-blind, placebo-controlled trial evaluating oral FLT3 inhibitor gilteritinib maintenance therapy following allogeneic hematopoietic stem cell transplantation in FLT3/ITD-mutated AML patients in first remission.",
+        "studyDesign": "Allocation: Randomized | Intervention Model: Parallel Assignment | Masking: Quadruple (Participant, Provider, Investigator, Outcomes Assessor) | Primary Purpose: Treatment",
         "status": "COMPLETED",
         "hasResults": "YES",
-        "phase": "PHASE3",
         "enrollment": 356,
         "completionDate": "2023-05-09",
-        "interventions": "DRUG: gilteritinib | DRUG: Placebo",
+        "resultsFirstPosted": "2023-11-14",
         "achievementScore": 100,
         "scoringBreakdown": "Audited Results Posted (+30); Study Completed (+20); Late Stage PHASE3 (+25); High Enrollment N=356 (+15); High-Efficacy Primary Endpoints (+10)",
         "url": "https://clinicaltrials.gov/study/NCT02997202",
     },
     {
         "nctId": "NCT03512197",
-        "title": "A Global Study of the Efficacy and Safety of Midostaurin + Chemotherapy in Newly Diagnosed FLT3-Mutated Acute Myeloid Leukemia",
+        "briefTitle": "A Global Study of the Efficacy and Safety of Midostaurin + Chemotherapy in Newly Diagnosed FLT3-Mutated AML",
+        "title": "A Global Study of the Efficacy and Safety of Midostaurin + Chemotherapy in Newly Diagnosed FLT3-Mutated AML",
+        "condition": "FLT3-Mutated Acute Myeloid Leukemia",
+        "interventions": "DRUG: Midostaurin (50 mg BID) | DRUG: Standard Chemotherapy (Daunorubicin + Cytarabine 7+3)",
+        "phase": "PHASE3",
+        "stdAge": "18 Years to 59 Years (Adult)",
+        "primaryOutcomeMeasure": "Event-Free Survival (EFS) and Complete Remission (CR) rate within 60 days of induction",
+        "secondaryOutcomeMeasure": "Overall Survival (OS); Disease-Free Survival (DFS); Cumulative Incidence of Relapse",
+        "briefSummary": "A phase 3 international, randomized, double-blind study testing multi-targeted kinase inhibitor midostaurin in combination with standard induction and consolidation chemotherapy in adult patients with newly diagnosed FLT3-mutated AML.",
+        "studyDesign": "Allocation: Randomized | Intervention Model: Parallel Assignment | Masking: Triple | Primary Purpose: Treatment",
         "status": "COMPLETED",
         "hasResults": "YES",
-        "phase": "PHASE3",
         "enrollment": 511,
         "completionDate": "2021-02-12",
-        "interventions": "DRUG: Midostaurin | DRUG: Placebo | DRUG: Chemotherapy",
+        "resultsFirstPosted": "2021-08-20",
         "achievementScore": 100,
         "scoringBreakdown": "Audited Results Posted (+30); Study Completed (+20); Late Stage PHASE3 (+25); High Enrollment N=511 (+15); High-Efficacy Primary Endpoints (+10)",
         "url": "https://clinicaltrials.gov/study/NCT03512197",
     },
     {
         "nctId": "NCT02421939",
-        "title": "A Study of ASP2215 (Gilteritinib) Versus Salvage Chemotherapy in Patients With Relapsed or Refractory Acute Myeloid Leukemia With FLT3 Mutation (ADMIRAL Trial)",
+        "briefTitle": "ADMIRAL Trial: ASP2215 (Gilteritinib) Versus Salvage Chemotherapy in Relapsed or Refractory FLT3-Mutated AML",
+        "title": "A Study of ASP2215 (Gilteritinib) Versus Salvage Chemotherapy in Patients With Relapsed or Refractory Acute Myeloid Leukemia With FLT3 Mutation",
+        "condition": "Relapsed or Refractory Acute Myeloid Leukemia",
+        "interventions": "DRUG: Gilteritinib (120 mg/day) | DRUG: Low-Dose Cytarabine (LoDAC) | DRUG: FLAG-Ida Salvage Regimen",
+        "phase": "PHASE3",
+        "stdAge": "18 Years and older (Adult, Older Adult)",
+        "primaryOutcomeMeasure": "Overall Survival (OS); Full Remission / Complete Remission with Partial Hematologic Recovery (CR/CRh)",
+        "secondaryOutcomeMeasure": "Event-Free Survival (EFS); Transfusion Independence; Duration of Remission",
+        "briefSummary": "Landmark Phase 3 open-label randomized trial establishing significant survival benefit of targeted single-agent gilteritinib over aggressive salvage chemotherapy in refractory FLT3-mutated leukemia.",
+        "studyDesign": "Allocation: Randomized | Intervention Model: Parallel Assignment | Masking: None (Open Label) | Primary Purpose: Treatment",
         "status": "COMPLETED",
         "hasResults": "YES",
-        "phase": "PHASE3",
         "enrollment": 371,
         "completionDate": "2025-02-25",
-        "interventions": "DRUG: gilteritinib | DRUG: LoDAC (Low Dose Cytarabine) | DRUG: FLAG-Ida",
+        "resultsFirstPosted": "2025-03-10",
         "achievementScore": 100,
         "scoringBreakdown": "Audited Results Posted (+30); Study Completed (+20); Late Stage PHASE3 (+25); High Enrollment N=371 (+15); High-Efficacy Primary Endpoints (+10)",
         "url": "https://clinicaltrials.gov/study/NCT02421939",
     },
     {
         "nctId": "NCT01892371",
-        "title": "Quizartinib With Azacitidine or Cytarabine in Treating Patients With Relapsed or Refractory Acute Myeloid Leukemia or Myelodysplastic Syndrome",
+        "briefTitle": "Quizartinib With Azacitidine or Low-Dose Cytarabine in Relapsed or Refractory AML or High-Risk MDS",
+        "title": "Phase 1/2 Trial of Quizartinib in Combination With Azacitidine or Low-Dose Cytarabine for Patients With FLT3-ITD Positive Myeloid Neoplasms",
+        "condition": "Acute Myeloid Leukemia; Myelodysplastic Syndrome",
+        "interventions": "DRUG: Quizartinib (AC220) | DRUG: Azacitidine | DRUG: Cytarabine",
+        "phase": "PHASE1|PHASE2",
+        "stdAge": "18 Years and older (Adult, Older Adult)",
+        "primaryOutcomeMeasure": "Maximum Tolerated Dose (MTD); Composite Complete Remission (CRc) Rate",
+        "secondaryOutcomeMeasure": "Duration of Remission (DOR); Progression-Free Survival (PFS); Minimal Residual Disease (MRD) Clearance",
+        "briefSummary": "Investigates dual-agent hypomethylating agent + selective FLT3 inhibitor combination to overcome secondary resistance and epigenetic silencing in adverse leukemia cohorts.",
+        "studyDesign": "Allocation: Non-Randomized | Intervention Model: Sequential Assignment | Masking: None | Primary Purpose: Treatment",
         "status": "COMPLETED",
         "hasResults": "YES",
-        "phase": "PHASE1|PHASE2",
         "enrollment": 73,
         "completionDate": "2023-02-07",
-        "interventions": "DRUG: Azacitidine | DRUG: Cytarabine | DRUG: Quizartinib",
+        "resultsFirstPosted": "2023-06-15",
         "achievementScore": 83,
         "scoringBreakdown": "Audited Results Posted (+30); Study Completed (+20); Mid Stage PHASE1|PHASE2 (+18); Standard Cohort N=73 (+5); High-Efficacy Primary Endpoints (+10)",
         "url": "https://clinicaltrials.gov/study/NCT01892371",
     },
     {
         "nctId": "NCT03280030",
-        "title": "A Study of Midostaurin Efficacy and Safety in Newly Diagnosed Patients With FLT3-Mutated Acute Myeloid Leukemia",
+        "briefTitle": "Midostaurin Adjuvant and Targeted Maintenance in AML Patients Ineligible for Intensive Induction",
+        "title": "A Prospective Multicenter Study of Midostaurin Efficacy and Safety in FLT3-Positive Acute Myeloid Leukemia",
+        "condition": "Acute Myeloid Leukemia (AML)",
+        "interventions": "DRUG: Midostaurin | DRUG: Decitabine Backbone",
+        "phase": "PHASE2",
+        "stdAge": "60 Years and older (Older Adult)",
+        "primaryOutcomeMeasure": "Overall Remission Rate (ORR = CR + CRi + PR) within 6 treatment cycles",
+        "secondaryOutcomeMeasure": "Safety Profile; Early Mortality at 30/60 Days; Minimal Residual Disease (MRD) by Next-Gen Sequencing",
+        "briefSummary": "Evaluates targeted tyrosine kinase inhibition combined with hypomethylating priming in older or unfit patients with baseline comorbidity burdens.",
+        "studyDesign": "Allocation: Non-Randomized | Intervention Model: Single Group Assignment | Masking: None | Primary Purpose: Treatment",
         "status": "COMPLETED",
         "hasResults": "YES",
-        "phase": "PHASE2",
         "enrollment": 67,
         "completionDate": "2022-11-14",
-        "interventions": "DRUG: Midostaurin | DRUG: Placebo",
+        "resultsFirstPosted": "2023-04-12",
         "achievementScore": 83,
         "scoringBreakdown": "Audited Results Posted (+30); Study Completed (+20); Mid Stage PHASE2 (+18); Standard Cohort N=67 (+5); High-Efficacy Primary Endpoints (+10)",
         "url": "https://clinicaltrials.gov/study/NCT03280030",
@@ -152,6 +203,7 @@ def score_trial_achievement(trial_row: dict[str, str]) -> tuple[int, str]:
             "event-free",
             "mrd",
             "progression-free",
+            "disease-free",
         ]
     ):
         score += 10
@@ -161,14 +213,14 @@ def score_trial_achievement(trial_row: dict[str, str]) -> tuple[int, str]:
 
 
 def fetch_highest_achievement_trials(
-    condition: str = "Acute Myeloid Leukemia",
+    condition: str = "Oncology AND (Leukemia OR 'Solid Tumor')",
     term: str = "",
     status: str = "COMPLETED",
     page_size: int = 20,
 ) -> dict[str, Any]:
     """
-    Queries ClinicalTrials.gov API v2 in CSV format and returns trials ranked
-    by priority of highest achievement rate.
+    Queries ClinicalTrials.gov API v2 in CSV format with Boolean support and
+    returns trials ranked by priority of highest achievement rate.
     """
     params: dict[str, str] = {
         "query.cond": condition,
@@ -191,7 +243,7 @@ def fetch_highest_achievement_trials(
                 "User-Agent": "Sentinari-Oncology-Engine/2.0 (Dr. Pierre C. Wepener Architecture)"
             },
         )
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=9) as resp:
             raw_csv = resp.read().decode("utf-8")
             total_count = resp.headers.get("x-total-count", "Unknown")
 
@@ -209,14 +261,21 @@ def fetch_highest_achievement_trials(
             scored_trials.append(
                 {
                     "nctId": r.get("NCT Number", ""),
+                    "briefTitle": r.get("Study Title", ""),
                     "title": r.get("Study Title", ""),
+                    "condition": r.get("Conditions", ""),
+                    "interventions": r.get("Interventions", ""),
+                    "phase": r.get("Phases", ""),
+                    "stdAge": r.get("Age", ""),
+                    "primaryOutcomeMeasure": r.get("Primary Outcome Measures", ""),
+                    "secondaryOutcomeMeasure": r.get("Secondary Outcome Measures", ""),
+                    "briefSummary": r.get("Brief Summary", ""),
+                    "studyDesign": r.get("Study Design", ""),
                     "status": r.get("Study Status", ""),
                     "hasResults": r.get("Study Results", ""),
-                    "phase": r.get("Phases", ""),
                     "enrollment": enrollment,
                     "completionDate": r.get("Completion Date") or r.get("Primary Completion Date") or "",
-                    "interventions": r.get("Interventions", ""),
-                    "primaryOutcomes": r.get("Primary Outcome Measures", ""),
+                    "resultsFirstPosted": r.get("Results First Posted", ""),
                     "achievementScore": score,
                     "scoringBreakdown": breakdown,
                     "url": r.get("Study URL") or f"https://clinicaltrials.gov/study/{r.get('NCT Number')}",

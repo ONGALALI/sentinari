@@ -637,11 +637,11 @@
 
       <div class="form-row">
         <div>
-          <label>Condition Query (query.cond)</label>
+          <label>Condition Query (Boolean Supported &bull; e.g. Oncology AND (Leukemia OR "Solid Tumor"))</label>
           <input type="text" id="ct_query_cond" value="Acute Myeloid Leukemia">
         </div>
         <div>
-          <label>Molecular / Drug Term (query.term)</label>
+          <label>Molecular / Drug Term (Boolean Supported &bull; e.g. FLT3 OR Statin OR Venetoclax)</label>
           <input type="text" id="ct_query_term" value="FLT3">
         </div>
         <div>
@@ -1630,6 +1630,179 @@ function updateTdaVisualization() {
   ctxBar.setLineDash([]);
 }
 
+
+// ==========================================
+// ClinicalTrials.gov Ingest & Evidentiary Matcher
+// ==========================================
+let currentTrialsData = [];
+
+async function searchClinicalTrials() {
+  const cond = document.getElementById('ct_query_cond').value;
+  const term = document.getElementById('ct_query_term').value;
+  const status = document.getElementById('ct_status').value;
+  const summaryEl = document.getElementById('ct_results_summary');
+  const tbody = document.getElementById('ct_trials_tbody');
+
+  summaryEl.innerHTML = `<span style="color:#38bdf8;">&#x23F3; Ingesting ClinicalTrials.gov CSV stream for: <b>${cond}</b> (${term || 'All Targets'})...</span>`;
+
+  try {
+    const url = `/api/oncology/clinical-trials?condition=${encodeURIComponent(cond)}&term=${encodeURIComponent(term)}&status=${encodeURIComponent(status)}&page_size=25`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    currentTrialsData = data.trials || [];
+
+    const srcLabel = data.source === 'live_ctg_api_v2' ? 'Live CTG API v2.0.5 (CSV Stream)' : 'Sovereign Benchmark Fallback';
+    summaryEl.innerHTML = `Found <b>${data.totalMatched || currentTrialsData.length}</b> registry trials &bull; Displaying top <b>${currentTrialsData.length}</b> ranked by Highest Achievement &amp; Evidentiary Rigor (${srcLabel}).`;
+
+    renderTrialsTable(currentTrialsData);
+  } catch (err) {
+    summaryEl.innerHTML = `<span style="color:#fda4af;">Offline mode active (${err.message}). Displaying sovereign benchmark trials:</span>`;
+    renderTrialsTable([
+      {
+        nctId: "NCT02997202",
+        briefTitle: "A Trial of FLT3 Inhibitor Gilteritinib Maintenance Following Allogeneic Transplant for FLT3/ITD AML",
+        title: "A Trial of the FMS-like Tyrosine Kinase 3 (FLT3) Inhibitor Gilteritinib Administered as Maintenance Therapy Following Allogeneic Transplant for Patients With FLT3/ITD AML",
+        condition: "Acute Myeloid Leukemia (AML) with FLT3/ITD Mutation",
+        interventions: "DRUG: Gilteritinib (120 mg oral daily) | DRUG: Placebo",
+        phase: "PHASE3",
+        stdAge: "18 Years and older (Adult, Older Adult)",
+        primaryOutcomeMeasure: "Relapse-Free Survival (RFS) assessed from randomization to relapse or death (Up to 5 years)",
+        secondaryOutcomeMeasure: "Overall Survival (OS); Cumulative Incidence of Relapse (CIR); Acute/Chronic GVHD",
+        briefSummary: "A randomized, double-blind, placebo-controlled trial evaluating oral FLT3 inhibitor gilteritinib maintenance therapy following allogeneic hematopoietic stem cell transplantation in FLT3/ITD-mutated AML patients in first remission.",
+        studyDesign: "Allocation: Randomized | Intervention Model: Parallel Assignment | Masking: Quadruple",
+        status: "COMPLETED",
+        hasResults: "YES",
+        enrollment: 356,
+        completionDate: "2023-05-09",
+        achievementScore: 100,
+        scoringBreakdown: "Audited Results Posted (+30); Study Completed (+20); Late Stage PHASE3 (+25); High Enrollment N=356 (+15); High-Efficacy Primary Endpoints (+10)",
+        url: "https://clinicaltrials.gov/study/NCT02997202"
+      },
+      {
+        nctId: "NCT03512197",
+        briefTitle: "A Global Study of Midostaurin + Chemotherapy in Newly Diagnosed FLT3-Mutated AML",
+        title: "A Global Study of the Efficacy and Safety of Midostaurin + Chemotherapy in Newly Diagnosed FLT3-Mutated AML",
+        condition: "FLT3-Mutated Acute Myeloid Leukemia",
+        interventions: "DRUG: Midostaurin (50 mg BID) | DRUG: Standard Chemotherapy (Daunorubicin + Cytarabine 7+3)",
+        phase: "PHASE3",
+        stdAge: "18 Years to 59 Years (Adult)",
+        primaryOutcomeMeasure: "Event-Free Survival (EFS) and Complete Remission (CR) rate within 60 days of induction",
+        secondaryOutcomeMeasure: "Overall Survival (OS); Disease-Free Survival (DFS); Cumulative Incidence of Relapse",
+        briefSummary: "A phase 3 international, randomized, double-blind study testing multi-targeted kinase inhibitor midostaurin combined with standard induction in FLT3-mutated AML.",
+        studyDesign: "Allocation: Randomized | Intervention Model: Parallel Assignment | Masking: Triple",
+        status: "COMPLETED",
+        hasResults: "YES",
+        enrollment: 511,
+        completionDate: "2021-02-12",
+        achievementScore: 100,
+        scoringBreakdown: "Audited Results Posted (+30); Study Completed (+20); Late Stage PHASE3 (+25); High Enrollment N=511 (+15); High-Efficacy Primary Endpoints (+10)",
+        url: "https://clinicaltrials.gov/study/NCT03512197"
+      }
+    ]);
+  }
+}
+
+function renderTrialsTable(trials) {
+  const tbody = document.getElementById('ct_trials_tbody');
+  tbody.innerHTML = '';
+
+  if (!trials || trials.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">No trials matched the specified criteria. Try broadening the condition or term.</td></tr>';
+    return;
+  }
+
+  trials.forEach((t, idx) => {
+    const tr = document.createElement('tr');
+    
+    let scoreColor = '#34d399';
+    let scoreBg = 'rgba(16, 185, 129, 0.2)';
+    if (t.achievementScore < 60) {
+      scoreColor = '#fda4af';
+      scoreBg = 'rgba(244, 63, 94, 0.2)';
+    } else if (t.achievementScore < 85) {
+      scoreColor = '#fcd34d';
+      scoreBg = 'rgba(245, 158, 11, 0.2)';
+    }
+
+    const hasRes = (t.hasResults || '').toUpperCase() === 'YES';
+    const detailId = `ct_detail_${idx}`;
+
+    tr.innerHTML = `
+      <td>
+        <a href="${t.url}" target="_blank" rel="noopener" style="color:#38bdf8;font-weight:700;text-decoration:none;">${t.nctId} &nearr;</a>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${t.phase || 'N/A'}</div>
+      </td>
+      <td>
+        <div style="font-weight:600;color:#f1f5f9;font-size:12.5px;line-height:1.4;">${t.briefTitle || t.title}</div>
+        <div style="font-size:11px;color:#6ee7b7;margin-top:4px;">${t.interventions || ''}</div>
+        
+        <details style="margin-top:6px;font-size:11.5px;color:#94a3b8;">
+          <summary style="cursor:pointer;color:#38bdf8;font-weight:600;">&#x25B8; View Detailed Protocol &amp; Outcome Endpoints</summary>
+          <div style="background:#0d1829;border:1px solid #233a5b;border-radius:6px;padding:8px 12px;margin-top:6px;line-height:1.5;">
+            <div><b style="color:#cbd5e1;">Brief Summary:</b> ${t.briefSummary || 'N/A'}</div>
+            <div style="margin-top:4px;"><b style="color:#cbd5e1;">Condition:</b> ${t.condition || 'N/A'} &bull; <b style="color:#cbd5e1;">Cohort (StdAge):</b> ${t.stdAge || 'N/A'}</div>
+            <div style="margin-top:4px;"><b style="color:#6ee7b7;">Primary Outcomes:</b> ${t.primaryOutcomeMeasure || 'N/A'}</div>
+            ${t.secondaryOutcomeMeasure ? `<div style="margin-top:4px;"><b style="color:#93c5fd;">Secondary Outcomes:</b> ${t.secondaryOutcomeMeasure}</div>` : ''}
+            ${t.studyDesign ? `<div style="margin-top:4px;"><b style="color:#fcd34d;">Study Design / Arms:</b> ${t.studyDesign}</div>` : ''}
+          </div>
+        </details>
+      </td>
+      <td>
+        <span class="pill ${hasRes ? 'pill-emerald' : 'pill-amber'}" style="font-size:10px;padding:2px 6px;">
+          ${hasRes ? '&check; Results Posted' : 'No Results'}
+        </span>
+        <div style="font-size:11px;color:#cbd5e1;margin-top:3px;">${t.status}</div>
+      </td>
+      <td>
+        <div style="font-weight:700;color:#fff;">N = ${t.enrollment || 0}</div>
+        <div style="font-size:10.5px;color:#94a3b8;">${t.completionDate || ''}</div>
+      </td>
+      <td>
+        <div style="display:inline-block;padding:3px 8px;border-radius:6px;font-weight:800;font-size:13px;background:${scoreBg};color:${scoreColor};margin-bottom:4px;">
+          ${t.achievementScore} / 100
+        </div>
+        <div style="font-size:11px;color:#94a3b8;line-height:1.35;">${t.scoringBreakdown || ''}</div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportTrialsCsv() {
+  if (!currentTrialsData || currentTrialsData.length === 0) {
+    alert("No trials currently loaded to export.");
+    return;
+  }
+  let csvContent = "data:text/csv;charset=utf-8,NCT ID,Phase,Brief Title,Condition,Interventions,Status,Results Posted,Enrollment,Completion Date,StdAge,Primary Outcome Measures,Brief Summary,Achievement Score,Scoring Breakdown,URL\n";
+  currentTrialsData.forEach(t => {
+    const row = [
+      `"${t.nctId || ''}"`,
+      `"${t.phase || ''}"`,
+      `"${(t.briefTitle || t.title || '').replace(/"/g, '""')}"`,
+      `"${(t.condition || '').replace(/"/g, '""')}"`,
+      `"${(t.interventions || '').replace(/"/g, '""')}"`,
+      `"${t.status || ''}"`,
+      `"${t.hasResults || ''}"`,
+      `"${t.enrollment || 0}"`,
+      `"${t.completionDate || ''}"`,
+      `"${(t.stdAge || '').replace(/"/g, '""')}"`,
+      `"${(t.primaryOutcomeMeasure || '').replace(/"/g, '""')}"`,
+      `"${(t.briefSummary || '').replace(/"/g, '""')}"`,
+      `"${t.achievementScore || 0}"`,
+      `"${(t.scoringBreakdown || '').replace(/"/g, '""')}"`,
+      `"${t.url || ''}"`
+    ].join(",");
+    csvContent += row + "\n";
+  });
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "Sentinari_ClinicalTrials_Highest_Achievement.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 window.addEventListener('load', () => {
   if (typeof renderMathInElement !== 'undefined') {
     renderMathInElement(document.body, {
@@ -1642,6 +1815,7 @@ window.addEventListener('load', () => {
   updatePatientCalculations();
   updateMatrixCalculations();
   updateTdaVisualization();
+  searchClinicalTrials();
 });
 </script>
 </body>
