@@ -262,7 +262,7 @@ def render_automated_hypothesis_invariant_html(report: dict[str, Any]) -> str:
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:22px;">⚡</span>
           <h4 style="margin:0;font-size:15px;font-weight:800;color:#065f46;text-transform:uppercase;letter-spacing:0.5px;">
-            Formal Invariant &amp; Automated Hypothesis Decision ({dec['hy_code']})
+            5.2c Formal Mathematical Invariant &amp; Automated Hypothesis Decision ({dec['hy_code']})
           </h4>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">

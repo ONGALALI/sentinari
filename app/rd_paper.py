@@ -302,11 +302,20 @@ _PAPER_CSS = """
   }
 
   @media print {
-    body { background: #fff !important; position: relative !important; }
-    .wrap { max-width: none !important; }
-    .card { box-shadow: none !important; break-inside: avoid !important; }
-    .chartbox { height: 290px !important; }
+    body { background: #fff !important; position: relative !important; font-size: 11pt !important; }
+    .wrap { max-width: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    .card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; break-inside: auto !important; page-break-inside: auto !important; margin-top: 14px !important; margin-bottom: 14px !important; }
+    .subsec, h3.sec { break-after: avoid !important; page-break-after: avoid !important; }
+    .rubric-table, table.calc { break-inside: auto !important; page-break-inside: auto !important; }
+    tr { break-inside: avoid !important; page-break-inside: avoid !important; }
+    thead { display: table-header-group !important; }
+    .chartbox { height: 260px !important; break-inside: avoid !important; }
+    .graph-panel { break-inside: avoid !important; }
     .top-actions { display: none !important; }
+    .automated-hypothesis-panel { break-inside: avoid !important; page-break-inside: avoid !important; }
+    .decision-stamp-box, #hypothesisDecisionStamp { break-inside: avoid !important; page-break-inside: avoid !important; }
+    .param-guide-card { break-inside: avoid !important; }
+    .eng-step-card { break-inside: avoid !important; }
     
     /* Security Watermark on Every Printed Page */
     body::before {
@@ -2053,7 +2062,8 @@ def render_rd_report_html(report: dict[str, Any], is_admin: bool = False) -> str
 
     if is_admin:
         admin_actions_html = (
-            f'<a class="top-btn primary" href="/api/patterns/{pid}/rd-paper.pdf">&#11015; Download R&amp;D Paper (.pdf)</a>\n'
+            f'<a class="top-btn primary" href="/api/patterns/{pid}/rd-paper.pdf" target="_blank">&#11015; Download Full Visual R&amp;D Paper (.pdf)</a>\n'
+            f'<button class="top-btn" type="button" onclick="window.print()" style="background:#047857;color:#fff;border-color:#047857;font-weight:700;">&#128424; Print / Save Full Visual PDF</button>\n'
             f'<a class="top-btn" href="/api/patterns/{pid}/appendices.zip" style="background:#0f172a;color:#fff;border-color:#0f172a;">&#128230; Download Appendices (.zip)</a>\n'
             f'<span class="top-btn" style="background:#fef3c7;color:#92400e;border-color:#fde68a;font-weight:700;">&#128275; Chief Architect: Dr. Pierre C. Wepener (Unlocked)</span>'
         )
@@ -2774,8 +2784,58 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 
 
+def generate_visual_pdf_from_html(report: dict[str, Any]) -> bytes | None:
+    """Generate high-resolution full visual PDF using local headless Chromium browser (Edge or Chrome).
+    Preserves all colors, KaTeX formulas, 7-Dimension Rubric table, Section 5.2c Invariant,
+    and the Official Hypothesis Decision Stamp.
+    """
+    import subprocess
+    import tempfile
+    import os
+    import logging
+
+    edge_paths = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    ]
+    browser_bin = None
+    for p in edge_paths:
+        if os.path.exists(p):
+            browser_bin = p
+            break
+    if not browser_bin:
+        return None
+
+    try:
+        html = render_rd_report_html(report, is_admin=True)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            html_file = os.path.join(tmpdir, "report.html")
+            pdf_file = os.path.join(tmpdir, "output.pdf")
+            with open(html_file, "w", encoding="utf-8") as f:
+                f.write(html)
+            file_url = f"file:///{html_file.replace(os.sep, '/')}"
+            cmd = [
+                browser_bin,
+                "--headless=new",
+                "--disable-gpu",
+                "--no-pdf-header-footer",
+                f"--print-to-pdf={pdf_file}",
+                file_url,
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+            if res.returncode == 0 and os.path.exists(pdf_file) and os.path.getsize(pdf_file) > 1000:
+                with open(pdf_file, "rb") as pf:
+                    return pf.read()
+    except Exception as ex:
+        logging.getLogger("sentinari.rd_paper").warning(f"Headless visual PDF generation failed: {ex}")
+    return None
+
+
 def rd_report_pdf_bytes(report: dict[str, Any]) -> bytes:
     """Render the unified 7-Section R&D Validation Paper to PDF bytes."""
+    visual_bytes = generate_visual_pdf_from_html(report)
+    if visual_bytes:
+        return visual_bytes
     import textwrap
 
     def _w(text: str, width: int = 92) -> list[str]:
