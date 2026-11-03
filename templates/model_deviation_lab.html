@@ -143,7 +143,7 @@
         <button class="secondary" id="science">Science prompt</button>
       </div>
 
-      <p class="meta">Paste Gemini, Grok, Claude, DeepSeek, or other model answers below. The same prompt and scoring sheet will be logged with Sentinari's local answer.</p>
+      <p class="meta">Paste answers from external commercial API models or closed-weights benchmarks below. The same prompt is evaluated across all systems under identical rubric scoring.</p>
     </aside>
 
     <section>
@@ -379,10 +379,10 @@
       $("prompt").value = "What is the golden thread linking scientific fields? Answer directly, then explain how the scientific method and mathematical modeling relate to shared objective reality.";
     });
 
-    addManual("Gemini 2.0", "");
-    addManual("Claude", "");
-    addManual("Grok", "");
-    addManual("DeepSeek", "");
+    addManual("Commercial Engine Alpha (Frontier API)", "");
+    addManual("Commercial Engine Beta (Reasoning API)", "");
+    addManual("Commercial Engine Gamma (Cloud Multimodal)", "");
+    addManual("Commercial Engine Delta (Closed-Weights)", "");
     refreshStatus();
   </script>
 </body>
