@@ -1204,6 +1204,7 @@ _SIDE_NAV_ITEMS = [
     ("/ui/qualia", "Qualia Lab", "Courtroom forensic deception audit."),
     ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
     ("/ui/patterns", "New Patterns", "7-D Gaussian impact matrix."),
+    ("/ui/oncology", "Oncology Precision", "Hypothesis testing, TDA & clinical decision-support."),
     ("/ui/video", "Video Studio", "Autonomous tours & neural narration."),
     ("/ui/ace-step", "ACE-Step 1.5 Music", "AI soundscape & music generation."),
     ("/ui/wan21", "Wan 2.1 T2V-14B", "14B cinematic video diffusion."),
@@ -1918,6 +1919,18 @@ def ui_search(request: Request) -> HTMLResponse:
     elif "</head>" in html:
         html = html.replace("</head>", f"{arch_js}\n</head>", 1)
     return HTMLResponse(html)
+
+
+@app.get("/ui/oncology", response_class=HTMLResponse)
+def ui_oncology(request: Request) -> HTMLResponse:
+    auth = get_admin_auth_settings(get_settings())
+    if auth["enabled"] and not _is_admin_authenticated(request):
+        return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/oncology"})
+
+    page = get_project_root() / "templates" / "oncology_workspace.html"
+    if not page.exists():
+        raise HTTPException(status_code=500, detail="oncology_workspace.html template not found.")
+    return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
 @app.get("/ui/learning", response_class=HTMLResponse)
