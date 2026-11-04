@@ -1212,7 +1212,8 @@ _SIDE_NAV_ITEMS = [
     ("/ui/playground", "Dashboard Home", "Summary, domains, and downloads."),
     ("/ui/direct", "Chat Lab", "Dedicated conversation workspace."),
     ("/ui/qualia", "Qualia Lab", "Courtroom forensic deception audit."),
-    ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
+    ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
+    ("/ui/vision", "Vision Lab & TDA", "Giving Sentinari Eyes • Simplicial complexes & visual topology."),
     ("/ui/patterns", "New Patterns", "7-D Gaussian impact matrix."),
     ("/ui/oncology", "Oncology Precision", "Hypothesis testing, TDA & clinical decision-support."),
     ("/ui/video", "Video Studio", "Autonomous tours & neural narration."),
@@ -1929,6 +1930,35 @@ def ui_search(request: Request) -> HTMLResponse:
     elif "</head>" in html:
         html = html.replace("</head>", f"{arch_js}\n</head>", 1)
     return HTMLResponse(html)
+
+
+@app.get("/ui/vision", response_class=HTMLResponse)
+def ui_vision(request: Request) -> HTMLResponse:
+    """Giving Sentinari Eyes: Sovereign Topological Visual Diagnostics Workspace."""
+    auth = get_admin_auth_settings(get_settings())
+    if auth["enabled"] and not _is_admin_authenticated(request):
+        return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/vision"})
+
+    page = get_project_root() / "templates" / "vision_workspace.html"
+    if not page.exists():
+        raise HTTPException(status_code=500, detail="vision_workspace.html template not found.")
+    return HTMLResponse(page.read_text(encoding="utf-8"))
+
+
+@app.get("/api/vision/baselines")
+def api_vision_baselines() -> dict:
+    from app.sentinari_vision import HEALTHY_ANATOMY_MODULES, SentinariAutoSizer
+    return {
+        "ok": True,
+        "baselines": list(HEALTHY_ANATOMY_MODULES.keys()),
+        "paper_profiles": list(SentinariAutoSizer.TARGET_PROFILES.keys())
+    }
+
+
+@app.get("/api/vision/preset/{preset_id}")
+def api_vision_preset(preset_id: str) -> dict:
+    from app.sentinari_vision import generate_synthetic_biopsy_preset
+    return generate_synthetic_biopsy_preset(preset_id)
 
 
 @app.get("/ui/oncology", response_class=HTMLResponse)
