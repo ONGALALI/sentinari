@@ -110,8 +110,10 @@ def get_state() -> dict[str, Any]:
     run = _latest_run()
     gate_open = bool(run and run.get("swe_gate_open"))
     functional_open = False
+    hle_paused = False
     with _connect() as conn:
         functional_open = _get_flag(conn, "swe_gate_functional_open").startswith("owner_ordered")
+        hle_paused = _get_flag(conn, "hle_assessment_paused").startswith("paused")
     hle_score = float(run.get("hle_score")) if run and run.get("hle_score") is not None and run.get("hle_score") >= 0 else None
     state = {
         "ok": True,
@@ -122,6 +124,8 @@ def get_state() -> dict[str, Any]:
         "qualify_threshold": QUALIFY_THRESHOLD,
         "hle_score": hle_score,
         "hle_qualified": bool(hle_score is not None and hle_score >= QUALIFY_THRESHOLD),
+        "hle_paused": hle_paused,
+        "hle_paused_note": "HLE Assessments and Re-learning are paused by Chief Architect (Dr. Pierre C. Wepener) to allow subject matter digestion." if hle_paused else "Active",
         "swe_pro_gate": {
             "open": gate_open,
             "functional_open": functional_open,
@@ -166,6 +170,47 @@ def advance(stage: str, status: str = "running", notes: str = "") -> dict[str, A
             (stage, status, _now(), str(notes or "")[:500], run["id"]),
         )
         conn.commit()
+    return get_state()
+
+
+def is_hle_paused() -> bool:
+    """Check if HLE assessments and re-learning are paused by the Chief Architect."""
+    flag_file = ROOT / "config" / "hle_paused.flag"
+    if flag_file.exists():
+        try:
+            txt = flag_file.read_text(encoding="utf-8").strip()
+            if txt.startswith("paused"):
+                return True
+            if txt.startswith("active"):
+                return False
+        except Exception:
+            return True
+    try:
+        with _connect() as conn:
+            val = _get_flag(conn, "hle_assessment_paused")
+            if val.startswith("paused"):
+                return True
+            if val.startswith("active"):
+                return False
+    except Exception:
+        pass
+    return True
+
+
+def set_hle_paused(paused: bool = True, notes: str = "") -> dict[str, Any]:
+    """Switch on or off the HLE assessment and re-learning loop to allow subject matter digestion."""
+    val = f"paused|{str(notes or 'Chief Architect switch off to allow subject matter digestion')[:300]}" if paused else "active|resumed"
+    flag_file = ROOT / "config" / "hle_paused.flag"
+    try:
+        flag_file.write_text(val, encoding="utf-8")
+    except Exception:
+        pass
+    try:
+        with _connect() as conn:
+            _flag(conn, "hle_assessment_paused", val)
+            conn.commit()
+    except Exception:
+        pass
     return get_state()
 
 
@@ -380,6 +425,16 @@ def _retrieve_hle_context(question: str) -> tuple[str, list[str]]:
 def run_hle_sample(sample_size: int = 10) -> dict[str, Any]:
     """Stage-3 assessor: ask the engine a sample of HLE questions, consulting
     the uploaded Sentinari Knowledge Library first."""
+    if is_hle_paused():
+        return {
+            "ok": True,
+            "paused": True,
+            "status": "paused",
+            "reason": "hle_assessment_paused",
+            "detail": "HLE Assessments & Re-learning paused by Chief Architect (Dr. Pierre C. Wepener). The system is in deep digestion mode, assimilating ingested knowledge without continuous exam writes.",
+            "note": "Digestion mode active (unlocked from 92.5% loop). Click 'Resume HLE' when ready to resume evaluation."
+        }
+
     from concurrent.futures import ThreadPoolExecutor
 
     sample_size = max(1, min(100, int(sample_size)))

@@ -24,6 +24,19 @@ TERM_GLOSSARY: dict[str, str] = {
     # Badges & Meta
     "AUTHORITATIVE HANDBOOK DOMAIN": "Peer-reviewed, accredited engineering discipline codified in official national and international engineering handbooks (McGraw-Hill, ACI, AISC, ASME, IEEE, AIChE).",
     "Authoritative Handbook Domain": "Peer-reviewed, accredited engineering discipline codified in official national and international engineering handbooks (McGraw-Hill, ACI, AISC, ASME, IEEE, AIChE).",
+        "Biomedical Engineering & Molecular Systems Biology": "Engineering discipline applying physical, kinetic, and systems biology principles to model cellular signaling networks, receptor kinetics, metabolic regulation, and pharmacological synergy.",
+    "Joseph D. Bronzino": "Joseph D. Bronzino, founder and editor-in-chief of 'The Biomedical Engineering Handbook' (CRC Press / IEEE Press).",
+    "Eberhard O. Voit": "Eberhard O. Voit, pioneer in systems biology, biochemical systems theory, and mathematical modeling of metabolic pathways.",
+    "Uri Alon": "Uri Alon, renowned systems biologist at the Weizmann Institute and author of 'An Introduction to Systems Biology: Design Principles of Biological Circuits'.",
+    "Michaelis-Menten": "Fundamental kinetic model of enzymatic reaction rate relating substrate turnover velocity to concentration.",
+    "Hill Equation": "Mathematical formulation quantifying sigmoidal allosteric binding cooperativity and bistable thresholding in macromolecular complexes.",
+    "Waddington Landscape": "Quasi-potential energy landscape formulation modeling cell-fate stability, canalization, and stochastic phenotypic transitions.",
+    "Chou-Talalay": "Rigorous unified median-effect principle determining exact pharmacological synergy (CI < 1.0) and dose reduction index (DRI).",
+    "Fick's Diffusion": "Governing physical law describing mass transport, passive interstitial flux, and concentration gradient dynamics across biological tissue.",
+    "Enzyme Kinetics": "Quantitative study of the chemical rates of enzyme-catalyzed reactions and allosteric pathway inhibition.",
+    "Receptor Binding": "The thermodynamic association and dissociation equilibrium between ligand molecules and macromolecular cell-surface receptors.",
+    "Metabolic Regulation": "The biochemical mechanisms and signaling feedback loops maintaining intracellular metabolite homeostasis and cellular bioenergetics.",
+    "Signaling Axis": "A coordinated linear or network cascade of intracellular protein kinases and transcription factors transducing extracellular stimuli into cellular phenotypic responses.",
     "Electrical & Telecom Engineering (Autonomous Swarms)": "Engineering discipline focused on electromagnetic wave propagation, digital communications, RF link budgets, anti-jamming resilience, and decentralized multi-agent robotic swarms.",
     "Mechanical Engineering & Thermal-Fluids": "Engineering discipline addressing physical stress, strain, elasticity, aerodynamics, convective cooling, thermal conduction, and machine design.",
     "Civil & Structural Engineering": "Engineering discipline covering structural framing, beam deflection, column stability, reinforced concrete mechanics, foundation bearing, and open-channel hydraulics.",
@@ -266,6 +279,134 @@ def wrap_badge(term: str, tooltip: str, bg: str = "#e0e7ff", color: str = "#3730
 # ============================================================================
 
 ENGINEERING_VOCATIONS: dict[str, dict[str, Any]] = {
+    "biomedical_molecular": {
+        "name": "Biomedical Engineering & Molecular Systems Biology",
+        "primary_source": "Bronzino & Peterson (Biomedical Engineering Handbook) & Voit (Systems Biology)",
+        "domains": [
+            "biomedical",
+            "oncology",
+            "cancer",
+            "genetics",
+            "metabolic",
+            "microbiota",
+            "signaling",
+            "pathway",
+            "enzyme",
+            "cellular",
+            "tumor",
+            "kinase",
+            "chemotherapy",
+            "pharmacology",
+            "systems biology",
+            "genomic",
+            "adjuvant",
+            "tp53",
+            "pi3k",
+            "akt",
+        ],
+        "formula_groups": [
+            {
+                "group_name": "Metabolic Enzyme Kinetics & Receptor-Ligand Dynamics",
+                "source": "Bronzino & Peterson (Biomedical Engineering Handbook §7) & Voit (2013)",
+                "formulas": [
+                    {
+                        "concept": "Michaelis-Menten Substrate Velocity & Kinase Turnover",
+                        "latex": r"v = \frac{V_{\max} [S]}{K_m + [S]} = \frac{k_{\text{cat}} [E]_0 [S]}{K_m + [S]}",
+                        "purpose": "Calculates enzymatic substrate turnover rate, kinase phosphorylation throughput, and metabolic clearance across oncogenic regulatory cascades.",
+                        "components": [
+                            ("v", "Reaction Velocity", "Substrate transformation rate per unit volume (umol/(L·s))."),
+                            ("V_max", "Maximal Enzymatic Rate", "Limiting turnover rate when catalytic active sites are saturated (umol/(L·s))."),
+                            ("[S]", "Substrate Concentration", "Available bioenergetic metabolite or kinase substrate density (umol/L)."),
+                            ("K_m", "Michaelis Constant", "Substrate concentration at half-maximal velocity, inversely proportional to enzyme affinity (umol/L)."),
+                            ("k_cat", "Turnover Number", "Maximal catalytic substrate conversions per enzyme molecule per second (s^-1)."),
+                            ("[E]_0", "Total Enzyme Density", "Total molar concentration of active intracellular enzyme or kinase (umol/L).")
+                        ],
+                        "variables": [
+                            ("v", "Enzymatic reaction velocity", "umol/(L*s)", "umol/(L*s)"),
+                            ("V_{\\max}", "Limiting maximum reaction velocity", "umol/(L*s)", "umol/(L*s)"),
+                            ("[S]", "Bioenergetic substrate concentration", "umol/L", "umol/L"),
+                            ("K_m", "Michaelis-Menten affinity constant", "umol/L", "umol/L"),
+                            ("k_{\\text{cat}}", "Catalytic turnover rate constant", "s^{-1}", "s^{-1}"),
+                            ("[E]_0", "Total active enzyme/kinase pool", "umol/L", "umol/L")
+                        ]
+                    },
+                    {
+                        "concept": "Hill Equation for Allosteric Cooperativity & Bistable Signaling",
+                        "latex": r"\theta = \frac{[L]^n}{K_d + [L]^n} = \frac{1}{1 + \left(\frac{K_A}{[L]}\right)^n}",
+                        "purpose": "Models sigmoidal receptor-ligand cooperativity, transcription factor tetramerization (TP53), and ultrasensitive bistable kinase activation thresholds.",
+                        "components": [
+                            ("\\theta", "Fractional Occupancy", "Fraction of macromolecular receptor or promoter sites bound (0.0 to 1.0)."),
+                            ("[L]", "Ligand / Effector Density", "Free concentration of signaling ligand, cytokine, or microbial metabolite (nM)."),
+                            ("K_d", "Apparent Dissociation Constant", "Ligand concentration producing half-maximal binding saturation (nM^n)."),
+                            ("n", "Hill Cooperativity Coefficient", "Hill coefficient: n > 1 indicates positive cooperativity, n < 1 negative cooperativity.")
+                        ],
+                        "variables": [
+                            ("\\theta", "Fractional receptor/promoter occupancy", "fraction", "fraction"),
+                            ("[L]", "Free signaling effector/ligand concentration", "nM", "nM"),
+                            ("K_d", "Apparent allosteric dissociation constant", "nM^n", "nM^n"),
+                            ("n", "Hill cooperativity exponent", "dimensionless", "dimensionless")
+                        ]
+                    },
+                    {
+                        "concept": "Chou-Talalay Pharmacological Combination Index & Dose Sparing",
+                        "latex": r"\text{CI} = \frac{D_1}{(D_x)_1} + \frac{D_2}{(D_x)_2} + \frac{\alpha D_1 D_2}{(D_x)_1 (D_x)_2}",
+                        "purpose": "Determines exact pharmacological synergy (CI < 1.0, DRI > 1.0) for dual-pathway therapies, establishing safe cytotoxic dose reduction without loss of tumor suppression.",
+                        "components": [
+                            ("CI", "Combination Index", "Quantitative synergy index: CI < 1.0 indicates synergism, CI = 1.0 additive, CI > 1.0 antagonism."),
+                            ("D_1, D_2", "Combined Agent Doses", "Actual experimental drug doses administered simultaneously in combination (uM)."),
+                            ("(D_x)_1, (D_x)_2", "Single-Agent Isoeffective Doses", "Individual doses of each drug required alone to produce identical fractional effect (uM)."),
+                            ("\\alpha", "Mutual Exclusivity Parameter", "Alpha = 0 for mutually exclusive mechanisms of action; alpha = 1 for mutually non-exclusive.")
+                        ],
+                        "variables": [
+                            ("\\text{CI}", "Chou-Talalay combination synergy metric", "dimensionless", "dimensionless"),
+                            ("D_1", "Primary metabolic inhibitor dose", "uM", "mg/kg"),
+                            ("D_2", "Cytotoxic chemotherapeutic dose", "uM", "mg/kg"),
+                            ("(D_x)_1", "Single-agent inhibitor isoeffective dose", "uM", "mg/kg"),
+                            ("(D_x)_2", "Single-agent cytotoxic isoeffective dose", "uM", "mg/kg")
+                        ]
+                    }
+                ]
+            },
+            {
+                "group_name": "Topological Landscape Flux & Intratumoral Mass Transport",
+                "source": "Voit (2013), Alon (2019) & Bronzino (Handbook §12: Bio-Transport)",
+                "formulas": [
+                    {
+                        "concept": "Waddington Epigenetic Quasi-Potential Landscape Probability Flux",
+                        "latex": r"J(x) = -\nabla U(x) \cdot P(x, t) - D \nabla P(x, t)",
+                        "purpose": "Quantifies stochastic phenotypic cell-fate transitions, epigenetic valley stability, and barrier heights separating homeostatic symbiosis from oncogenic transformation.",
+                        "components": [
+                            ("J(x)", "Probability Flux Vector", "Net probabilistic flux of cellular trajectories across the epigenetic landscape (s^-1)."),
+                            ("U(x)", "Epigenetic Quasi-Potential", "Dimensionless attractor landscape topology governing stable differentiated states."),
+                            ("P(x,t)", "Cell-State Density Function", "Probability density distribution across phenotypic attractor basins."),
+                            ("D", "Stochastic Diffusion Coefficient", "Magnitude of microenvironmental and transcriptional noise (m^2/s).")
+                        ],
+                        "variables": [
+                            ("J(x)", "Epigenetic phenotypic probability flux", "s^{-1}", "s^{-1}"),
+                            ("U(x)", "Quasi-potential landscape topology", "dimensionless", "dimensionless"),
+                            ("P(x,t)", "Cell phenotypic state probability density", "state^{-1}", "state^{-1}"),
+                            ("D", "Microenvironmental transcriptional diffusion", "m^2/s", "ft^2/s")
+                        ]
+                    },
+                    {
+                        "concept": "Fick's Second Law of Intratumoral Interstitial Diffusion",
+                        "latex": r"\frac{\partial C}{\partial t} = D_{\text{eff}} \nabla^2 C - k_{\text{met}} C",
+                        "purpose": "Formulates transient concentration gradients, interstitial fluid transport, and metabolic clearance across hypovascularized tumor microenvironments.",
+                        "components": [
+                            ("C", "Intratumoral Concentration", "Molar concentration of therapeutic agent or microbial metabolite within tissue (mol/m^3)."),
+                            ("D_eff", "Effective Diffusion Coefficient", "Hindered Brownian mass transport coefficient through extracellular matrix (m^2/s)."),
+                            ("k_met", "Metabolic Clearance Rate", "First-order enzymatic degradation or cellular internalization rate constant (s^-1).")
+                        ],
+                        "variables": [
+                            ("C", "Interstitial solute concentration", "mol/m^3", "mol/ft^3"),
+                            ("D_{\\text{eff}}", "Effective tissue diffusion coefficient", "m^2/s", "cm^2/s"),
+                            ("k_{\\text{met}}", "First-order metabolic elimination rate", "s^{-1}", "hr^{-1}")
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
     "electrical_telecom": {
         "name": "Electrical & Telecom Engineering (Autonomous Swarms)",
         "primary_source": "Shannon, Friis, Skolnik & Sentinari RF Mesh Specifications",
@@ -277,7 +418,7 @@ ENGINEERING_VOCATIONS: dict[str, dict[str, Any]] = {
             "mesh",
             "wireless",
             "antenna",
-            "signal",
+            "rf_signal",
             "anti-jam",
             "electronic warfare",
             "handover",
@@ -739,14 +880,25 @@ def detect_engineering_vocations(pattern_title: str, domain_summary: str = "") -
     for voc_id, voc_data in ENGINEERING_VOCATIONS.items():
         score = 0
         for kw in voc_data["domains"]:
+            # Word-boundary matching to avoid substring false positives (e.g. 'signal' in 'signaling')
             matches = len(re.findall(r"\b" + re.escape(kw) + r"\b", combined))
-            score += matches * 2
-            if kw in combined:
-                score += 1
+            score += matches * 3
         scores[voc_id] = score
 
-    if any(k in combined for k in ["satellite", "swarm", "telecom", "handover", "non-terrestrial", "ntn", "cellular"]):
-        scores["electrical_telecom"] = scores.get("electrical_telecom", 0) + 15
+    # High-confidence domain anchors:
+    # 1. Biomedical, oncology, genetics, microbiota, metabolic, cellular signaling
+    biomed_keywords = [
+        "oncology", "cancer", "genetics", "metabolic", "microbiota", "signaling",
+        "tp53", "pi3k", "akt", "pathway", "statin", "chemotherapy", "biomedical",
+        "systems biology", "tumor", "kinase", "pharmacology", "adjuvant", "cellular"
+    ]
+    if any(re.search(r"\b" + re.escape(k) + r"\b", combined) for k in biomed_keywords):
+        scores["biomedical_molecular"] = scores.get("biomedical_molecular", 0) + 25
+
+    # 2. RF / Telecom / Satellite swarm (requires genuine telecom context)
+    telecom_keywords = ["satellite", "swarm", "telecom", "handover", "non-terrestrial", "ntn", "cellular", "anti-jam", "jamming", "rf mesh"]
+    if any(re.search(r"\b" + re.escape(k) + r"\b", combined) for k in telecom_keywords):
+        scores["electrical_telecom"] = scores.get("electrical_telecom", 0) + 20
         scores["mechanical"] = scores.get("mechanical", 0) + 5
 
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
@@ -904,7 +1056,7 @@ def generate_handbook_formulas_html(vocation_ids: list[str]) -> str:
         f"</div>"
         f"<p style='font-size:12.5px;color:#475569;margin-top:0;margin-bottom:14px;'>"
         f"Calibrated physical laws and exact mathematical formulations from Tyler G. Hicks (Civil &amp; Engineering Calculations), "
-        f"Dan B. Marghitu (Mechanical Engineering), and AIChE Standards. <i>Hover over or tap any term, symbol, or formula purpose for instant explanations.</i>"
+        f"Dan B. Marghitu (Mechanical Engineering), Joseph D. Bronzino (Biomedical Engineering), and AIChE Standards. <i>Hover over or tap any term, symbol, or formula purpose for instant explanations.</i>"
         f"</p>"
         f"{''.join(cards_html)}"
         f"</div>"

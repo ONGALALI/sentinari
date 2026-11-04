@@ -3881,6 +3881,10 @@ def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
             return assessment_pipeline.advance(payload.stage, notes=payload.notes)
         if payload.action == "run_hle_sample":
             return assessment_pipeline.run_hle_sample(sample_size=payload.sample_size)
+        if payload.action == "pause_hle":
+            return assessment_pipeline.set_hle_paused(True, notes=payload.notes or "Switched off by Chief Architect Dr. Pierre C. Wepener")
+        if payload.action == "resume_hle":
+            return assessment_pipeline.set_hle_paused(False, notes=payload.notes or "Resumed by Chief Architect")
         if payload.action == "run_data_parsing":
             from . import ml_pipeline
             return ml_pipeline.run_data_parsing()
@@ -3899,7 +3903,7 @@ def api_assessment_run(payload: AssessmentRunRequest) -> dict[str, Any]:
         if payload.action == "swe_functional_check":
             return assessment_pipeline.swe_functional_check()
         raise ValueError(
-            "Unknown action. Valid: start_run | advance | run_hle_sample | run_data_parsing | ml_status | open_functional_gate | swe_functional_check."
+            "Unknown action. Valid: start_run | advance | run_hle_sample | pause_hle | resume_hle | run_data_parsing | ml_status | open_functional_gate | swe_functional_check."
         )
     except ValueError as ex:
         raise HTTPException(status_code=400, detail=str(ex))

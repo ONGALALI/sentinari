@@ -814,9 +814,13 @@ def api_learning_ladder() -> dict[str, Any]:
                 else ("Qualia-Lab calibration enabled — ready to run" if cal_on else "instrument paused (38) — toggle Calibration: On to enable")
             ),
             "hle": (
-                f"HLE active — {field_hle_pct:.1f}% achieved ({hle_n if hle_n > 0 else hle_total_graded} question(s) graded)"
-                if hle_total_graded > 0
-                else "HLE ready — click Run HLE sample in the Assessment card below"
+                "⏸️ HLE Assessments & Re-learning: PAUSED by Chief Architect — System assimilating & digesting subject matter."
+                if ap_state.get("hle_paused")
+                else (
+                    f"HLE active — {field_hle_pct:.1f}% achieved ({hle_n if hle_n > 0 else hle_total_graded} question(s) graded)"
+                    if hle_total_graded > 0
+                    else "HLE ready — click Run HLE sample in the Assessment card below"
+                )
             ),
             "workbench": "instrument waits for the rig",
         }
@@ -887,6 +891,7 @@ def api_learning_ladder() -> dict[str, Any]:
         "formative_percent": round(100.0 * mastery_mass_total / assessed_total, 1) if assessed_total else 0.0,
         "calibration_percent": overall_cal_pct if cal_on else 0.0,
         "hle_percent": overall_hle_pct,
+        "hle_paused": bool(ap_state.get("hle_paused", False)),
         "workbench_percent": 0.0,
     }
     return {
