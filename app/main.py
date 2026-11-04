@@ -1237,9 +1237,12 @@ _SIDE_NAV_ITEMS = [
     ("/ui/playground", "Dashboard Home", "Summary, domains, and downloads."),
     ("/ui/direct", "Chat Lab", "Dedicated conversation workspace."),
     ("/ui/qualia", "Qualia Lab", "Courtroom forensic deception audit."),
-    ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
-    ("/ui/vision", "Vision Lab & TDA", "Giving Sentinari Eyes • Simplicial complexes & visual topology."),
+    ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
+
+    ("/ui/vision", "Vision Lab & TDA", "Giving Sentinari Eyes • Simplicial complexes & visual topology."),
+
     ("/ui/patterns", "New Patterns", "7-D Gaussian impact matrix."),
+    ("/ui/threats", "Planetary Threat Matrix", "Exogenous Early-Warning • 14 Open APIs and TDA voids."),
     ("/ui/oncology", "Oncology Precision", "Hypothesis testing, TDA & clinical decision-support."),
     ("/ui/video", "Video Studio", "Autonomous tours & neural narration."),
     ("/ui/ace-step", "ACE-Step 1.5 Music", "AI soundscape & music generation."),
@@ -2025,6 +2028,71 @@ async def api_vision_gemma_cross_examine(request: Request) -> dict:
         baseline_key=baseline_key,
         user_notes=user_notes
     )
+
+
+@app.get("/ui/threats", response_class=HTMLResponse)
+def ui_threats(request: Request) -> HTMLResponse:
+    """Exogenous Threat Detection System & Planetary Early-Warning Architecture."""
+    auth = get_admin_auth_settings(get_settings())
+    if auth["enabled"] and not _is_admin_authenticated(request):
+        return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/threats"})
+
+    page = get_project_root() / "templates" / "threats_workspace.html"
+    if not page.exists():
+        raise HTTPException(status_code=500, detail="threats_workspace.html template not found.")
+    html = page.read_text(encoding="utf-8")
+    return HTMLResponse(_inject_left_rail(html, active="/ui/threats"))
+
+
+@app.get("/api/threats/categories")
+def api_threats_categories() -> dict:
+    from app.exogenous_threats import GLOBAL_THREAT_CATALOG
+    return {"ok": True, "categories": GLOBAL_THREAT_CATALOG}
+
+
+@app.post("/api/threats/gaussian-curve")
+async def api_threats_gaussian(payload: dict) -> dict:
+    from app.exogenous_threats import compute_gaussian_density_curve
+    mu = float(payload.get("mu", 0.6))
+    sigma = float(payload.get("sigma", 1.0))
+    severity_scaler = float(payload.get("severity_scaler", 1.0))
+    curve = compute_gaussian_density_curve(mu, sigma, severity_scaler)
+    return {"ok": True, "curve": curve}
+
+
+@app.post("/api/threats/tda-evaluate")
+async def api_threats_tda(payload: dict) -> dict:
+    from app.exogenous_threats import execute_exogenous_tda
+    cat_id = payload.get("category_id", "P1")
+    tda_res = execute_exogenous_tda()
+    return {"ok": True, "category_id": cat_id, "tda": tda_res}
+
+
+@app.post("/api/threats/gemma-countermeasure")
+async def api_threats_gemma(payload: dict) -> dict:
+    from app.exogenous_threats import (
+        GLOBAL_THREAT_CATALOG,
+        compute_gaussian_density_curve,
+        execute_exogenous_tda,
+        query_gemma_threat_intervention
+    )
+    cat_id = payload.get("category_id", "P1")
+    scaler = float(payload.get("severity_scaler", 1.0))
+    notes = payload.get("commander_notes", "")
+
+    cat = GLOBAL_THREAT_CATALOG.get(cat_id, GLOBAL_THREAT_CATALOG["P1"])
+    curve = compute_gaussian_density_curve(cat["default_mu"], cat["default_sigma"], scaler)
+    tda = execute_exogenous_tda()
+
+    directive = await query_gemma_threat_intervention(
+        threat_category=cat["category"],
+        priority=cat["priority"],
+        observed_risk_score=round(cat["default_mu"] * scaler, 2),
+        tda_summary=tda,
+        gaussian_projection=curve,
+        clinician_notes=notes
+    )
+    return {"ok": True, "category_id": cat_id, "directive": directive}
 
 
 @app.get("/ui/oncology", response_class=HTMLResponse)
