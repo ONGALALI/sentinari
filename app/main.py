@@ -1174,6 +1174,31 @@ def serve_master_walkthrough_video(download: int = Query(default=0)) -> FileResp
     )
 
 
+@app.get("/api/video/topology-eyes-walkthrough.mp4", include_in_schema=False)
+@app.head("/api/video/topology-eyes-walkthrough.mp4", include_in_schema=False)
+def serve_topology_eyes_walkthrough_video(download: int = Query(default=0)) -> FileResponse:
+    """Serve or stream the Topology, Oncology & Eyes Master Walkthrough MP4."""
+    root = get_project_root()
+    candidates = [
+        root / "constitution" / "Sentinari_Topology_Oncology_and_Eyes_Master_Walkthrough.mp4",
+        Path("D:/Sentinari/constitution/Sentinari_Topology_Oncology_and_Eyes_Master_Walkthrough.mp4"),
+        root / "static" / "topology_oncology_eyes_walkthrough.mp4",
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Topology & Eyes walkthrough video not found.")
+    disposition = "attachment" if int(download or 0) == 1 else "inline"
+    return FileResponse(
+        path=str(target),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="Sentinari_Topology_Oncology_and_Eyes_Master_Walkthrough.mp4"',
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=86400",
+        },
+    )
+
+
 @app.get("/api/video/walkthrough/sections/{section_id}", include_in_schema=False)
 @app.head("/api/video/walkthrough/sections/{section_id}", include_in_schema=False)
 def serve_section_walkthrough_video(section_id: str, download: int = Query(default=0)) -> FileResponse:
