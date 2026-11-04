@@ -746,6 +746,23 @@ def ui_portal_landing() -> HTMLResponse:
     return HTMLResponse("", status_code=307, headers={"Location": "/ui/start"})
 
 
+@app.get("/oncology.html", include_in_schema=False)
+def serve_oncology_html() -> HTMLResponse:
+    p = get_project_root() / "showcase_portal" / "oncology.html"
+    if not p.exists():
+        p = get_project_root() / "oncology.html"
+    return HTMLResponse(p.read_text(encoding="utf-8"))
+
+
+@app.get("/threats.html", include_in_schema=False)
+@app.get("/showcase/threats", include_in_schema=False)
+def serve_threats_html() -> HTMLResponse:
+    p = get_project_root() / "showcase_portal" / "threats.html"
+    if not p.exists():
+        p = get_project_root() / "threats.html"
+    return HTMLResponse(p.read_text(encoding="utf-8"))
+
+
 _LANDING_REFERENCE_REPORTS: dict[str, dict[str, str]] = {
     "cancer-breakthrough": {
         "slug": "cancer-breakthrough",
