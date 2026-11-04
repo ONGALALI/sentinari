@@ -1945,6 +1945,15 @@ def ui_vision(request: Request) -> HTMLResponse:
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
+@app.get("/ui/skills", include_in_schema=False)
+@app.get("/ui/skills-manager", include_in_schema=False)
+@app.get("/ui/vision-workspace", include_in_schema=False)
+@app.get("/ui/eyes", include_in_schema=False)
+def ui_vision_redirects():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/vision", status_code=302)
+
+
 @app.get("/api/vision/baselines")
 def api_vision_baselines() -> dict:
     from app.sentinari_vision import HEALTHY_ANATOMY_MODULES, SentinariAutoSizer
