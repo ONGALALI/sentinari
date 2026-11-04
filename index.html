@@ -1518,6 +1518,86 @@
             </div>
           </div>
 
+          <!-- Interactive Companion Deck: Dynamic Gaussian Risk & Impact Density Slider -->
+          <div class="report-card" style="grid-column: 1 / -1; background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(10, 15, 30, 0.98) 100%); border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-top: -10px; margin-bottom: 24px;">
+            <div style="width:100%;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid rgba(56, 189, 248, 0.2); padding-bottom:14px; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="font-size:22px;">📊</span>
+                  <div>
+                    <h3 style="margin:0; font-size:17px; color:#38bdf8;">Planetary Risk Response: Dynamic Gaussian Impact Density</h3>
+                    <div style="font-size:12px; color:#94a3b8;">Interactive simulation deck &bull; Multi-pillar compound casualty and VSL economic exposure modeling</div>
+                  </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <span class="report-badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">&#x1D453;(&#x1D465;; &mu;, &sigma;) Gaussian Density</span>
+                  <span class="report-badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3);">&#x1F30D; 163 Sovereign States</span>
+                </div>
+              </div>
+
+              <!-- Slider and Formula Controls -->
+              <div style="display:grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap:20px; align-items:center; margin-bottom:16px;">
+                <div style="background:rgba(0,0,0,0.3); padding:14px 16px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">
+                  <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:700; margin-bottom:8px;">
+                    <span style="color:#e2e8f0;">Threat Severity Multiplier (&mu;): <b id="lblLandingMu" style="color:#38bdf8;">0.65</b></span>
+                    <span style="color:#94a3b8;">Dispersion (&sigma;): <b id="lblLandingSigma" style="color:#a855f7;">1.25</b></span>
+                  </div>
+                  <input type="range" id="landingSeveritySlider" min="0.2" max="2.0" step="0.05" value="1.0" style="width:100%; accent-color:#38bdf8; cursor:pointer;" oninput="updateLandingGaussian(this.value)">
+                  <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; margin-top:4px;">
+                    <span>0.2x Baseline Mild</span>
+                    <span>1.0x Empirical Normal</span>
+                    <span>2.0x Catastrophic Surge</span>
+                  </div>
+                </div>
+
+                <!-- Dynamic SVG Bell Curve -->
+                <div style="background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); height:110px;">
+                  <svg id="landingGaussianSvg" viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%; height:100%;">
+                    <defs>
+                      <linearGradient id="landingGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.6"/>
+                        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.05"/>
+                      </linearGradient>
+                    </defs>
+                    <polygon id="landingCurveArea" fill="url(#landingGrad)" points="0,100 100,100"/>
+                    <polyline id="landingCurveLine" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" points=""/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- 4 KPI Projection Metrics -->
+              <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
+                <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:12px; text-align:center;">
+                  <div id="landingKpiFatalities" style="font-size:20px; font-weight:800; color:#f87171;">338 k</div>
+                  <div style="font-size:11px; text-transform:uppercase; color:#fca5a5; letter-spacing:0.5px; margin-top:2px;">Projected Fatalities</div>
+                </div>
+                <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:12px; text-align:center;">
+                  <div id="landingKpiDisplaced" style="font-size:20px; font-weight:800; color:#fbbf24;">3.6 M</div>
+                  <div style="font-size:11px; text-transform:uppercase; color:#fde68a; letter-spacing:0.5px; margin-top:2px;">Citizens Displaced</div>
+                </div>
+                <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:8px; padding:12px; text-align:center;">
+                  <div id="landingKpiRupture" style="font-size:20px; font-weight:800; color:#c084fc;">58.4%</div>
+                  <div style="font-size:11px; text-transform:uppercase; color:#e9d5ff; letter-spacing:0.5px; margin-top:2px;">Civil Rupture Exposure</div>
+                </div>
+                <div style="background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); border-radius:8px; padding:12px; text-align:center;">
+                  <div id="landingKpiVsl" style="font-size:20px; font-weight:800; color:#38bdf8;">$3.55 B</div>
+                  <div style="font-size:11px; text-transform:uppercase; color:#bae6fd; letter-spacing:0.5px; margin-top:2px;">Economic VSL Impact</div>
+                </div>
+              </div>
+
+              <!-- Mandatory Direct Call to Action Link -->
+              <div style="padding:14px 18px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.25); border-radius:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="font-size:13.5px; color:#e2e8f0;">
+                  <span style="font-weight:700; color:#38bdf8;">Holistic Exogenous Strategy:</span> To view and Read the holistic Risk Response of Sentinari link to the <a href="http://127.0.0.1:8099/threats.html" style="color:#38bdf8; text-decoration:underline; font-weight:700;">Planetary Threat Matrix Workspace</a>.
+                </div>
+                <a href="http://127.0.0.1:8099/threats.html" class="btn-report-primary" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:8px 18px;">
+                  🌍 Open Threat Matrix (http://127.0.0.1:8099/threats.html) &rarr;
+                </a>
+              </div>
+            </div>
+          </div>
+
+
           <!-- 3) The Global Catastrophic Index -->
           <div class="report-card">
             <div>
@@ -3646,6 +3726,55 @@ function showOncoTooltip(event, el, title) {
   modal.style.top = top + 'px';
   modal.style.left = left + 'px';
 }
-</script></body>
+</script>
+  <script>
+    function updateLandingGaussian(mult) {
+      const m = parseFloat(mult);
+      const mu = (0.65 * m).toFixed(2);
+      const sigma = (1.25 * Math.sqrt(m)).toFixed(2);
+      const lblMu = document.getElementById("lblLandingMu");
+      const lblSigma = document.getElementById("lblLandingSigma");
+      if (lblMu) lblMu.innerText = mu;
+      if (lblSigma) lblSigma.innerText = sigma;
+
+      // KPIs
+      const fat = Math.round(338 * Math.pow(m, 1.4));
+      const disp = (3.6 * Math.pow(m, 1.25)).toFixed(1);
+      const rup = Math.min(96.5, (58.4 * Math.pow(m, 0.85))).toFixed(1);
+      const vsl = (3.55 * Math.pow(m, 1.35)).toFixed(2);
+
+      const elFat = document.getElementById("landingKpiFatalities");
+      const elDisp = document.getElementById("landingKpiDisplaced");
+      const elRup = document.getElementById("landingKpiRupture");
+      const elVsl = document.getElementById("landingKpiVsl");
+      if (elFat) elFat.innerText = fat + " k";
+      if (elDisp) elDisp.innerText = disp + " M";
+      if (elRup) elRup.innerText = rup + "%";
+      if (elVsl) elVsl.innerText = "$" + vsl + " B";
+
+      // SVG bell curve
+      const muVal = parseFloat(mu);
+      const sigVal = parseFloat(sigma);
+      const pts = [];
+      for (let i = 0; i <= 60; i++) {
+        const x = (i / 60) * 10 - 2; // domain [-2, 8]
+        const y = (1 / (sigVal * Math.sqrt(2 * Math.PI))) * Math.exp(-Math.pow(x - muVal, 2) / (2 * Math.pow(sigVal, 2)));
+        const svgX = (i / 60) * 100;
+        const svgY = Math.max(5, 95 - (y / 0.45) * 85);
+        pts.push(`${svgX.toFixed(1)},${svgY.toFixed(1)}`);
+      }
+      const polyLine = document.getElementById("landingCurveLine");
+      const polyArea = document.getElementById("landingCurveArea");
+      if (polyLine) polyLine.setAttribute("points", pts.join(" "));
+      if (polyArea) polyArea.setAttribute("points", `0,100 ${pts.join(" ")} 100,100`);
+    }
+    // initialize on load
+    window.addEventListener("DOMContentLoaded", () => {
+      const slider = document.getElementById("landingSeveritySlider");
+      if (slider) updateLandingGaussian(slider.value);
+    });
+  </script>
+
+</body>
 </html>
 

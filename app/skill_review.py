@@ -469,7 +469,7 @@ def list_loaded() -> dict[str, Any]:
         ).fetchall()
     loaded: list[dict[str, Any]] = []
     chunk_totals: dict[int, int] = {}
-    doc_ids = [int(r["loaded_document_id"] or 0) for r in rows if r.get("loaded_document_id")]
+    doc_ids = [int(r["loaded_document_id"]) for r in rows if r["loaded_document_id"] is not None]
     direct_docs: list[dict[str, Any]] = []
     try:
         with library_connection("gemma") as conn:

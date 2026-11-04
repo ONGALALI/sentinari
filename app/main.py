@@ -763,6 +763,37 @@ def serve_threats_html() -> HTMLResponse:
     return HTMLResponse(p.read_text(encoding="utf-8"))
 
 
+@app.get("/index.html", include_in_schema=False)
+def serve_index_html() -> HTMLResponse:
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/", status_code=302)
+
+
+@app.get("/help.html", include_in_schema=False)
+def serve_help_html() -> HTMLResponse:
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/help", status_code=302)
+
+
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin.html", include_in_schema=False)
+def serve_admin_html() -> HTMLResponse:
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/admin", status_code=302)
+
+
+@app.get("/vision.html", include_in_schema=False)
+def serve_vision_html() -> HTMLResponse:
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/vision", status_code=302)
+
+
+@app.get("/learning.html", include_in_schema=False)
+def serve_learning_html() -> HTMLResponse:
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/learning", status_code=302)
+
+
 _LANDING_REFERENCE_REPORTS: dict[str, dict[str, str]] = {
     "cancer-breakthrough": {
         "slug": "cancer-breakthrough",
@@ -1255,6 +1286,7 @@ _SIDE_NAV_ITEMS = [
     ("/ui/direct", "Chat Lab", "Dedicated conversation workspace."),
     ("/ui/qualia", "Qualia Lab", "Courtroom forensic deception audit."),
     ("/ui/learning", "Learning Index", "% Learned, exams, and calibration."),
+    ("/ui/skills", "Skills Manager", "Candidate pipeline, paper review & chunk ingestion."),
 
     ("/ui/vision", "Vision Lab & TDA", "Giving Sentinari Eyes • Simplicial complexes & visual topology."),
 
@@ -1990,8 +2022,20 @@ def ui_vision(request: Request) -> HTMLResponse:
     return HTMLResponse(page.read_text(encoding="utf-8"))
 
 
-@app.get("/ui/skills", include_in_schema=False)
-@app.get("/ui/skills-manager", include_in_schema=False)
+@app.get("/ui/skills", response_class=HTMLResponse)
+@app.get("/ui/skills-manager", response_class=HTMLResponse)
+@app.get("/skills", response_class=HTMLResponse)
+@app.get("/skills.html", response_class=HTMLResponse)
+def ui_skills(request: Request) -> HTMLResponse:
+    auth = get_admin_auth_settings(get_settings())
+    if auth["enabled"] and not _is_admin_authenticated(request):
+        return HTMLResponse("", status_code=302, headers={"Location": "/ui/login?next=/ui/skills"})
+    page = get_project_root() / "templates" / "skills_workspace.html"
+    if not page.exists():
+        raise HTTPException(status_code=500, detail="skills_workspace.html template not found.")
+    return HTMLResponse(_inject_left_rail(page.read_text(encoding="utf-8"), active="/ui/skills"))
+
+
 @app.get("/ui/vision-workspace", include_in_schema=False)
 @app.get("/ui/eyes", include_in_schema=False)
 def ui_vision_redirects():

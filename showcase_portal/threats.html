@@ -454,22 +454,61 @@
           </div>
         </div>
 
-        <!-- Gemma Strategic Directive -->
-        <div class="panel-box">
-          <h2>🧠 Gemma Sovereign Strategic Directive</h2>
-          <div class="panel-hint">100-Year Epistemic Charter • Local ONNX Inference Engine (:8100)</div>
+      </div>
+    </div>
 
-          <div style="margin-bottom:12px;">
-            <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Field Commander Observations (Optional):</label>
-            <input type="text" id="showroomNotes" placeholder="e.g. Critical transmission corridor freeze and election disinfo..." style="width:100%; padding:8px 12px; background:#070a10; border:1px solid var(--border-color); border-radius:8px; color:#fff; font-size:13px;">
+    <!-- FULL WIDTH BOTTOM PANEL: Gemma Sovereign Epistemic Command Console -->
+    <div class="panel-box" style="margin-top:20px; border-color:rgba(16, 185, 129, 0.4); background:linear-gradient(180deg, #0d1624 0%, #080d17 100%);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid rgba(16, 185, 129, 0.2); padding-bottom:12px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:38px; height:38px; border-radius:10px; background:rgba(16, 185, 129, 0.2); border:1px solid rgba(16, 185, 129, 0.4); display:flex; align-items:center; justify-content:center; font-size:20px;">
+            🧠
           </div>
-
-          <button class="btn btn-gemma" id="btnRunGemmaShowroom">🧠 Mobilize Gemma Strategic Intervention</button>
-
-          <div class="report-box" id="showroomReportBox" style="display:none;">
-            <div style="font-size:13px; font-weight:700; color:#34d399; margin-bottom:8px;">⚖️ Sovereign Epistemic Directive</div>
-            <div class="report-content" id="showroomReportContent">Generating directive...</div>
+          <div>
+            <h2 style="margin:0; font-size:18px; color:#34d399;">Gemma Sovereign Strategic Intervention & Epistemic Command Console</h2>
+            <div class="panel-hint" style="margin:0;">100-Year Epistemic Charter • Local ONNX Inference Engine (:8100) Zero-Cloud Protocol</div>
           </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span class="pill" style="border-color:rgba(16, 185, 129, 0.4); color:#6ee7b7;"><span class="dot green"></span>Inference Engine: Port 8100</span>
+          <span class="pill" style="border-color:rgba(56, 189, 248, 0.4); color:#38bdf8;">Forensic Epistemic Protocol</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12.5px; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px;">Commander Field Observations & Situational Context (Optional):</label>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <input type="text" id="showroomNotes" placeholder="e.g. Simultaneous power grid freeze and election disinformation surge in Gauteng..." style="flex:1; min-width:320px; padding:10px 14px; background:#05080f; border:1px solid var(--border-color); border-radius:8px; color:#fff; font-size:13.5px;">
+          <button class="btn btn-gemma" id="btnRunGemmaShowroom" style="padding:10px 24px; font-size:14px; flex-shrink:0;">
+            🧠 Mobilize Gemma Strategic Intervention
+          </button>
+        </div>
+      </div>
+
+      <!-- Secure Controlled Internal Report Viewer Window -->
+      <div id="showroomReportBox" style="display:none; margin-top:16px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:12px; background:#05080f; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.5);">
+        <!-- Window Titlebar & Actions Toolbar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#0d1828; border-bottom:1px solid rgba(16, 185, 129, 0.3); flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:13.5px; font-weight:800; color:#34d399; letter-spacing:0.5px;">📄 SENTINARI STRATEGIC DIRECTIVE</span>
+            <span class="pill" style="font-size:11px; padding:2px 8px; background:rgba(16, 185, 129, 0.15); color:#6ee7b7;">SOVEREIGN ONNX STREAM</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" id="btnCopyShowroomReport" style="background:#1e293b; border:1px solid #334155; padding:6px 12px; font-size:12px; color:#e2e8f0;" onclick="copyShowroomDirectiveText()">
+              📋 Copy Directive
+            </button>
+            <button class="btn" id="btnDownloadShowroomReport" style="background:#0f766e; border:1px solid #14b8a6; padding:6px 12px; font-size:12px; color:#fff;" onclick="downloadShowroomDirectiveFile()">
+              💾 Download Directive (.md)
+            </button>
+            <button class="btn" id="btnPrintShowroomReport" style="background:#1e293b; border:1px solid #334155; padding:6px 12px; font-size:12px; color:#e2e8f0;" onclick="printShowroomDirectiveWindow()">
+              🖨️ Print / PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Secure Controlled Scrolling Body -->
+        <div class="report-content" id="showroomReportContent" style="padding:20px; font-size:13.5px; line-height:1.7; color:#f1f5f9; white-space:pre-wrap; max-height:560px; overflow-y:auto; font-family:'Segoe UI', system-ui, sans-serif;">
+          Generating directive...
         </div>
       </div>
     </div>
