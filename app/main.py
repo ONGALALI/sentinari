@@ -1995,6 +1995,38 @@ def api_vision_preset(preset_id: str) -> dict:
     return generate_synthetic_biopsy_preset(preset_id)
 
 
+@app.get("/api/vision/healthy-atlas")
+def api_vision_healthy_atlas() -> dict:
+    from app.healthy_atlas_loader import HEALTHY_ATLAS_VAULT
+    return {
+        "ok": True,
+        "signatures": {k: sig.__dict__ for k, sig in HEALTHY_ATLAS_VAULT.items()}
+    }
+
+
+@app.get("/api/vision/medlineplus")
+def api_vision_medlineplus(code: str = Query("C92.0"), system: str = Query("2.16.840.1.113883.6.90")) -> dict:
+    from app.healthy_atlas_loader import query_medlineplus_connect
+    return query_medlineplus_connect(code=code, code_system=system)
+
+
+@app.post("/api/vision/gemma-cross-examine")
+async def api_vision_gemma_cross_examine(request: Request) -> dict:
+    from app.healthy_atlas_loader import cross_examine_with_gemma
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    patient_tda = payload.get("patient_tda_metrics", {})
+    baseline_key = payload.get("baseline_key", "normal_breast_lobules")
+    user_notes = payload.get("user_notes", "")
+    return cross_examine_with_gemma(
+        patient_tda_metrics=patient_tda,
+        baseline_key=baseline_key,
+        user_notes=user_notes
+    )
+
+
 @app.get("/ui/oncology", response_class=HTMLResponse)
 def ui_oncology(request: Request) -> HTMLResponse:
     auth = get_admin_auth_settings(get_settings())

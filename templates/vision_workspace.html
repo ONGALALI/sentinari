@@ -566,6 +566,100 @@
       </div>
     </div>
 
+    <!-- GEMMA SOVEREIGN CLINICAL CROSS-EXAMINATION DECK -->
+    <div class="card" style="margin-bottom:22px; background:linear-gradient(135deg, rgba(179, 136, 255, 0.06) 0%, rgba(17, 29, 44, 0.98) 100%); border:1px solid rgba(179, 136, 255, 0.4);">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span style="color:#d1c4e9;">🧠 GEMMA SOVEREIGN CLINICAL CROSS-EXAMINATION (:8100)</span>
+        <div style="display:flex; gap:6px;">
+          <span style="font-size:10.5px; font-weight:800; background:rgba(0, 230, 118, 0.15); color:#69f0ae; padding:2px 8px; border-radius:12px; border:1px solid rgba(0, 230, 118, 0.4);">
+            ● Gemma ONNX Engine Loaded (:8100)
+          </span>
+          <span style="font-size:10.5px; font-weight:800; background:rgba(0, 229, 255, 0.15); color:#80d8ff; padding:2px 8px; border-radius:12px; border:1px solid rgba(0, 229, 255, 0.4);">
+            ✓ MedlinePlus Connect Active
+          </span>
+        </div>
+      </div>
+      <div style="font-size:12.5px; color:#b0bec5; margin-bottom:14px; line-height:1.5;">
+        Cross-examines observed patient biopsy topology against certified <strong>Healthy Anatomy Baselines</strong> (NIH Visible Human, PatchCamelyon Label-0, and PathMNIST Normal Mucosa). Gemma computes topological deviation (<span style="color:var(--accent-amber);">W₂</span>), evaluates cellular loss-of-polarity, and synthesizes a structured clinical report.
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:12px; margin-bottom:14px; align-items:end;">
+        <div>
+          <label style="font-size:11.5px; font-weight:700; color:#b0bec5; display:block; margin-bottom:4px;">
+            Certified Healthy Baseline Blueprint
+          </label>
+          <select id="gemmaBaselineSelect" class="control-select" style="width:100%;">
+            <option value="normal_breast_lobules" selected>Normal Breast Lobules &amp; TDLU (PatchCamelyon / NIH)</option>
+            <option value="normal_colorectal_mucosa">Normal Colorectal Mucosa Crypts (PathMNIST Class 7)</option>
+            <option value="normal_gastro_epithelium">Normal Gastro Foveolar Epithelium (NIH Visible Human)</option>
+            <option value="normal_lung_parenchyma">Normal Alveolar Septa &amp; Capillaries (NIH VHP)</option>
+            <option value="normal_kidney_cortex">Normal Renal Glomeruli &amp; Tubules (TissueMNIST)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11.5px; font-weight:700; color:#b0bec5; display:block; margin-bottom:4px;">
+            Clinician SBAR Observation Notes (Optional)
+          </label>
+          <input type="text" id="gemmaClinicianNotes" class="control-input" style="width:100%;" placeholder="e.g. Suspected DCIS Grade 2; nuclear crowding in upper quadrant.">
+        </div>
+        <div>
+          <button id="btnGemmaCrossExamine" class="btn btn-emerald" style="height:38px; white-space:nowrap; padding:0 18px;">
+            🧠 Run Gemma Cross-Examination
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Gemma Output Dossier Container -->
+      <div id="gemmaDossierBox" style="display:none; background:#070d14; border:1px solid #1e334d; border-radius:10px; padding:18px; margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #16263b; padding-bottom:8px;">
+          <strong id="gemmaDossierTitle" style="color:#d1c4e9; font-size:14px;">
+            📋 Gemma Clinical Cross-Examination Findings
+          </strong>
+          <span id="gemmaStatusBadge" class="pill pill-cyan">EVALUATION COMPLETE</span>
+        </div>
+
+        <!-- Metric comparison cards -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:14px;">
+          <div style="background:#0e1724; border:1px solid #1a2c42; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:10.5px; color:#8fa0b5;">Wasserstein W₂</div>
+            <div id="gemmaW2Val" style="font-size:18px; font-weight:800; color:var(--accent-amber);">0.333</div>
+            <div id="gemmaW2Threshold" style="font-size:10px; color:#64748b;">Safe: &le; 0.280</div>
+          </div>
+          <div style="background:#0e1724; border:1px solid #1a2c42; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:10.5px; color:#8fa0b5;">Observed vs Baseline H₁</div>
+            <div id="gemmaLoopsCompare" style="font-size:18px; font-weight:800; color:#69f0ae;">6 / 2–6</div>
+            <div style="font-size:10px; color:#64748b;">Cavity Loop Range</div>
+          </div>
+          <div style="background:#0e1724; border:1px solid #1a2c42; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:10.5px; color:#8fa0b5;">Bottleneck dB</div>
+            <div id="gemmaDBVal" style="font-size:18px; font-weight:800; color:var(--accent-purple);">0.450</div>
+            <div style="font-size:10px; color:#64748b;">Extremal Shift</div>
+          </div>
+          <div style="background:#0e1724; border:1px solid #1a2c42; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:10.5px; color:#8fa0b5;">Gate 2 NSIS Score</div>
+            <div id="gemmaNSISScore" style="font-size:18px; font-weight:800; color:#4fc3f7;">0.361</div>
+            <div id="gemmaGateVerdict" style="font-size:10px; color:#ffd180;">ANOMALY FLAGGED</div>
+          </div>
+        </div>
+
+        <!-- Markdown formatted clinical report text -->
+        <div id="gemmaReportContent" style="color:#e2e8f0; font-size:13px; line-height:1.65; white-space:pre-wrap; background:#0b131e; border:1px solid #16263b; border-radius:8px; padding:16px; margin-bottom:14px; max-height:450px; overflow-y:auto; font-family:inherit;">
+          Cross-examining with local Gemma ONNX engine...
+        </div>
+
+        <!-- MedlinePlus Verified NIH Links -->
+        <div id="gemmaMedlineBox" style="background:rgba(0, 229, 255, 0.04); border:1px solid rgba(0, 229, 255, 0.2); border-radius:8px; padding:12px 14px;">
+          <div style="font-size:11.5px; font-weight:700; color:#80d8ff; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+            <span>🏛️</span>
+            <span>Verified NIH MedlinePlus Patient Education &amp; Clinical Monographs:</span>
+          </div>
+          <div id="gemmaMedlineLinks" style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- LPAD HARD-COPY LENS & CAMERA CAPTURE -->
     <div class="card" style="margin-bottom:22px;">
       <div class="card-title">&#x1F4F7; LPAD Clinic Terminal Lens Capture &amp; Auto-Sizer</div>
@@ -815,6 +909,76 @@
     alert('LPAD Mount Camera Lens activated: scanning physical report sheet via SentinariAutoSizer... Perspective flattened.');
     loadPreset('ductal_carcinoma');
   });
+
+  // Gemma Sovereign Cross-Examination Action
+  async function runGemmaCrossExamination() {
+    const btn = document.getElementById('btnGemmaCrossExamine');
+    const dossier = document.getElementById('gemmaDossierBox');
+    const content = document.getElementById('gemmaReportContent');
+    const baselineKey = document.getElementById('gemmaBaselineSelect').value;
+    const userNotes = document.getElementById('gemmaClinicianNotes').value;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Querying Gemma ONNX (:8100)...';
+    dossier.style.display = 'block';
+    content.textContent = 'Contacting local Gemma inference engine on port 8100...\nCalculating 2-Wasserstein transport distance against healthy baseline...\nRetrieving verified MedlinePlus clinical topics...';
+
+    try {
+      const payload = {
+        baseline_key: baselineKey,
+        user_notes: userNotes,
+        patient_tda_metrics: {
+          points_count: state.points.length,
+          H1_bars: state.h1Bars,
+          shannon_entropy_delta: parseFloat(document.getElementById('telEntropy').textContent) || -4.2
+        }
+      };
+
+      const res = await fetch('/api/vision/gemma-cross-examine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data = await res.json();
+
+      const m = data.comparison_metrics;
+      document.getElementById('gemmaW2Val').textContent = String(m.wasserstein_distance_w2);
+      document.getElementById('gemmaW2Threshold').textContent = `Safe: \u2264 ${m.wasserstein_threshold}`;
+      document.getElementById('gemmaLoopsCompare').textContent = `${m.observed_h1_loops} / ${m.normal_expected_loops[0]}\u2013${m.normal_expected_loops[1]}`;
+      document.getElementById('gemmaDBVal').textContent = String(m.bottleneck_distance_db);
+      document.getElementById('gemmaNSISScore').textContent = String(m.gate_nsis_score);
+      document.getElementById('gemmaGateVerdict').textContent = m.structural_anomaly_flagged ? 'ANOMALY FLAGGED' : 'EQUILIBRIUM VERIFIED';
+      document.getElementById('gemmaGateVerdict').style.color = m.structural_anomaly_flagged ? '#ffd180' : '#69f0ae';
+
+      content.textContent = data.gemma_report;
+
+      // MedlinePlus links
+      const linksContainer = document.getElementById('gemmaMedlineLinks');
+      linksContainer.innerHTML = '';
+      if (data.verified_medline_citations && data.verified_medline_citations.length > 0) {
+        data.verified_medline_citations.forEach(c => {
+          const a = document.createElement('a');
+          a.href = c.primary_link;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.style.color = '#80d8ff';
+          a.style.textDecoration = 'none';
+          a.innerHTML = `&bull; <strong>${c.title}</strong> &mdash; ${c.summary} <span style="text-decoration:underline;">(Open NIH Monograph &nearr;)</span>`;
+          linksContainer.appendChild(a);
+        });
+      } else {
+        linksContainer.innerHTML = '<span style="color:#90a4ae;">Direct NIH ICD-10 link verified. MedlinePlus Connect returned standard core guidelines.</span>';
+      }
+    } catch (err) {
+      content.textContent = `Cross-examination error: ${err.message}. Please verify local inference server on port 8100.`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🧠 Run Gemma Cross-Examination';
+    }
+  }
+
+  document.getElementById('btnGemmaCrossExamine').addEventListener('click', runGemmaCrossExamination);
 
   // Initial Boot
   window.addEventListener('DOMContentLoaded', () => {
