@@ -1219,7 +1219,8 @@
         <a href="#deliverables">Deliverables</a>
         <a href="#architecture">Architecture</a>
         <a href="/ui/patterns">New Patterns (<span id="navPatternsCount">{{PATTERNS_COUNT}}</span>)</a>
-        <a href="javascript:void(0)" onclick="openPresentationModal('topology')" style="color:#818cf8;font-weight:700;">&#x1F4D0; TDA Video</a>
+        <a href="javascript:void(0)" onclick="openPresentationModal('topology')" style="color:#00e5ff;font-weight:700;">&#x1F441;&#xFE0F; TDA &amp; Eyes Video</a>
+<a href="/ui/vision" style="color:#38bdf8;font-weight:700;">&#x1F52C; Vision Lab</a>
         <a href="/ui/oncology" style="color:#6ee7b7;font-weight:700;">&#x1F9EC; Oncology Precision</a>
         <a href="/ui/help" style="color:#a5b4fc;font-weight:600;">&#x1F4D6; Help Manual</a>
                 <a href="https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link" target="_blank" rel="noopener" class="nav-patreon-link" title="Obtain Membership Plan at Patreon">
@@ -1475,6 +1476,7 @@
               <a href="/reports/cancer-breakthrough?download=1" class="btn-report-secondary">&#x2B07; Download PDF</a>
               <a href="./Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.docx" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F4E5; Word (.docx)</a>
               <a href="/ui/oncology" class="btn-report-secondary" style="border-color:#10b981;color:#6ee7b7;font-weight:700;">&#x1F9EC; Launch Oncology Workspace &rarr;</a>
+              <button type="button" class="btn-report-secondary" onclick="openPresentationModal('topology')" style="border-color:#00e5ff;color:#00e5ff;font-weight:700;">&#x1F441;&#xFE0F; Watch TDA &amp; Eyes Video &rarr;</button>
             </div>
           </div>
 
@@ -1573,7 +1575,7 @@
               <div style="display:inline-flex;background:rgba(255,255,255,0.06);border-radius:8px;padding:3px;border:1px solid rgba(255,255,255,0.1);">
                 <button type="button" id="tabWalkthroughBtn" onclick="switchVideoMode('walkthrough')" style="background:#6366f1;border:none;color:#ffffff;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">Workspace Tour</button>
                 <button type="button" id="tabBriefingBtn" onclick="switchVideoMode('briefing')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">10-Min Briefing</button>
-                <button type="button" id="tabTopologyBtn" onclick="switchVideoMode('topology')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">&#x1F4D0; Topology &amp; TDA Video</button>
+                <button type="button" id="tabTopologyBtn" onclick="switchVideoMode('topology')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">&#x1F441;&#xFE0F; Topology &amp; Eyes Lab (New!)</button>
               </div>
               <a id="videoDownloadLink" href="/api/video/walkthrough.mp4?download=1" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4</a>
               <button type="button" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;" onclick="closePresentationModal()">&#x2715; Close Video</button>
@@ -2773,15 +2775,15 @@
       if (panelBrief) panelBrief.hidden = isWalk || isTopo;
 
       if (isTopo) {
-        if (icon) icon.innerHTML = '&#x1F4D0;';
-        if (title) title.textContent = 'Topological Data Analysis (TDA) & Sovereign Epistemic Mathematics';
-        if (subtitle) subtitle.textContent = 'Simplicial Complexes, Persistent Homology & High-Dimensional Geometry \u2022 Conceived by Dr. Pierre C. Wepener';
+        if (icon) icon.innerHTML = '&#x1F441;&#xFE0F;';
+        if (title) title.textContent = 'Topological Data Analysis: Oncology Precision & Eyes Vision Lab';
+        if (subtitle) subtitle.textContent = '8 Dedicated Modules \u2022 1080p Full HD \u2022 Andrew Neural Narration \u2022 Active Focus Indicators & Subtitles \u2022 Conceived by Dr. Pierre C. Wepener';
         if (dlLink) {
-          dlLink.href = './Topological Data Analysis.mp4';
-          dlLink.download = 'Topological Data Analysis.mp4';
-          dlLink.textContent = '\u2B07 Download TDA Video (60.4 MB)';
+          dlLink.href = `${API_BASE}/api/video/topology-eyes-walkthrough.mp4?download=1`;
+          dlLink.download = 'Sentinari_Topology_Oncology_and_Eyes_Master_Walkthrough.mp4';
+          dlLink.textContent = '\u2B07 Download TDA & Eyes Video (6.65 MB)';
         }
-        if (vSource) vSource.src = './Topological Data Analysis.mp4';
+        if (vSource) vSource.src = `${API_BASE}/api/video/topology-eyes-walkthrough.mp4`;
       } else if (isWalk) {
         if (icon) icon.innerHTML = '&#x1F3AC;';
         if (title) title.textContent = 'Sentinari: Complete Workspace & Element-by-Element Master Walkthrough';
