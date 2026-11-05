@@ -684,9 +684,12 @@ def startup_event() -> None:
             ensure_continuous_discovery_daemon()
         except Exception:
             pass
-        # Owner directive: the 1/2-page background self-exam loop in
-        # learning_index is stopped (Gemma does not benefit from self-written
-        # document questions; HLE is the only exam that matters).
+        try:
+            from .learning_index import start_learning_worker
+
+            start_learning_worker()
+        except Exception:
+            pass
         _warmup_llm_async(settings)
         _STARTUP_STATE.update({"ready": True, "error": ""})
     except Exception as _startup_ex:

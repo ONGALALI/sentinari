@@ -16,7 +16,7 @@ paths:
   protected_dirs: []
   qualia_files: []
 llm:
-  provider: vertex             # Google Cloud Vertex AI (Project: seninari)
+  provider: sentinari          # Local RTX 5070 Ti ONNX Inference Server (:8100)
   sentinari:
     base_url: http://127.0.0.1:8100
     chat_model: qwen3-14b-onnx
