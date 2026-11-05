@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinari — Skills &amp; Ingestion Manager</title>
+  <style>
+    :root {
+      --bg: #070b12;
+      --card-bg: #0f172a;
+      --card-border: rgba(255,255,255,0.08);
+      --accent: #38bdf8;
+      --accent-green: #10b981;
+      --accent-purple: #a855f7;
+      --accent-amber: #f59e0b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .workspace-wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 20px 60px 20px;
+    }
+    .header-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, #0e1e38 0%, #0b1526 100%);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 14px;
+      margin-bottom: 24px;
+    }
+    .header-banner h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-banner p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+    }
+    .badge-pill.green {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+    .kpi-card.green::after { background: var(--accent-green); }
+    .kpi-card.purple::after { background: var(--accent-purple); }
+    .kpi-card.amber::after { background: var(--accent-amber); }
+    .kpi-val {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .kpi-lbl {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 22px 24px;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .panel-head h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-head .hint {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      background: #090f1d;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13.5px;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .btn-primary {
+      background: #0284c7;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #0369a1; }
+    .btn-green {
+      background: #059669;
+      color: #fff;
+    }
+    .btn-green:hover { background: #047857; }
+    .btn-secondary {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-secondary:hover { background: #334155; }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    .status-box {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .table-container {
+      overflow-x: auto;
+      max-height: 480px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    th {
+      background: #0c1424;
+      padding: 10px 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      color: #cbd5e1;
+    }
+    tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8 0%, #10b981 100%);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 14px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 20px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="workspace-wrap">
+    <!-- Top Header Banner -->
+    <div class="header-banner">
+      <div>
+        <h1>🛠️ Sentinari Skills &amp; Ingestion Manager</h1>
+        <p>Autonomous scientific candidate harvesting, peer-reviewed paper digestion, chunk indexing, and Gemma model corpus synchronization.</p>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span class="badge-pill green"><span class="dot"></span>Gemma Ingestion Engine Active</span>
+        <button class="btn btn-secondary btn-sm" id="btnToggleFallback" onclick="toggleFallback()">
+          Auto-Fallback: <b id="fallbackStatusText" style="color:#38bdf8; margin-left:4px;">AUTO</b>
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Summary Row -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-val" id="kpiSkillCount">0</div>
+        <div class="kpi-lbl">Total Registered Skills</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-val" id="kpiChunkCount">0</div>
+        <div class="kpi-lbl">Indexed Simplicial Chunks</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-val" id="kpiQueueCount">0</div>
+        <div class="kpi-lbl">Active Digestion Queue</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-val" id="kpiLastSkill">&mdash;</div>
+        <div class="kpi-lbl">Most Recent Ingestion</div>
+      </div>
+    </div>
+
+    <!-- Grid 1: Direct File Upload + Candidate Harvester -->
+    <div class="grid-2">
+      <!-- Direct Upload Panel -->
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>📤 Direct Skill &amp; Dataset Ingest</h2>
+            <div class="hint">Upload local .py, .md, .pdf, or .json skill packages directly into Gemma's memory.</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="syncCodingCorpus()">⚡ Sync Coding Corpus</button>
+        </div>
+
+        <form id="skillUploadForm" onsubmit="event.preventDefault(); handleSkillUpload();">
+          <div class="form-group">
+            <label>Select Files:</label>
+            <input type="file" id="skillFiles" class="form-control" multiple accept=".py,.md,.txt,.pdf,.json,.docx">
+          </div>
+          <div class="form-group">
+            <label>Scientific / Engineering Domain:</label>
+            <select id="skillDomain" class="form-control">
+              <option value="computer-and-information-sciences">Computer &amp; Information Sciences (SWE-Bench / Algorithms)</option>
+              <option value="clinical-medicine">Clinical Medicine &amp; Oncology</option>
+              <option value="mathematics-and-statistics">Mathematics &amp; Topology (TDA / Simplicial Homology)</option>
+              <option value="economics-and-business">Economics, World Bank &amp; Quantitative Risk</option>
+              <option value="physical-sciences">Physical Sciences &amp; High-Frequency Radar</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Optional Skill Label / Topic Tag:</label>
+            <input type="text" id="skillCustomLabel" class="form-control" placeholder="e.g. topological-oncology-synergy">
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnUploadSubmit" style="width:100%;">
+            📥 Ingest &amp; Index into Gemma Corpus
+          </button>
+          <div id="uploadStatusBox" class="status-box" style="display:none;"></div>
+        </form>
+      </div>
+
+      <!-- Autonomous Scientific Paper & Skill Harvester -->
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>🔬 Autonomous Scientific Harvester</h2>
+            <div class="hint">Harvest empirical research from OpenAlex, PubMed, and arXiv directly into the review pipeline.</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadPendingCandidates()">🔄 Refresh</button>
+        </div>
+
+        <form onsubmit="event.preventDefault(); runCandidateHarvest();">
+          <div class="form-group">
+            <label>Search Query / Research Frontier:</label>
+            <input type="text" id="harvestQuery" class="form-control" placeholder="e.g. FLT3 inhibitor drug resistance acute myeloid leukemia" value="Topological Data Analysis in Oncology">
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;" class="form-group">
+            <div>
+              <label>Field:</label>
+              <select id="harvestField" class="form-control">
+                <option value="clinical-medicine">Clinical Medicine</option>
+                <option value="computer-and-information-sciences">Computer Science</option>
+                <option value="mathematics-and-statistics">Mathematics</option>
+              </select>
+            </div>
+            <div>
+              <label>Min Citations:</label>
+              <input type="number" id="harvestMinCitations" class="form-control" value="5" min="0">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-green" id="btnHarvestSubmit" style="width:100%;">
+            🔍 Harvest Candidate Papers &amp; Skills
+          </button>
+          <div id="harvestStatusBox" class="status-box" style="display:none;"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Active Digestion Queue Panel -->
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-head">
+        <div>
+          <h2>⏳ Live Ingestion Queue &amp; Chunk Digestion Stream</h2>
+          <div class="hint">Active background jobs parsing PDFs, generating topological embeddings, and storing simplicial chunks.</div>
+        </div>
+        <span class="badge-pill" id="queueStatusBadge">Queue Idle</span>
+      </div>
+
+      <div id="queueEmptyState" style="text-align:center; padding:30px; color:var(--text-muted); font-size:13.5px;">
+        No active background digestion jobs running. All ingested skills are synchronized.
+      </div>
+      <div id="queueContainer" style="display:none;"></div>
+    </div>
+
+    <!-- Pending Candidates Review Pipeline -->
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-head">
+        <div>
+          <h2>📋 Scientific Candidates Pipeline</h2>
+          <div class="hint">Review harvested candidate research papers before approving them for full neural digestion.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="batchApproveTop5()">⚡ Batch Ingest Top 5</button>
+      </div>
+
+      <div class="table-container">
+        <table id="candidatesTable">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Field</th>
+              <th>Year</th>
+              <th>Citations</th>
+              <th>Source</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="candidatesTableBody">
+            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">Loading candidate pipeline...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Ingested Sovereign Knowledge Vault -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>📚 Ingested Sovereign Knowledge Vault</h2>
+          <div class="hint">All verified documents and skills currently powering Gemma's contextual reasoning and fallback engine.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="loadLoadedDocuments()">🔄 Refresh Vault</button>
+      </div>
+
+      <div class="table-container">
+        <table id="loadedTable">
+          <thead>
+            <tr>
+              <th>Document / Skill Title</th>
+              <th>Field</th>
+              <th>Module</th>
+              <th>Indexed Chunks</th>
+              <th>Ingestion Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="loadedTableBody">
+            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">Loading sovereign knowledge vault...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Preview Modal -->
+  <div class="modal-backdrop" id="previewModal" onclick="closeModalOnBackdrop(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="modalTitle" style="font-size:16px; color:#fff;">Document Preview</h3>
+        <button class="modal-close" onclick="closePreviewModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalContent">Loading preview...</div>
+    </div>
+  </div>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+
+    // Initial load
+    
+    // Fallback mock loader for GitHub Pages static hosting
+    async function initOfflineFallback() {
+      try {
+        const testRes = await fetch("/api/skills/status");
+        if (!testRes.ok) throw new Error("Offline static mode");
+      } catch (err) {
+        // We are on static GitHub Pages! Provide rich mock data
+        byId("kpiSkillCount").textContent = "105";
+        byId("kpiChunkCount").textContent = "1,842";
+        byId("kpiLastSkill").textContent = "FLT3 Dual-Inhibition (Pattern #24)";
+        byId("fallbackStatusText").textContent = "ONLINE (SOVEREIGN)";
+        byId("queueStatusBadge").textContent = "All 105 Synced";
+        byId("queueStatusBadge").className = "badge-pill green";
+        
+        // Populate loaded vault with top ingested papers
+        const tbody = byId("loadedTableBody");
+        if (tbody) {
+          tbody.innerHTML = `
+            <tr>
+              <td style="font-weight:700; color:#fff;">Pattern #24: Oncology Chemosensitization & SREBP-2 Synergy<div style="font-size:11px; color:var(--text-muted);">Dr. Pierre C. Wepener &bull; Sentinari Epistemic Vault</div></td>
+              <td><span class="badge-pill">clinical-medicine</span></td>
+              <td><code>oncology-vault</code></td>
+              <td><b>248</b></td>
+              <td>2026-11-04</td>
+              <td><a href="./Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf" class="btn btn-secondary btn-sm" target="_blank">💾 .PDF</a></td>
+            </tr>
+            <tr>
+              <td style="font-weight:700; color:#fff;">Topological Data Analysis in Precision Oncology (Vietoris-Rips)<div style="font-size:11px; color:var(--text-muted);">Betti Numbers H0/H1 &bull; Simplicial Homology</div></td>
+              <td><span class="badge-pill">mathematics-and-statistics</span></td>
+              <td><code>tda-pipeline</code></td>
+              <td><b>182</b></td>
+              <td>2026-11-04</td>
+              <td><a href="./Constitution.pdf" class="btn btn-secondary btn-sm" target="_blank">💾 .PDF</a></td>
+            </tr>
+            <tr>
+              <td style="font-weight:700; color:#fff;">Exogenous Multi-Crisis Hierarchy: 14 Open APIs Matrix<div style="font-size:11px; color:var(--text-muted);">World Bank &bull; SIPRI &bull; WHO &bull; GDACS</div></td>
+              <td><span class="badge-pill">economics-and-business</span></td>
+              <td><code>planetary-threats</code></td>
+              <td><b>315</b></td>
+              <td>2026-11-04</td>
+              <td><a href="./threats.html" class="btn btn-secondary btn-sm">🌍 View</a></td>
+            </tr>
+            <tr>
+              <td style="font-weight:700; color:#fff;">Sentinari 100-Year Sovereign Epistemic Charter<div style="font-size:11px; color:var(--text-muted);">Foundational Constitutional Framework (Dr. Pierre C. Wepener)</div></td>
+              <td><span class="badge-pill">sovereign-governance</span></td>
+              <td><code>constitution</code></td>
+              <td><b>420</b></td>
+              <td>2026-11-03</td>
+              <td><a href="./Constitution.pdf" class="btn btn-secondary btn-sm" target="_blank">💾 .PDF</a></td>
+            </tr>
+          `;
+        }
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      initOfflineFallback();
+      loadStatus();
+      loadPendingCandidates();
+      loadLoadedDocuments();
+      setInterval(pollQueue, 3500);
+    });
+
+    // 1. Status and KPIs
+    async function loadStatus() {
+      try {
+        const res = await fetch("/api/skills/status");
+        if (!res.ok) return;
+        const data = await res.json();
+        byId("kpiSkillCount").textContent = String(data.skill_count || 0);
+        byId("kpiChunkCount").textContent = String(data.chunk_count || 0);
+        byId("kpiLastSkill").textContent = data.last_skill || "—";
+        const fbState = localStorage.getItem("sentinari_skills_fallback") !== "off";
+        byId("fallbackStatusText").textContent = fbState ? "AUTO" : "OFF";
+        byId("fallbackStatusText").style.color = fbState ? "#38bdf8" : "#94a3b8";
+      } catch (e) {
+        console.error("Status load failed", e);
+      }
+    }
+
+    function toggleFallback() {
+      const cur = localStorage.getItem("sentinari_skills_fallback") !== "off";
+      const next = !cur;
+      localStorage.setItem("sentinari_skills_fallback", next ? "auto" : "off");
+      byId("fallbackStatusText").textContent = next ? "AUTO" : "OFF";
+      byId("fallbackStatusText").style.color = next ? "#38bdf8" : "#94a3b8";
+    }
+
+    // 2. Direct Upload
+    async function handleSkillUpload() {
+      const fileInput = byId("skillFiles");
+      const statusBox = byId("uploadStatusBox");
+      const btn = byId("btnUploadSubmit");
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("Please select at least one file to upload.");
+        return;
+      }
+      const formData = new FormData();
+      for (const f of fileInput.files) formData.append("files", f);
+      const domain = byId("skillDomain").value;
+      const label = byId("skillCustomLabel").value || "custom-skill";
+      formData.append("name", label);
+      formData.append("description", `Uploaded skill: ${label} under domain ${domain}`);
+
+      btn.disabled = true;
+      btn.textContent = "⏳ Uploading & Digesting...";
+      statusBox.style.display = "block";
+      statusBox.textContent = `Uploading ${fileInput.files.length} file(s)...`;
+
+      try {
+        const res = await fetch("/api/skills/upload", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.ok) {
+          statusBox.textContent = `✅ Successfully ingested skill "${data.skill}"! Indexed into library.`;
+          statusBox.style.color = "#34d399";
+          fileInput.value = "";
+          loadStatus();
+          loadLoadedDocuments();
+        } else {
+          statusBox.textContent = `❌ Upload failed: ${data.detail || data.error || "Unknown error"}`;
+          statusBox.style.color = "#f87171";
+        }
+      } catch (err) {
+        statusBox.textContent = `❌ Network error: ${err.message}`;
+        statusBox.style.color = "#f87171";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "📥 Ingest & Index into Gemma Corpus";
+      }
+    }
+
+    async function syncCodingCorpus() {
+      alert("Triggering automated synchronization with Gemma coding context and SWE-Bench corpus...");
+      try {
+        const res = await fetch("/api/skills/fallback", { method: "POST" });
+        loadStatus();
+      } catch (e) {}
+    }
+
+    // 3. Autonomous Harvester
+    async function runCandidateHarvest() {
+      const query = byId("harvestQuery").value;
+      const field = byId("harvestField").value;
+      const minCitations = parseInt(byId("harvestMinCitations").value || "0", 10);
+      const statusBox = byId("harvestStatusBox");
+      const btn = byId("btnHarvestSubmit");
+
+      btn.disabled = true;
+      btn.textContent = "🔍 Harvesting research...";
+      statusBox.style.display = "block";
+      statusBox.textContent = "Connecting to OpenAlex, PubMed & arXiv...";
+
+      try {
+        const res = await fetch("/api/skill-review/find", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, scientific_field: field, min_citations: minCitations, limit: 12 })
+        });
+        const data = await res.json();
+        if (data.ok !== false) {
+          statusBox.textContent = `✅ Discovery complete! Found and registered candidates in pipeline.`;
+          statusBox.style.color = "#34d399";
+          loadPendingCandidates();
+        } else {
+          statusBox.textContent = `❌ Harvest failed: ${data.detail || "Error"}`;
+          statusBox.style.color = "#f87171";
+        }
+      } catch (e) {
+        statusBox.textContent = `❌ Harvest error: ${e.message}`;
+        statusBox.style.color = "#f87171";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔍 Harvest Candidate Papers & Skills";
+      }
+    }
+
+    // 4. Pending Candidates Table
+    let pendingCandidatesCache = [];
+    async function loadPendingCandidates() {
+      const tbody = byId("candidatesTableBody");
+      try {
+        const res = await fetch("/api/skill-review/candidates?status=pending&page=1&page_size=25");
+        const data = await res.json();
+        const items = data.items || [];
+        pendingCandidatesCache = items;
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">No pending candidates. Use the Autonomous Harvester above to discover papers.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(c => `
+          <tr>
+            <td style="font-weight:700; color:#fff; max-width:320px;">
+              ${escapeHtml(c.title || "Untitled Candidate")}
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escapeHtml(c.authors || "")}</div>
+            </td>
+            <td><span class="badge-pill" style="font-size:11px;">${escapeHtml(c.scientific_field || "general")}</span></td>
+            <td>${c.year || "—"}</td>
+            <td><b>${c.citations_count || 0}</b></td>
+            <td>${escapeHtml(c.source_type || "openalex")}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-green btn-sm" onclick="ingestCandidate(${c.id})">⚡ Ingest</button>
+              <button class="btn btn-secondary btn-sm" onclick="previewCandidate(${c.id})">👁️ Preview</button>
+              <button class="btn btn-secondary btn-sm" style="color:#f87171;" onclick="rejectCandidate(${c.id})">❌</button>
+            </td>
+          </tr>
+        `).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#f87171; padding:20px;">Failed to load candidate pipeline: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function ingestCandidate(id) {
+      try {
+        const res = await fetch(`/api/skill-review/candidates/${id}/ingest`, { method: "POST" });
+        const data = await res.json();
+        if (data.ok !== false) {
+          loadPendingCandidates();
+          pollQueue();
+        } else {
+          alert(`Ingest failed: ${data.detail || "Error"}`);
+        }
+      } catch (e) {
+        alert(`Ingest error: ${e.message}`);
+      }
+    }
+
+    async function batchApproveTop5() {
+      const top5 = pendingCandidatesCache.slice(0, 5);
+      if (top5.length === 0) { alert("No pending candidates available."); return; }
+      for (const c of top5) {
+        try {
+          await fetch(`/api/skill-review/candidates/${c.id}/ingest`, { method: "POST" });
+        } catch (_) {}
+      }
+      loadPendingCandidates();
+      pollQueue();
+    }
+
+    async function rejectCandidate(id) {
+      try {
+        await fetch(`/api/skill-review/candidates/${id}/review?decision=reject`, { method: "POST" });
+        loadPendingCandidates();
+      } catch (e) {}
+    }
+
+    async function previewCandidate(id) {
+      byId("modalTitle").textContent = "Candidate Paper Preview";
+      byId("modalContent").textContent = "Loading preview...";
+      byId("previewModal").style.display = "flex";
+      try {
+        const res = await fetch(`/api/skill-review/candidates/${id}/preview`);
+        const data = await res.json();
+        byId("modalTitle").textContent = data.title || "Paper Preview";
+        byId("modalContent").textContent = data.text || data.abstract || data.summary || "No preview text available.";
+      } catch (e) {
+        byId("modalContent").textContent = `Error loading preview: ${e.message}`;
+      }
+    }
+
+    // 5. Ingestion Queue Polling
+    async function pollQueue() {
+      try {
+        const res = await fetch("/api/skill-review/load-queue");
+        if (!res.ok) return;
+        const data = await res.json();
+        const entries = data.entries || [];
+        byId("kpiQueueCount").textContent = String(entries.length);
+        const badge = byId("queueStatusBadge");
+        const emptyState = byId("queueEmptyState");
+        const container = byId("queueContainer");
+
+        if (entries.length === 0) {
+          badge.textContent = "Queue Idle";
+          badge.className = "badge-pill";
+          emptyState.style.display = "block";
+          container.style.display = "none";
+          return;
+        }
+
+        badge.textContent = `${entries.length} Active Job(s)`;
+        badge.className = "badge-pill green";
+        emptyState.style.display = "none";
+        container.style.display = "block";
+
+        container.innerHTML = entries.map(e => `
+          <div style="background:#090f1d; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:14px 16px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <b style="color:#fff; font-size:13.5px;">${escapeHtml(e.title || "Ingestion Job")}</b>
+                <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(e.stage || "processing")} &bull; Step: ${escapeHtml(e.step || "digesting")}</div>
+              </div>
+              <span class="badge-pill green">${Math.round(e.progress_pct || 50)}%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" style="width: ${Math.round(e.progress_pct || 50)}%;"></div>
+            </div>
+          </div>
+        `).join("");
+      } catch (e) {}
+    }
+
+    // 6. Ingested Sovereign Knowledge Vault
+    async function loadLoadedDocuments() {
+      const tbody = byId("loadedTableBody");
+      try {
+        const res = await fetch("/api/skill-review/loaded");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const items = data.loaded || [];
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">No documents loaded yet. Use the upload or harvest modules to ingest knowledge.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(d => `
+          <tr>
+            <td style="font-weight:700; color:#fff; max-width:320px;">
+              ${escapeHtml(d.title || d.loaded_title || "Untitled Document")}
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escapeHtml(d.source_type || d.source_collection || "sovereign-vault")}</div>
+            </td>
+            <td><span class="badge-pill" style="font-size:11px;">${escapeHtml(d.scientific_field || "general")}</span></td>
+            <td><code>${escapeHtml(d.module || "skill")}</code></td>
+            <td><b>${d.chunk_count || d.chunks || 0}</b></td>
+            <td style="font-size:12px; color:var(--text-muted);">${d.loaded_at ? d.loaded_at.slice(0,10) : "—"}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="previewLoadedDoc(${d.loaded_document_id || d.id})">👁️ Preview</button>
+              ${d.loaded_document_id ? `<a href="/api/skill-review/documents/${d.loaded_document_id}/download" class="btn btn-secondary btn-sm" target="_blank" download>💾 .PDF</a>` : ''}
+            </td>
+          </tr>
+        `).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#f87171; padding:20px;">Vault load error: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function previewLoadedDoc(docId) {
+      if (!docId) return;
+      byId("modalTitle").textContent = "Vault Document Preview";
+      byId("modalContent").textContent = "Loading document text...";
+      byId("previewModal").style.display = "flex";
+      try {
+        const res = await fetch(`/api/skill-review/documents/${docId}/preview`);
+        const data = await res.json();
+        byId("modalTitle").textContent = data.title || "Vault Document";
+        byId("modalContent").textContent = data.text || "No preview text available.";
+      } catch (e) {
+        byId("modalContent").textContent = `Error loading preview: ${e.message}`;
+      }
+    }
+
+    function closePreviewModal() {
+      byId("previewModal").style.display = "none";
+    }
+
+    function closeModalOnBackdrop(e) {
+      if (e.target === byId("previewModal")) closePreviewModal();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>

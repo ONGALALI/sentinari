@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinari - Sovereign Epistemic Operating Reference & Help Manual</title>
+  <style>
+    :root {
+      --bg: #07090e;
+      --bg-card: #0f1524;
+      --bg-card-sub: #162035;
+      --bg-code: #05070c;
+      --border: rgba(99, 102, 241, 0.22);
+      --border-bright: #6366f1;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --cyan: #38bdf8;
+      --purple: #c084fc;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #f43f5e;
+      --glow: rgba(99, 102, 241, 0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    header {
+      background: rgba(11, 15, 25, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .badge {
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #a5b4fc;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .search-box {
+      position: relative;
+      min-width: 320px;
+    }
+    .search-box input {
+      width: 100%;
+      background: #0b0e18;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 14px 9px 36px;
+      color: #ffffff;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-box input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-top {
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.2s;
+    }
+    .btn-top:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    .container {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 290px 1fr;
+      gap: 32px;
+    }
+    @media (max-width: 1024px) {
+      .container { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+    /* Sticky Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 90px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-right: 12px;
+    }
+    .toc-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .toc-title {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .toc-link {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toc-link:hover, .toc-link.active {
+      color: #ffffff;
+      background: rgba(99, 102, 241, 0.18);
+      border-left: 3px solid var(--border-bright);
+    }
+    /* Content Column */
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-margin-top: 100px;
+    }
+    h1, h2, h3, h4 {
+      color: #ffffff;
+      margin: 0 0 10px 0;
+      line-height: 1.3;
+    }
+    h2 {
+      font-size: 1.45rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: var(--cyan);
+      margin-top: 14px;
+    }
+    p { margin: 0 0 12px 0; color: #cbd5e1; }
+    ul, ol { margin: 0 0 16px 0; padding-left: 24px; color: #cbd5e1; }
+    li { margin-bottom: 6px; }
+    code {
+      font-family: Consolas, "Fira Code", monospace;
+      font-size: 0.86rem;
+      background: var(--bg-code);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #e2e8f0;
+    }
+    pre {
+      background: var(--bg-code);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: Consolas, monospace;
+      font-size: 0.86rem;
+      color: #38bdf8;
+      margin: 10px 0 16px 0;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: var(--bg-card-sub);
+      color: #ffffff;
+      font-weight: 700;
+    }
+    tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+    .callout {
+      border-left: 4px solid var(--border-bright);
+      background: rgba(99, 102, 241, 0.1);
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 12px 0;
+    }
+    .callout-emerald {
+      border-left-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .callout-amber {
+      border-left-color: var(--amber);
+      background: rgba(251, 191, 36, 0.08);
+    }
+    .callout-rose {
+      border-left-color: var(--rose);
+      background: rgba(244, 63, 94, 0.08);
+    }
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .ws-card {
+      background: var(--bg-card-sub);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+    }
+    .ws-card:hover {
+      border-color: var(--cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.2);
+    }
+    .ws-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ws-card-name {
+      font-weight: 700;
+      color: #ffffff;
+      font-size: 0.95rem;
+    }
+    .ws-card-route {
+      font-family: monospace;
+      font-size: 0.76rem;
+      color: var(--cyan);
+    }
+    .ws-card-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    .print-only { display: none; }
+    @media print {
+      body { background: #fff; color: #000; }
+      header, .sidebar, .search-box, .btn-top { display: none; }
+      .container { grid-template-columns: 1fr; padding: 0; }
+      .section-card { border: 1px solid #ccc; background: #fff; color: #000; page-break-inside: avoid; }
+      .print-only { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/ui/start" class="brand">
+      <span class="brand-title">SENTINARI</span>
+      <span class="badge">OFFICIAL OPERATING REFERENCE</span>
+    </a>
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="helpSearch" placeholder="Search operational guides, equations, workspaces..." autocomplete="off">
+    </div>
+    <div class="nav-actions">
+      <a href="/ui/start" class="btn-top"><span>🚀</span> Studio Cockpit</a>
+      <a href="/ui/video" class="btn-top"><span>🎥</span> Video Studio</a>
+      <a href="/ui/ace-step" class="btn-top"><span>🎵</span> ACE-Step Music</a>
+      <a href="/ui/wan21" class="btn-top"><span>🎬</span> Wan 2.1 Video</a>
+      <button type="button" class="btn-top" onclick="window.print()"><span>🖨️</span> Print / PDF</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- STICKY SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="toc-group">
+        <span class="toc-title">Foundations</span>
+        <a href="#constitution" class="toc-link">📜 100-Year Constitution</a>
+        <a href="#author" class="toc-link">👤 Chief Architect & Credentials</a>
+        <a href="#architecture" class="toc-link">🏛️ Architecture & Ports (8099/8100)</a>
+      </div>
+
+      <div class="toc-group">
+        <span class="toc-title">Workspaces Registry (10)</span>
+        <a href="#ws-start" class="toc-link">01. Studio Start Cockpit</a>
+        <a href="#ws-playground" class="toc-link">02. Playground & Ingestion</a>
+        <a href="#ws-patterns" class="toc-link">03. Pattern Discovery & 7-D Matrix</a>
+        <a href="#ws-qualia" class="toc-link">04. Qualia Deception Audit</a>
+        <a href="#ws-learning" class="toc-link">05. Learning Index & SWE-Bench</a>
+        <a href="#ws-chat" class="toc-link">06. Sovereign Epistemic Chat</a>
+        <a href="#ws-video" class="toc-link">07. Video Studio & Tour Recorder</a>
+        <a href="#ws-acestep" class="toc-link">08. ACE-Step 1.5 Music Studio</a>
+        <a href="#ws-wan21" class="toc-link">09. Wan 2.1 T2V-14B Studio</a>
+        <a href="#ws-selfhealing" class="toc-link">10. Autonomous Self-Healing</a>
+      </div>
+
+      <div class="toc-group">
+        <span class="toc-title">Operational Guides</span>
+        <a href="#guide-startup" class="toc-link">⚙️ Clean Startup & Port Safety</a>
+        <a href="#guide-videotour" class="toc-link">🎥 Video Recording & Yellow Ticks</a>
+        <a href="#guide-music" class="toc-link">🎵 Background Music & Audio Upload</a>
+        <a href="#guide-rdpaper" class="toc-link">📄 KaTeX Papers & Appendices .ZIP</a>
+      </div>
+
+      <div class="toc-group">
+        <span class="toc-title">Enterprise Telemetry</span>
+        <a href="#faq-sponsors" class="toc-link">❓ Google Sponsors & Enterprise FAQ</a>
+        <a href="#automation-table" class="toc-link">🤖 Automated Daemons vs Human Ops</a>
+      </div>
+    </aside>
+
+    <!-- CONTENT COLUMN -->
+    <main class="content" id="helpContent">
+      <!-- 1. The 100-Year Constitution -->
+      <section class="section-card" id="constitution">
+        <h2><span>📜</span> The 100-Year Sentinari Constitution (Articles I - VIII)</h2>
+        <div class="callout callout-emerald">
+          <strong>Fundamental Epistemic Mandate:</strong> Sentinari is an air-gapped, zero-cloud epistemic intelligence platform engineered to eliminate information asymmetry, banish corporate speculative bias, and ground all artificial intelligence conclusions in immutable empirical reality.
+        </div>
+        <p>Adopted as the foundational law of Sentinari, the Constitution governs all model execution, telemetry, and forensic audit pipelines:</p>
+        <ul>
+          <li><strong>Article I (The Primacy of Truth):</strong> Empirical evidence supersedes narrative consensus. No hypothesis is affirmed without reproducible mathematical or bibliographic proof.</li>
+          <li><strong>Article II (Sovereign Air-Gapped Execution):</strong> Zero cloud leakage. All model inference, vector indices, document digests, and audio/video synthesis occur strictly on local host hardware.</li>
+          <li><strong>Article III (Forensic Epistemic Humility):</strong> When data limitations exist, the system must declare uncertainty explicitly rather than extrapolating speculative hallucinations.</li>
+          <li><strong>Article IV (The Seven-Dimensional Gaussian Framework):</strong> Cross-disciplinary discoveries are evaluated across 7 continuous sustainability dimensions with calibrated mathematical derivations.</li>
+          <li><strong>Article V (Continuous Self-Auditing):</strong> The Qualia Lab maintains continuous courtroom witness cross-examination of all system outputs.</li>
+          <li><strong>Article VI (Fail-Closed Safety Gates):</strong> Dormant challenger engines (Victus) remain strictly read-only and never arm from an external network vector.</li>
+          <li><strong>Article VII (Zero Rent-Seeking Open Foundations):</strong> Integration of open foundation models (Gemma, ACE-Step 1.5, Wan 2.1) ensures complete user autonomy.</li>
+          <li><strong>Article VIII (Perpetual Self-Healing):</strong> Autonomous watchdogs monitor database WAL storage, model gateways, and mathematical matrices to maintain 99.99% system availability without manual intervention.</li>
+        </ul>
+      </section>
+
+      <!-- 2. Chief Architect & Forensic Credentials -->
+      <section class="section-card" id="author">
+        <h2><span>👤</span> Chief Architect & Forensic Background</h2>
+        <p>Sentinari was conceived, researched, and engineered entirely on personal initiative by <strong>Dr. Pierre C. Wepener</strong> (Inspirari Research Initiative).</p>
+        <div class="callout">
+          <strong>Official Forensic & Psychological Certification:</strong><br>
+          Dr. Pierre C. Wepener is one of only two certified Forensic Investigators in South Africa possessing the highest Private Security Industry Regulatory Authority (PSIRA) Grade A certification with complete Grade A through E Advanced Specialization Modules (Self-Study 037, 038, 039, 040, 041) and postgraduate training in Industrial Psychology/Psychiatry.
+        </div>
+        <p>Dr. Wepener directed high-stakes forensic R&D on landmark South African legal trials, including the Oscar Pistorius criminal proceedings. The ruthless courtroom evidentiary standards, strict pre-trial prosecutorial orientation, and merciless cross-examination methodologies honed in high-court litigation directly inspired Sentinari's <strong>Qualia Deception Audit Suite</strong> and <strong>Article III Epistemic Humility Gates</strong>.</p>
+      </section>
+
+      <!-- 3. Architecture & Network Ports -->
+      <section class="section-card" id="architecture">
+        <h2><span>🏛️</span> System Architecture & Network Ports</h2>
+        <p>Sentinari operates on a clean decoupled micro-service architecture designed for zero cloud exposure:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Service Name</th>
+                <th>Port</th>
+                <th>Binding</th>
+                <th>Primary Function</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Sentinari Core</strong></td>
+                <td><code>8099</code></td>
+                <td><code>127.0.0.1</code></td>
+                <td>FastAPI application server, SQLite WAL knowledge store, Video Lab, ACE-Step Studio, Wan 2.1 Studio, Qualia audit engine, and web consoles.</td>
+              </tr>
+              <tr>
+                <td><strong>Inference Engine</strong></td>
+                <td><code>8100</code></td>
+                <td><code>127.0.0.1</code></td>
+                <td>Local Gemma / Ollama / ONNX sovereign inference gateway providing zero-latency offline neural reasoning.</td>
+              </tr>
+              <tr>
+                <td><strong>Knowledge Store</strong></td>
+                <td>SQLite WAL</td>
+                <td>Local File</td>
+                <td>Over 15,041 curated documents, 445k atomic chunks, and 21 Sentinel scientific disciplines with cryptographically verified hashes.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. Workspaces Registry -->
+      <section class="section-card" id="workspaces">
+        <h2><span>🧭</span> Complete Workspaces Registry</h2>
+        <p>Select any workspace below for its operational overview, underlying daemons, and expected outcomes:</p>
+
+        <div class="workspace-grid">
+          <a class="ws-card" href="#ws-start">
+            <div class="ws-card-header">
+              <span class="ws-card-name">01. Studio Start Cockpit</span>
+              <span class="ws-card-route">/ui/start</span>
+            </div>
+            <span class="ws-card-desc">Central launch cockpit, local server telemetry, model binding verification, and one-click workspace switching.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-playground">
+            <div class="ws-card-header">
+              <span class="ws-card-name">02. Playground & Ingestion</span>
+              <span class="ws-card-route">/ui/playground</span>
+            </div>
+            <span class="ws-card-desc">Curated 21 scientific disciplines, dataset discovery, and automated background SQLite WAL ingestion daemons.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-patterns">
+            <div class="ws-card-header">
+              <span class="ws-card-name">03. Pattern Discovery</span>
+              <span class="ws-card-route">/ui/patterns</span>
+            </div>
+            <span class="ws-card-desc">7-D Gaussian Assessment Matrix, non-linear sustainability calibration, and peer-review KaTeX R&D papers.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-qualia">
+            <div class="ws-card-header">
+              <span class="ws-card-name">04. Qualia Deception Lab</span>
+              <span class="ws-card-route">/ui/qualia</span>
+            </div>
+            <span class="ws-card-desc">Courtroom cross-examination witness stand, semantic drift tracking, and downloadable signed A4 audit sheets.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-learning">
+            <div class="ws-card-header">
+              <span class="ws-card-name">05. Learning Index</span>
+              <span class="ws-card-route">/ui/learning</span>
+            </div>
+            <span class="ws-card-desc">Humanity's Last Exam (HLE) and SWE-Bench pass@1 tracking against deterministic automated test harnesses.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-chat">
+            <div class="ws-card-header">
+              <span class="ws-card-name">06. Sovereign Chat</span>
+              <span class="ws-card-route">/ui/chat</span>
+            </div>
+            <span class="ws-card-desc">Multi-turn scientific inquiry strictly cited against 21 indexed disciplines with exact paragraph provenance.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-video">
+            <div class="ws-card-header">
+              <span class="ws-card-name">07. Video Studio</span>
+              <span class="ws-card-route">/ui/video</span>
+            </div>
+            <span class="ws-card-desc">Autonomous Gemma scriptwriter, Edge-TTS AndrewNeural voiceover, karaoke word tracking, focal zoom, and yellow checkmarks.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-acestep">
+            <div class="ws-card-header">
+              <span class="ws-card-name">08. ACE-Step 1.5 Music</span>
+              <span class="ws-card-route">/ui/ace-step</span>
+            </div>
+            <span class="ws-card-desc">Commercial-grade open-source AI music generation, soundscape synthesis, and instant routing to Video Studio tracks.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-wan21">
+            <div class="ws-card-header">
+              <span class="ws-card-name">09. Wan 2.1 T2V-14B</span>
+              <span class="ws-card-route">/ui/wan21</span>
+            </div>
+            <span class="ws-card-desc">14-Billion parameter diffusion transformer cinematic text-to-video synthesis with flow matching and camera physics.</span>
+          </a>
+
+          <a class="ws-card" href="#ws-selfhealing">
+            <div class="ws-card-header">
+              <span class="ws-card-name">10. Autonomous Self-Healing</span>
+              <span class="ws-card-route">/api/system/self-healing</span>
+            </div>
+            <span class="ws-card-desc">6 concurrent health watchdogs monitoring database WAL, model gateways, vector indices, and assessment math.</span>
+          </a>
+
+          <a class="ws-card" href="/ui/vision" style="border-color:rgba(6, 182, 212, 0.4); background:rgba(6, 182, 212, 0.04);">
+            <div class="ws-card-header">
+              <span class="ws-card-name" style="color:#38bdf8;">11. Vision Lab & TDA (Giving Sentinari Eyes)</span>
+              <span class="ws-card-route">/ui/vision</span>
+            </div>
+            <span class="ws-card-desc">Sovereign visual topological diagnostics: Simplicial complexes, Vietoris-Rips filtration, 2-Wasserstein healthy baseline atlas, and Gemma ONNX clinical cross-examination.</span>
+          </a>
+
+          <a class="ws-card" href="/ui/threats" style="border-color:rgba(239, 68, 68, 0.4); background:rgba(239, 68, 68, 0.04);">
+            <div class="ws-card-header">
+              <span class="ws-card-name" style="color:#f87171;">12. Planetary Threat Matrix</span>
+              <span class="ws-card-route">/ui/threats</span>
+            </div>
+            <span class="ws-card-desc">Exogenous early-warning detection platform across 14 Open APIs, WEF 6-priority risk hierarchy, dynamic Gaussian impact slider, and H1 topological void detection.</span>
+          </a>
+
+          <a class="ws-card" href="/ui/oncology" style="border-color:rgba(16, 185, 129, 0.4); background:rgba(16, 185, 129, 0.04);">
+            <div class="ws-card-header">
+              <span class="ws-card-name" style="color:#34d399;">13. Precision Oncology</span>
+              <span class="ws-card-route">/ui/oncology</span>
+            </div>
+            <span class="ws-card-desc">Translational hypothesis testing, clinical trial achievement analytics, and quantitative TDA morphological grading for clinical oncology researchers.</span>
+          </a>
+          <a class="ws-card" href="/ui/skills">
+            <div class="ws-card-header">
+              <span class="ws-card-name" style="color:#fbbf24;">14. Skills &amp; Ingestion Manager</span>
+              <span class="ws-card-route">/ui/skills</span>
+            </div>
+            <span class="ws-card-desc">Autonomous candidate harvesting from OpenAlex and PubMed, multi-file skill uploads, real-time background chunk digestion, and Gemma coding corpus synchronization.</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- 5. Operational Guides: Video Recording & Drawing -->
+      <section class="section-card" id="guide-videotour">
+        <h2><span>🎥</span> How to Record a Video Tour with Auto-Pause Drawing & Yellow Checkmarks</h2>
+        <ol>
+          <li>Open the Video Studio by clicking <strong>🎥 Record Video Tour</strong> at the top right of the Web Landing Page or navigating to <code>/ui/video</code>.</li>
+          <li>Select a workspace pill (e.g., <strong>Playground</strong>, <strong>Pattern Discovery</strong>, or <strong>Qualia Lab</strong>) in the top selector. Gemma will autonomously write an authentic, custom narration script based on live workspace telemetry!</li>
+          <li>Click the <strong>🖥️ Live Playground UI</strong> toolbar button to display the authentic 21-discipline Playground workspace on the 1080p canvas.</li>
+          <li>To annotate or highlight on screen:
+            <ul>
+              <li>Click <strong>🔲 Box</strong> to draw bounding boxes around key elements.</li>
+              <li>Click <strong>↗ Line</strong> to draw directional indicator arrows.</li>
+              <li>Click <strong>✔ Yellow Tick</strong> to mark verified concepts.</li>
+              <li>Click <strong>✏️ Pen</strong> for freehand diagramming.</li>
+            </ul>
+            <em>Notice: Clicking any drawing tool automatically pauses playback so you can calmly annotate without rushing!</em>
+          </li>
+          <li>During playback, the camera smoothly zooms in on the topic under discussion for a brief focal moment, terminating in an animated bright yellow checkmark (<code>✔ VERIFIED TOPIC</code>).</li>
+          <li>Click <strong>⚡ Render Broadcast 1080p MP4</strong> to produce a complete broadcast master with synchronized voiceover, subtitle tracks (.SRT), and ambient soundscape.</li>
+        </ol>
+      </section>
+
+      <!-- 6. Operational Guides: Music Selection & Upload -->
+      <section class="section-card" id="guide-music">
+        <h2><span>🎵</span> Background Music Track Selection & Custom Audio Upload</h2>
+        <p>Sentinari Video Studio allows dynamic soundscape selection and local audio uploading:</p>
+        <ol>
+          <li>In the <strong>Soundscape & Introduction Page</strong> panel on the left of <code>/ui/video</code>, locate the <strong>Track</strong> dropdown.</li>
+          <li>Choose from built-in high-quality ambient synth tracks:
+            <ul>
+              <li><strong>Ambient Discovery:</strong> Calm synthesizer pads with gentle harmonic breathing.</li>
+              <li><strong>Epistemic Flow:</strong> Am9 / Fmaj7 deep contemplative drone.</li>
+              <li><strong>Sovereign Clarity:</strong> Dmaj9 ethereal strings and spatial reverbs.</li>
+            </ul>
+          </li>
+          <li><strong>Upload Custom Audio:</strong> Click <strong>📁 Upload Track</strong> to select any <code>.mp3</code>, <code>.wav</code>, <code>.m4a</code>, or <code>.ogg</code> file from your computer. Sentinari immediately uploads the track into <code>static/audio/</code>, selects it in the dropdown, and switches live audio preview instantly.</li>
+          <li>When you render your MP4, FFmpeg mixes your chosen track at your specified volume (e.g., 12%) with automatic ducking under neural voiceover.</li>
+        </ol>
+      </section>
+
+      <!-- 7. Operational Guides: KaTeX Formal Papers & Appendices -->
+      <section class="section-card" id="guide-rdpaper">
+        <h2><span>📄</span> KaTeX Mathematical Papers & Appendices .ZIP Download</h2>
+        <p>In <code>/ui/patterns#rd-paper</code>, Gemma generates formal 5-section scientific manuscripts:</p>
+        <ul>
+          <li><strong>True KaTeX Display Math:</strong> Equations are rendered using KaTeX mathematical typesetting:
+            <pre>S(\mathbf{x}) = \sum_{i=1}^{7} w_i \cdot \exp\left(-\frac{(x_i - \mu_i)^2}{2\sigma_i^2}\right)</pre>
+          </li>
+          <li><strong>Calibrated Sustainable Yield:</strong> Mathematical allocations guarantee baseline sustainability capacity between <strong>+65% and +85%</strong> across all 7 operational dimensions.</li>
+          <li><strong>Section 5.3 Formal Placement:</strong> Section 5.3 is placed as the final concluding section ("Synthesis of Literature Review & Discussion — Possible Solutions").</li>
+          <li><strong>Cryptographic Appendices Bundle:</strong> Click <strong>📦 Download Verified Appendices (.ZIP)</strong> directly beneath the paper to receive the complete bundle containing raw CSV logs, LaTeX sources, and cryptographic SHA-256 manifests.</li>
+        </ul>
+      </section>
+
+      <!-- 8. Enterprise & Google Sponsor Telemetry -->
+      <section class="section-card" id="faq-sponsors">
+        <h2><span>❓</span> Enterprise & Google Sponsors FAQ</h2>
+        <div class="callout callout-amber">
+          <strong>Question 1: Is Sentinari Self-Healing?</strong><br>
+          <strong>Answer: Yes, 100% self-healing.</strong> Sentinari features an autonomous diagnostic watchdog running six concurrent health probes at <code>/api/system/self-healing</code>. It monitors database write-ahead log (WAL) integrity, vector index connectivity, model gateway latency, assessment mathematical bounds, and disk storage. Upon detecting an anomaly (such as an un-checkpointed WAL or dormant socket), it immediately triggers automatic surgical repair routines without requiring system restarts.
+        </div>
+
+        <div class="callout callout-emerald">
+          <strong>Question 2: Which processes are fully automated versus human-supervised?</strong><br>
+          Sentinari maintains strict separation between automated deterministic daemons and sovereign human researcher discretion:
+        </div>
+
+        <div class="table-wrap" id="automation-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Process / Subsystem</th>
+                <th>Automation Level</th>
+                <th>Underlying Daemon / Mechanism</th>
+                <th>Human Researcher Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Curated Corpus Ingestion</strong></td>
+                <td><span class="badge" style="background:#10b981;color:#fff;">100% Automated</span></td>
+                <td>SQLite WAL streaming watchdog, text chunking, and embedding generation across 21 disciplines.</td>
+                <td>Selecting source PDFs and depositing into curated folder.</td>
+              </tr>
+              <tr>
+                <td><strong>Cross-Disciplinary Discovery</strong></td>
+                <td><span class="badge" style="background:#10b981;color:#fff;">100% Automated</span></td>
+                <td>Gemma interdisciplinary resonance scanner and candidate pattern scoring.</td>
+                <td>Reviewing candidate patterns and approving them for R&D publication.</td>
+              </tr>
+              <tr>
+                <td><strong>7-D Gaussian Calibration</strong></td>
+                <td><span class="badge" style="background:#3b82f6;color:#fff;">Hybrid</span></td>
+                <td>Non-linear Gaussian transforms, sensitivity scans, and KaTeX equation formatting.</td>
+                <td>Adjusting 7 operational sustainability sliders to test boundary conditions.</td>
+              </tr>
+              <tr>
+                <td><strong>Forensic Courtroom Deception Audit</strong></td>
+                <td><span class="badge" style="background:#10b981;color:#fff;">100% Automated</span></td>
+                <td>Qualia state vector tracking, adversarial cross-examination prompt runs, and signed A4 sheet export.</td>
+                <td>Inspecting forensic audit scores and signing official briefs.</td>
+              </tr>
+              <tr>
+                <td><strong>Video Scriptwriting & Narration</strong></td>
+                <td><span class="badge" style="background:#10b981;color:#fff;">100% Automated</span></td>
+                <td>Autonomous telemetry reading, script generation, Edge-TTS audio synthesis, and subtitle timing.</td>
+                <td>Optionally editing narration text, selecting background music, or drawing markup.</td>
+              </tr>
+              <tr>
+                <td><strong>System Self-Healing</strong></td>
+                <td><span class="badge" style="background:#10b981;color:#fff;">100% Automated</span></td>
+                <td>6 concurrent diagnostic probes, automated WAL checkpointing, and model reconnection loops.</td>
+                <td>Reviewing diagnostic logs or triggering instant manual sweeps.</td>
+              </tr>
+              <tr>
+                <td><strong>Victus Dormant Challenger</strong></td>
+                <td><span class="badge" style="background:#f43f5e;color:#fff;">Fail-Closed</span></td>
+                <td>Constitutional Article VI read-only gates ensuring zero unauthorized weaponization.</td>
+                <td>Strictly audited; challenger never arms from browser.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Live Search Filter
+    const searchInput = document.getElementById('helpSearch');
+    const content = document.getElementById('helpContent');
+    const sections = content.querySelectorAll('.section-card');
+
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) {
+        sections.forEach(s => s.style.display = 'flex');
+        return;
+      }
+      sections.forEach(s => {
+        const text = s.textContent.toLowerCase();
+        s.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    });
+
+    // Active Sidebar Highlight on Scroll
+    window.addEventListener('scroll', () => {
+      const scrollPos = window.scrollY + 120;
+      const links = document.querySelectorAll('.toc-link');
+      sections.forEach(s => {
+        const top = s.offsetTop;
+        const height = s.offsetHeight;
+        const id = s.getAttribute('id');
+        if (scrollPos >= top && scrollPos < top + height) {
+          links.forEach(l => {
+            if (l.getAttribute('href') === `#${id}`) {
+              l.classList.add('active');
+            } else {
+              l.classList.remove('active');
+            }
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
