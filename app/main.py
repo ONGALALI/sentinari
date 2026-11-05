@@ -760,7 +760,9 @@ def serve_oncology_html() -> HTMLResponse:
 @app.get("/threats.html", include_in_schema=False)
 @app.get("/showcase/threats", include_in_schema=False)
 def serve_threats_html() -> HTMLResponse:
-    p = get_project_root() / "showcase_portal" / "threats.html"
+    p = get_project_root() / "docs" / "threats.html"
+    if not p.exists():
+        p = get_project_root() / "showcase_portal" / "threats.html"
     if not p.exists():
         p = get_project_root() / "threats.html"
     return HTMLResponse(p.read_text(encoding="utf-8"))

@@ -267,11 +267,37 @@ def _extract_json(text: str) -> dict[str, Any] | None:
     end = t.rfind("}")
     if start < 0 or end <= start:
         return None
+    candidate = t[start : end + 1]
+
+    # 1. Direct standard parse
     try:
-        data = json.loads(t[start : end + 1])
+        data = json.loads(candidate, strict=False)
+        if isinstance(data, dict):
+            return data
     except Exception:
-        return None
-    return data if isinstance(data, dict) else None
+        pass
+
+    # 2. Repair unescaped LaTeX backslashes (\mathbb, \alpha, \sum, \frac, etc.)
+    try:
+        fixed = re.sub(r'\\(?![/\"\\bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', candidate)
+        data = json.loads(fixed, strict=False)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    # 3. Fallback regex extraction of question & answer
+    q_match = re.search(r'"question"\s*:\s*"((?:\\.|[^"\\])*)"', candidate, re.DOTALL)
+    a_match = re.search(r'"answer"\s*:\s*"((?:\\.|[^"\\])*)"', candidate, re.DOTALL)
+    if q_match and a_match:
+        try:
+            q_val = q_match.group(1).encode("utf-8").decode("unicode_escape", errors="replace")
+            a_val = a_match.group(1).encode("utf-8").decode("unicode_escape", errors="replace")
+            return {"question": q_val, "answer": a_val}
+        except Exception:
+            return {"question": q_match.group(1), "answer": a_match.group(1)}
+
+    return None
 
 
 def _load_probe_material(document_id: int) -> tuple[str, str, str] | None:

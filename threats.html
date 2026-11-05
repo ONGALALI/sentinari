@@ -304,6 +304,269 @@
     max-height: 420px;
     overflow-y: auto;
   }
+  /* Share Action Bar */
+  .share-action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, rgba(19, 34, 56, 0.85) 0%, rgba(11, 19, 32, 0.95) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .share-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #cbd5e1;
+  }
+  .share-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+  }
+  .share-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+  .share-btn-whatsapp {
+    background: rgba(37, 211, 102, 0.16);
+    color: #4ade80;
+    border-color: rgba(37, 211, 102, 0.45);
+  }
+  .share-btn-whatsapp:hover {
+    background: #25D366;
+    color: #052e16;
+  }
+  .share-btn-email {
+    background: rgba(56, 189, 248, 0.16);
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.45);
+  }
+  .share-btn-email:hover {
+    background: #0284c7;
+    color: #fff;
+  }
+  .share-btn-link {
+    background: rgba(148, 163, 184, 0.14);
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.35);
+  }
+  .share-btn-link:hover {
+    background: #475569;
+    color: #fff;
+  }
+  .share-btn-pdf {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.35));
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.55);
+  }
+  .share-btn-pdf:hover {
+    background: #ef4444;
+    color: #fff;
+  }
+  .share-btn-patreon {
+    background: rgba(255, 66, 77, 0.18);
+    color: #ff9da2;
+    border-color: rgba(255, 66, 77, 0.48);
+  }
+  .share-btn-patreon:hover {
+    background: #FF424D;
+    color: #fff;
+  }
+
+  /* Copy-Paste Protection on Sensitive Sovereign Content */
+  .sovereign-protected {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  /* Persistent Bottom Footer with Patreon Notice */
+  .sovereign-persistent-footer {
+    margin-top: 36px;
+    background: linear-gradient(180deg, #0d1829 0%, #080f1a 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  }
+  .footer-patreon-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-wrap: wrap;
+  }
+  .footer-patreon-content {
+    flex: 1;
+    min-width: 280px;
+  }
+  .footer-patreon-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #ff9da2;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .footer-patreon-text {
+    font-size: 12.5px;
+    color: #cbd5e1;
+    line-height: 1.55;
+  }
+  .footer-patreon-text a {
+    color: #ff9da2;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+  .footer-meta-line {
+    padding-top: 14px;
+    font-size: 11.5px;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Interactive Toast Notification */
+  .share-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #38bdf8;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    display: none;
+    z-index: 99999;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Print / PDF Styles */
+  .print-header-watermark { display: none; }
+  .print-patreon-footer { display: none; }
+
+  @media print {
+    @page {
+      margin: 10mm 12mm 18mm 12mm;
+      size: A4 portrait;
+    }
+    body {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      font-size: 8.5pt !important;
+      line-height: 1.4 !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+    .sidebar, .nav, .share-action-bar, input[type=range], .btn, #btnIntervene, .interactive-controls, .status-pills, .disclaimer-card .disclaimer-author a, .share-toast {
+      display: none !important;
+    }
+    .layout {
+      display: block !important;
+    }
+    .page-shell {
+      padding: 0 !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
+    .card, .sovereign-matrix-card, .disclaimer-card, .kpi-card, .category-card {
+      background: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      box-shadow: none !important;
+      color: #0f172a !important;
+      page-break-inside: avoid;
+      margin-bottom: 10px !important;
+      padding: 10px 14px !important;
+    }
+    .top-status-bar h1 {
+      color: #0f172a !important;
+      font-size: 15pt !important;
+    }
+    .card-title, h2, h3, .friction-title, .formula-title {
+      color: #0f172a !important;
+    }
+    .sovereign-table {
+      border: 1px solid #cbd5e1 !important;
+    }
+    .sovereign-table th {
+      background: #f1f5f9 !important;
+      color: #0f172a !important;
+      border-bottom: 1.5px solid #94a3b8 !important;
+      font-size: 8pt !important;
+    }
+    .sovereign-table td {
+      color: #1e293b !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      font-size: 8pt !important;
+    }
+    .formula-box {
+      background: #f8fafc !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+    }
+    .print-header-watermark {
+      display: block !important;
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 800;
+      color: #b91c1c;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+    }
+    .print-patreon-footer {
+      display: block !important;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 7.5pt;
+      color: #475569;
+      border-top: 1px solid #94a3b8;
+      padding-top: 4px;
+      background: #ffffff;
+      line-height: 1.35;
+    }
+    .sovereign-persistent-footer {
+      display: none !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1140,6 +1403,52 @@ Pursuant to Article III (The Primacy of Human Dignity) and Article VII (Sovereig
   }
 
   window.addEventListener("DOMContentLoaded", initShowroom);
+
+  // Share & Dossier Protection Controllers
+  function showToast(message) {
+    const toast = document.getElementById("shareToast");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.style.display = "flex";
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, 4000);
+  }
+
+  function copyShareLink(url) {
+    const targetUrl = url || window.location.href;
+    navigator.clipboard.writeText(targetUrl).then(() => {
+      showToast("Link copied to clipboard! Share the live sovereign dossier.");
+    }).catch(() => {
+      showToast("Failed to copy link. Please copy directly from browser.");
+    });
+  }
+
+  function exportDossierPdf() {
+    showToast("Preparing Sovereign Risk Dossier for protected PDF export...");
+    setTimeout(() => {
+      window.print();
+    }, 400);
+  }
+
+  // Intercept Copy Events on Protected Sovereign Content
+  document.addEventListener('copy', function(e) {
+    const sel = window.getSelection().toString();
+    if (sel && sel.trim().length > 0) {
+      e.preventDefault();
+      if (e.clipboardData) {
+        e.clipboardData.setData('text/plain',
+          "[SENTINARI SOVEREIGN ASSET ENCRYPTION - ACCESS RESTRICTED]\n" +
+          "Quantitative model weights, topological persistence voids, and unredacted sovereign vector matrices are protected under sovereign epistemic copyright.\n" +
+          "Full unrestricted text, raw API dumps, and complete predictive models become accessible once a contribution to Patreon has been confirmed (or an active membership tier is verified).\n" +
+          "Confirm or upgrade your Patreon membership at: https://www.patreon.com/c/Sentinari\n" +
+          "Zero-Cloud Autonomous Defense & Precision Oncology Architecture."
+        );
+      }
+      showToast("Protected Sovereign Content: Unredacted text is unlocked upon confirmed Patreon membership.");
+    }
+  });
+
 </script>
 </body>
 </html>

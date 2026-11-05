@@ -52,6 +52,7 @@ def main() -> None:
     processed = 0
     start_time = time.time()
     recent_latencies = []
+    failures_per_doc: dict[int, int] = {}
 
     while True:
         candidates = _candidate_documents()
@@ -71,7 +72,35 @@ def main() -> None:
             record, reason = _probe_document_with_reason(doc_id)
         except Exception as exc:
             print(f"[WARN] Error on Doc {doc_id}: {exc}. Moving forward...", flush=True)
+            failures_per_doc[doc_id] = failures_per_doc.get(doc_id, 0) + 1
+            if failures_per_doc[doc_id] >= 2:
+                from datetime import datetime, timezone
+                from app.db import get_connection
+                with get_connection() as conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO learning_assessments (document_id, verdict, scientific_field, title, assessed_at) "
+                        "VALUES (?, 'skipped', 'skipped', 'Unprocessable or missing document material', ?)",
+                        (doc_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                    )
+                    conn.commit()
+                print(f"[SKIP] Document {doc_id} marked skipped after repeated exception", flush=True)
             time.sleep(0.5)
+            continue
+
+        if record is None:
+            failures_per_doc[doc_id] = failures_per_doc.get(doc_id, 0) + 1
+            if failures_per_doc[doc_id] >= 2 or reason == "no-material":
+                from datetime import datetime, timezone
+                from app.db import get_connection
+                with get_connection() as conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO learning_assessments (document_id, verdict, scientific_field, title, assessed_at) "
+                        "VALUES (?, 'skipped', 'skipped', 'Unprocessable or missing document material', ?)",
+                        (doc_id, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                    )
+                    conn.commit()
+                print(f"[SKIP] Document {doc_id} marked as skipped ({reason})", flush=True)
+            time.sleep(0.1)
             continue
 
         dt = time.time() - t0
