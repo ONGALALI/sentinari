@@ -2132,6 +2132,32 @@ async def api_threats_tda(payload: dict) -> dict:
     return {"ok": True, "category_id": cat_id, "tda": tda_res}
 
 
+
+@app.get("/api/threats/sovereign-matrix")
+def api_threats_sovereign_matrix() -> dict:
+    from app.exogenous_threats import SOVEREIGN_FRICTION_PROFILES, recalculate_sovereign_cascade
+    cascade = recalculate_sovereign_cascade()
+    return {"ok": True, "profiles": SOVEREIGN_FRICTION_PROFILES, "cascade": cascade}
+
+
+@app.post("/api/threats/sovereign-recalculate")
+def api_threats_sovereign_recalculate(payload: dict) -> dict:
+    from app.exogenous_threats import recalculate_sovereign_cascade
+    ukr = float(payload.get("ukr", 0.89))
+    isr = float(payload.get("isr", 0.85))
+    sud = float(payload.get("sud", 0.81))
+    twn = float(payload.get("twn", 0.78))
+    zaf_minerals = float(payload.get("zaf_minerals", 0.45))
+    zaf_grid_freeze = bool(payload.get("zaf_grid_freeze", False))
+    zaf_disinfo = float(payload.get("zaf_disinfo", 0.42))
+    
+    cascade = recalculate_sovereign_cascade(
+        ukr=ukr, isr=isr, sud=sud, twn=twn,
+        zaf_minerals=zaf_minerals, zaf_grid_freeze=zaf_grid_freeze,
+        zaf_disinfo=zaf_disinfo
+    )
+    return {"ok": True, "cascade": cascade}
+
 @app.post("/api/threats/gemma-countermeasure")
 async def api_threats_gemma(payload: dict) -> dict:
     from app.exogenous_threats import (
@@ -2148,13 +2174,15 @@ async def api_threats_gemma(payload: dict) -> dict:
     curve = compute_gaussian_density_curve(cat["default_mu"], cat["default_sigma"], scaler)
     tda = execute_exogenous_tda()
 
+    country_matrix = payload.get("country_matrix")
     directive = await query_gemma_threat_intervention(
         threat_category=cat["category"],
         priority=cat["priority"],
         observed_risk_score=round(cat["default_mu"] * scaler, 2),
         tda_summary=tda,
         gaussian_projection=curve,
-        clinician_notes=notes
+        clinician_notes=notes,
+        country_matrix=country_matrix
     )
     return {"ok": True, "category_id": cat_id, "directive": directive}
 
