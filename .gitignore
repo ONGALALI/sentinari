@@ -70,3 +70,8 @@ scratch/
 sentinari.db
 
 
+
+# Heavy 3D assets and media
+*.stl
+*.mp4
+

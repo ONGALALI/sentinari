@@ -350,6 +350,9 @@ from .library_router import persona_status, sentinari_library_path
 from .search_api import router as search_library_router  # noqa: E402
 
 app.include_router(search_library_router)
+from .surgeon_recall import router as surgeon_recall_router  # noqa: E402
+
+app.include_router(surgeon_recall_router)
 _auto_ingest_service = AutoIngestService()
 
 
@@ -2015,6 +2018,8 @@ def ui_search(request: Request) -> HTMLResponse:
 
 
 @app.get("/ui/vision", response_class=HTMLResponse)
+@app.get("/ui/vision.html", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/vision", response_class=HTMLResponse, include_in_schema=False)
 def ui_vision(request: Request) -> HTMLResponse:
     """Giving Sentinari Eyes: Sovereign Topological Visual Diagnostics Workspace."""
     auth = get_admin_auth_settings(get_settings())
@@ -2097,6 +2102,10 @@ async def api_vision_gemma_cross_examine(request: Request) -> dict:
 
 
 @app.get("/ui/threats", response_class=HTMLResponse)
+@app.get("/ui/threats.html", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/ui/threats-workspace", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/ui/planetary-risk", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/threats", response_class=HTMLResponse, include_in_schema=False)
 def ui_threats(request: Request) -> HTMLResponse:
     """Exogenous Threat Detection System & Planetary Early-Warning Architecture."""
     auth = get_admin_auth_settings(get_settings())
@@ -2190,6 +2199,8 @@ async def api_threats_gemma(payload: dict) -> dict:
 
 
 @app.get("/ui/oncology", response_class=HTMLResponse)
+@app.get("/ui/oncology.html", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/oncology", response_class=HTMLResponse, include_in_schema=False)
 def ui_oncology(request: Request) -> HTMLResponse:
     auth = get_admin_auth_settings(get_settings())
     if auth["enabled"] and not _is_admin_authenticated(request):
