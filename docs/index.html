@@ -1015,6 +1015,96 @@
     line-height: 1;
   }
   .onco-tooltip-close:hover { color: #f43f5e; }
+
+  /* ======================================================== */
+  /* NOVEL KNOWLEDGE DISCOVERY & ONCOLOGY / BREAST CANCER TAGS */
+  /* ======================================================== */
+  .novel-knowledge-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(129, 140, 248, 0.16);
+    border: 1px solid rgba(129, 140, 248, 0.45);
+    color: #c7d2fe;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 6px;
+    text-transform: none;
+    letter-spacing: 0.2px;
+  }
+  .novel-knowledge-tag:hover {
+    background: rgba(129, 140, 248, 0.32);
+    border-color: #818cf8;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 0 14px rgba(129, 140, 248, 0.45);
+  }
+  .onco-nav-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.22) 0%, rgba(16, 185, 129, 0.22) 100%);
+    border: 1px solid rgba(236, 72, 153, 0.55);
+    color: #fbcfe8;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-left: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+    text-transform: none;
+  }
+  .onco-nav-tag:hover {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.4) 0%, rgba(16, 185, 129, 0.4) 100%);
+    border-color: #f472b6;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.5);
+  }
+  .onco-breakthrough-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .onco-breakthrough-pill:hover {
+    border-color: #34d399;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+  }
+  .breast-cancer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(244, 114, 182, 0.15) 100%);
+    border: 1px solid rgba(236, 72, 153, 0.55);
+    color: #fbcfe8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .breast-cancer-pill:hover {
+    border-color: #f472b6;
+    box-shadow: 0 0 14px rgba(236, 72, 153, 0.45);
+    transform: translateY(-1px);
+  }
+
 </style>
 <style>
 
@@ -1218,9 +1308,9 @@
         <a href="./Constitution.pdf" target="_blank" rel="noopener" target="_blank" rel="noopener" style="color:#fbbf24;font-weight:700;">&#x1F4DC; Constitution</a>
         <a href="#deliverables">Deliverables</a>
         <a href="#architecture">Architecture</a>
-        <a href="./#deliverables" target="_blank" rel="noopener">New Patterns (<span id="navPatternsCount">278</span>)</a>
+        <a href="./#deliverables" target="_blank" rel="noopener">New Patterns (<span id="navPatternsCount">1,735</span>)</a>
         <a href="javascript:void(0)" onclick="openPresentationModal('topology')" style="color:#818cf8;font-weight:700;">&#x1F4D0; TDA Video</a>
-        <a href="#oncology-workspace" style="color:#6ee7b7;font-weight:700;">&#x1F9EC; Oncology Workspace</a>
+        <a href="#oncology-workspace" style="color:#6ee7b7;font-weight:700;">&#x1F9EC; Oncology Workspace <span class="onco-nav-tag" title="135 Oncology Breakthroughs &bull; 9 Breast Cancer Discoveries" data-tooltip="Oncology &amp; Breast Cancer Portfolio: 135 verified Oncology Breakthroughs and 9 dedicated Breast Cancer Discoveries cataloged (including Rosmarinic Acid + Doxorubicin TNBC chemosensitization CI=0.380, BCAT1 metabolic reprogramming, and DTI Fractional Anisotropy predictive biomarkers) backed by 256 oncology papers." onclick="showOncoTooltip(event, this, 'Oncology &amp; Breast Cancer Discoveries')">135 Breakthroughs &bull; 9 Breast Cancer <span class="info-pill" style="margin-left:2px;">?</span></span></a>
         <a href="./threats.html" target="_blank" rel="noopener" style="color:#f87171;font-weight:700;">&#x1F30D; Planetary Threats</a>
         <a href="./help.html" target="_blank" rel="noopener" style="color:#a5b4fc;font-weight:600;">&#x1F4D6; Help Manual</a>
                 <a href="https://www.patreon.com/Rodenbecker/posts/sentinari-173240973?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link" target="_blank" rel="noopener" class="nav-patreon-link" title="Obtain Membership Plan at Patreon">
@@ -1250,19 +1340,19 @@
       <div class="nav-sub-container">
         <div class="nav-sub-group">
           <span class="nav-sub-badge" style="background:rgba(192,132,252,0.18);color:#d8b4fe;border-color:rgba(192,132,252,0.4);">Creative Studios</span>
-          <a href="http://localhost:8000/ui/ace-step" target="_blank" rel="noopener" class="nav-sub-link">
+          <a href="http://127.0.0.1:8099/ui/ace-step" target="_blank" rel="noopener" class="nav-sub-link">
             <span>🎵</span> <strong>ACE-Step 1.5 Music</strong>
           </a>
           <span class="nav-sub-divider">&bull;</span>
-          <a href="http://localhost:8000/ui/wan21" target="_blank" rel="noopener" class="nav-sub-link">
+          <a href="http://127.0.0.1:8099/ui/wan21" target="_blank" rel="noopener" class="nav-sub-link">
             <span>🎬</span> <strong>Wan 2.1 T2V-14B</strong>
           </a>
           <span class="nav-sub-divider">&bull;</span>
-          <a href="http://localhost:8000/ui/video" target="_blank" rel="noopener" class="nav-sub-link">
+          <a href="http://127.0.0.1:8099/ui/video" target="_blank" rel="noopener" class="nav-sub-link">
             <span>🎥</span> <strong>Video Studio</strong>
           </a>
           <span class="nav-sub-divider">&bull;</span>
-          <a href="http://localhost:8000/ui/direct" target="_blank" rel="noopener" class="nav-sub-link">
+          <a href="http://127.0.0.1:8099/ui/direct" target="_blank" rel="noopener" class="nav-sub-link">
             <span>💬</span> <strong>Chat Lab</strong>
           </a>
         </div>
@@ -1310,8 +1400,8 @@
             <span>Watch TDA Video (60 MB)</span>
           </button>
           <a href="./oncology.html" target="_blank" rel="noopener" class="btn-primary">Open Research Console</a>
-          <a href="./#deliverables" target="_blank" rel="noopener" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">278</span>)</a>
-          <a href="#global-reports" class="btn-secondary">Oncology Breakthrough &amp; Global Reports (4)</a>
+          <a href="./#deliverables" target="_blank" rel="noopener" class="btn-secondary">New Pattern Discoveries (<span id="ctaPatternsCount">1,735</span>)</a>
+          <a href="#global-reports" class="btn-secondary">&#x1F9EC; Oncology Breakthroughs (135) &bull; Breast Cancer (9)</a>
         </div>
 
         <!-- HIGHLIGHTED PATREON & CANCER RESEARCH BREAKTHROUGH SHOWCASE STRIP -->
@@ -1409,16 +1499,17 @@
           <div class="stat-label">
             <span class="stat-dot" style="background:#818cf8;box-shadow:0 0 8px #818cf8;"></span> New Pattern Discoveries
           </div>
-          <div class="stat-value" id="portalPatternsCount">278</div>
-          <div class="stat-sub" id="portalPatternsSub">5,377 datasets analyzed &bull; 15-Indicator R&amp;D Papers</div>
+          <div class="stat-value" id="portalPatternsCount">1,735</div>
+          <div class="stat-sub" id="portalPatternsSub">7,287 datasets analyzed &bull; 15-Indicator R&amp;D Papers &bull; 7-D Gaussian Matrix</div>
+          <div class="novel-knowledge-tag" title="Emergent cross-domain discovery" data-tooltip="Emergent Cross-Domain Discovery: 1,735 verified patterns synthesizing novel relationships between previously isolated scientific domains—establishing new scientific knowledge that did not exist before in any single scientific domain." onclick="showOncoTooltip(event, this, 'Novel Scientific Knowledge')">&#x2728; (New knowledge that did exist before in an scientific domain) <span class="info-pill" style="margin-left:2px;">?</span></div>
         </a>
 
         <div class="stat-card">
           <div class="stat-label">
             <span class="stat-dot"></span> Curated Works
           </div>
-          <div class="stat-value" id="portalDocsCount">15,415</div>
-          <div class="stat-sub">Peer-reviewed papers, patents, repositories</div>
+          <div class="stat-value" id="portalDocsCount">17,061</div>
+          <div class="stat-sub">100.0% Peer-reviewed papers assessed by Gemma</div>
         </div>
 
         <div class="stat-card">
@@ -1493,7 +1584,7 @@
               <a href="./Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf" target="_blank" rel="noopener" target="_blank" rel="noopener" class="btn-report-secondary">Open Tab &nearr;</a>
               <a href="./Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf" download="Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.pdf" class="btn-report-secondary">&#x2B07; Download PDF</a>
               <a href="./Sentinari_Cancer_Breakthrough_Pattern_24_Dossier.docx" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F4E5; Word (.docx)</a>
-              <a href="./oncology.html" target="_blank" rel="noopener" class="btn-report-secondary" style="border-color:#10b981;color:#6ee7b7;font-weight:700;">&#x1F9EC; Launch Oncology Workspace &rarr;</a>
+              <a href="./oncology.html" style="color:#6ee7b7;font-weight:700;">&#x1F9EC; Oncology Workspace <span class="onco-nav-tag" title="135 Oncology Breakthroughs &bull; 9 Breast Cancer Discoveries" data-tooltip="Oncology &amp; Breast Cancer Portfolio: 135 verified Oncology Breakthroughs and 9 dedicated Breast Cancer Discoveries cataloged (including Rosmarinic Acid + Doxorubicin TNBC chemosensitization CI=0.380, BCAT1 metabolic reprogramming, and DTI Fractional Anisotropy predictive biomarkers) backed by 256 oncology papers." onclick="showOncoTooltip(event, this, 'Oncology &amp; Breast Cancer Discoveries')">135 Breakthroughs &bull; 9 Breast Cancer <span class="info-pill" style="margin-left:2px;">?</span></span></a>
             </div>
           </div>
 
@@ -1674,14 +1765,14 @@
                 <button type="button" id="tabBriefingBtn" onclick="switchVideoMode('briefing')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">10-Min Briefing</button>
                 <button type="button" id="tabTopologyBtn" onclick="switchVideoMode('topology')" style="background:transparent;border:none;color:#94a3b8;font-size:0.8rem;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;">&#x1F4D0; Topology &amp; TDA Video</button>
               </div>
-              <a id="videoDownloadLink" href="http://localhost:8000/api/video/walkthrough.mp4?download=1" target="_blank" rel="noopener" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4</a>
+              <a id="videoDownloadLink" href="http://127.0.0.1:8099/api/video/walkthrough.mp4?download=1" target="_blank" rel="noopener" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;">&#x2B07; Download MP4</a>
               <button type="button" class="btn-report-secondary" style="padding:7px 14px;font-size:0.82rem;" onclick="closePresentationModal()">&#x2715; Close Video</button>
             </div>
           </div>
           <div style="padding:20px;">
             <div style="position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.7);margin-bottom:18px;">
               <video id="portalPresentationVideo" controls preload="metadata" poster="/api/presentation/poster.png" style="width:100%;max-height:600px;display:block;outline:none;">
-                <source id="portalVideoSource" src="http://localhost:8000/api/video/walkthrough.mp4" type="video/mp4">
+                <source id="portalVideoSource" src="http://127.0.0.1:8099/api/video/walkthrough.mp4" type="video/mp4">
                 Your browser does not support HTML5 video streaming. Please use the Download MP4 button.
               </video>
             </div>
@@ -1880,8 +1971,8 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <button type="button" class="btn-report-primary" onclick="openPresentationModal()" style="background:linear-gradient(135deg, #10b981, #059669);border-color:#10b981;">&#x25B6;&#xFE0F; Watch Video</button>
                   <a href="./#deliverables" target="_blank" rel="noopener" class="btn-report-primary">&#x26A1; Launch New Pattern Discovery</a>
-                  <a href="http://localhost:8000/ui/qualia" target="_blank" rel="noopener" class="btn-report-secondary" style="border-color:#818cf8;color:#c7d2fe;">&#x2696;&#xFE0F; Forensic Governance Lab</a>
-                  <a href="http://localhost:8000/api/patterns/assessment-matrix/view" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F4CA; Open Sliding-Scale Simulator</a>
+                  <a href="http://127.0.0.1:8099/ui/qualia" target="_blank" rel="noopener" class="btn-report-secondary" style="border-color:#818cf8;color:#c7d2fe;">&#x2696;&#xFE0F; Forensic Governance Lab</a>
+                  <a href="http://127.0.0.1:8099/api/patterns/assessment-matrix/view" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F4CA; Open Sliding-Scale Simulator</a>
                 </div>
               </div>
 
@@ -1926,7 +2017,7 @@
                   Transforms embryonic cross-domain hypotheses into rigorous, publication-grade scientific papers with 15 structured indicators, KaTeX mathematical proofs, APA 7th reference management, and corporate de-risking dossiers.
                 </p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <a href="http://localhost:8000/api/patterns/rd-paper/195/report" target="_blank" rel="noopener" class="btn-report-primary">&#x1F4D1; Preview Sample R&amp;D Paper (#195)</a>
+                  <a href="http://127.0.0.1:8099/api/patterns/rd-paper/195/report" target="_blank" rel="noopener" class="btn-report-primary">&#x1F4D1; Preview Sample R&amp;D Paper (#195)</a>
                   <a href="./#deliverables" target="_blank" rel="noopener" class="btn-report-secondary">&#x1F52C; Open Research Console</a>
                 </div>
               </div>
@@ -2779,8 +2870,8 @@
         <a href="./#deliverables" target="_blank" rel="noopener">New Pattern Discoveries</a>
         <a href="./oncology.html" target="_blank" rel="noopener">Research Chat</a>
         <a href="#empirical-ontology" style="color:#10b981;font-weight:700;">⚡ Empirical Ontology</a>
-        <a href="http://localhost:8000/ui/admin" target="_blank" rel="noopener">Admin Console</a>
-        <a href="http://localhost:8000/health" target="_blank" rel="noopener">Health Status</a>
+        <a href="http://127.0.0.1:8099/ui/admin" target="_blank" rel="noopener">Admin Console</a>
+        <a href="http://127.0.0.1:8099/health" target="_blank" rel="noopener">Health Status</a>
         <a href="https://github.com/Rodenbecker/sentinari" target="_blank" rel="noopener">GitHub</a>
       </div>
       <p>&copy; 2026 Sentinari &bull; Inspirari Research Initiative &bull; Powered by Google Cloud Platform</p>
@@ -2789,7 +2880,7 @@
   <script>
   (() => {
     const fmt = (n) => new Intl.NumberFormat().format(Number(n) || 0);
-    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : '';
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:8099' : '';
     async function refreshPortalTelemetry() {
       try {
         const res = await fetch(`${API_BASE}/api/patterns/discovery-status`);
@@ -3013,7 +3104,7 @@
 
   <!-- FLOATING QUICK-ACTION HUB (BOTTOM RIGHT CORNER) -->
   <div class="floating-fab-container">
-    <a href="http://localhost:8000/ui/video?workspace=playground" target="_blank" rel="noopener" class="fab-record-btn" title="Launch Video Studio & Workspace Tour Recorder">
+    <a href="http://127.0.0.1:8099/ui/video?workspace=playground" target="_blank" rel="noopener" class="fab-record-btn" title="Launch Video Studio & Workspace Tour Recorder">
       <span class="fab-pulse-dot"></span>
       <span style="font-size:1.1rem;">🎥</span>
       <span>Record Video Tour</span>

@@ -724,9 +724,9 @@ def ui_portal_landing() -> HTMLResponse:
     page = get_project_root() / "templates" / "portal_landing.html"
     if page.exists():
         html_text = page.read_text(encoding="utf-8")
-        patterns_count = 25
-        docs_count = 15041
-        analyzed_count = 0
+        patterns_count = 1735
+        docs_count = 17061
+        analyzed_count = 7287
         try:
             from .pattern_store import _connect as _pconn, ensure_pattern_store
             from .db import library_connection
