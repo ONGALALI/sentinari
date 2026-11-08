@@ -23,7 +23,7 @@
       border: 1px solid #1e334d;
       border-radius: 12px;
       padding: 36px 28px;
-      max-width: 540px;
+      max-width: 620px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .title {
@@ -74,10 +74,11 @@
       color: #80d8ff;
       text-decoration: none;
       font-size: 12.5px;
-      padding: 4px 10px;
+      padding: 5px 12px;
       background: rgba(0, 229, 255, 0.08);
       border: 1px solid rgba(0, 229, 255, 0.25);
       border-radius: 6px;
+      transition: all 0.2s ease;
     }
     .links a:hover {
       background: rgba(0, 229, 255, 0.2);
@@ -102,6 +103,18 @@
         targetPage = 'threats.html';
       } else if (fullPath.includes('vision') || fullPath.includes('eyes') || fullPath.includes('anatomy')) {
         targetPage = 'vision.html';
+      } else if (fullPath.includes('qualia') || fullPath.includes('pseudo') || fullPath.includes('deception')) {
+        targetPage = 'qualia.html';
+      } else if (fullPath.includes('library') || fullPath.includes('search') || fullPath.includes('papers')) {
+        targetPage = 'library.html';
+      } else if (fullPath.includes('video') || fullPath.includes('editor') || fullPath.includes('tour')) {
+        targetPage = 'video.html';
+      } else if (fullPath.includes('wan21') || fullPath.includes('wan') || fullPath.includes('t2v')) {
+        targetPage = 'wan21.html';
+      } else if (fullPath.includes('music') || fullPath.includes('ace-step') || fullPath.includes('audio')) {
+        targetPage = 'music.html';
+      } else if (fullPath.includes('playground') || fullPath.includes('workbench')) {
+        targetPage = 'playground.html';
       } else if (fullPath.includes('help')) {
         targetPage = 'help.html';
       } else if (fullPath.includes('skill')) {
@@ -131,12 +144,16 @@
     </div>
     <a id="btnManual" href="./index.html" class="btn">Proceed to Workspace</a>
     <div class="links">
+      <a href="./qualia.html">⚖️ Qualia &amp; Pseudo Dynamics</a>
+      <a href="./library.html">📚 Scientific Library</a>
+      <a href="./video.html">🎥 Video Studio</a>
+      <a href="./music.html">🎵 ACE-Step Music</a>
+      <a href="./wan21.html">🎬 Wan 2.1 T2V-14B</a>
       <a href="./oncology.html">🧬 Oncology Precision</a>
       <a href="./threats.html">🌍 Planetary Threat Matrix</a>
       <a href="./vision.html">👁️ Vision Lab &amp; 3D Anatomy</a>
+      <a href="./playground.html">🔬 Playground Workbench</a>
       <a href="./index.html">🏠 Website Frontpage</a>
-      <a href="./help.html">📖 Help Manual</a>
-      <a href="./Constitution.pdf">📜 100-Year Constitution</a>
     </div>
   </div>
   <script>

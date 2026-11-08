@@ -760,6 +760,52 @@ def serve_oncology_html() -> HTMLResponse:
     return HTMLResponse(p.read_text(encoding="utf-8"))
 
 
+# Showcase HTML route aliases
+@app.get("/qualia.html", include_in_schema=False)
+def serve_qualia_html(request: Request) -> HTMLResponse:
+    p = get_project_root() / "docs" / "qualia.html"
+    if p.exists():
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+    return ui_qualia(request)
+
+@app.get("/library.html", include_in_schema=False)
+@app.get("/ui/library", include_in_schema=False)
+def serve_library_html(request: Request) -> HTMLResponse:
+    p = get_project_root() / "docs" / "library.html"
+    if p.exists():
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+    return ui_search_library(request)
+
+@app.get("/video.html", include_in_schema=False)
+def serve_video_html(request: Request) -> HTMLResponse:
+    p = get_project_root() / "docs" / "video.html"
+    if p.exists():
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+    return ui_playground_wan(request)
+
+@app.get("/music.html", include_in_schema=False)
+@app.get("/ace-step.html", include_in_schema=False)
+def serve_music_html(request: Request) -> HTMLResponse:
+    p = get_project_root() / "docs" / "music.html"
+    if p.exists():
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+    return ui_ace_step(request)
+
+@app.get("/wan21.html", include_in_schema=False)
+def serve_wan21_html(request: Request) -> HTMLResponse:
+    p = get_project_root() / "docs" / "wan21.html"
+    if p.exists():
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+    return ui_wan21(request)
+
+@app.get("/playground.html", include_in_schema=False)
+def serve_playground_html(request: Request) -> HTMLResponse:
+    p = get_project_root() / "docs" / "playground.html"
+    if p.exists():
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+    return ui_playground(request)
+
+
 @app.get("/threats.html", include_in_schema=False)
 @app.get("/showcase/threats", include_in_schema=False)
 def serve_threats_html() -> HTMLResponse:

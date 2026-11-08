@@ -1,36 +1,37 @@
-"""
-Create physical forwarders in docs/ui/... for GitHub Pages
-"""
+import os
+import sys
 
-from pathlib import Path
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-DOCS_DIR = Path(r"D:\Sentinari\docs")
+DOCS_UI = r"D:\Sentinari\docs\ui"
 
-FORWARDER_TEMPLATE = """<!doctype html>
+forwarders = {
+    "qualia": "../../qualia.html",
+    "library": "../../library.html",
+    "search": "../../library.html",
+    "video": "../../video.html",
+    "music": "../../music.html",
+    "ace-step": "../../music.html",
+    "wan21": "../../wan21.html",
+    "playground": "../../playground.html",
+}
+
+for folder, target in forwarders.items():
+    fdir = os.path.join(DOCS_UI, folder)
+    os.makedirs(fdir, exist_ok=True)
+    html = f"""<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Redirecting to {title}...</title>
-  <meta http-equiv="refresh" content="0; url=../../{target}">
-  <script>window.location.replace('../../{target}');</script>
+  <meta http-equiv="refresh" content="0; url={target}">
+  <title>Redirecting to {target}...</title>
+  <script>window.location.replace('{target}');</script>
 </head>
-<body style="background:#0a1118; color:#fff; font-family:sans-serif; text-align:center; padding-top:20vh;">
-  <p>Redirecting to <a href="../../{target}" style="color:#00e5ff;">{title}</a>...</p>
+<body>
+  <p>Redirecting to <a href="{target}">{target}</a>...</p>
 </body>
-</html>
-"""
-
-forwarders = [
-    ("oncology", "oncology.html", "Oncology Precision"),
-    ("threats", "threats.html", "Planetary Threat Matrix"),
-    ("vision", "vision.html", "Vision Lab & 3D Anatomy"),
-    ("help", "help.html", "Help Manual"),
-    ("skills", "skills.html", "Skills Matrix"),
-]
-
-for sub, target, title in forwarders:
-    p = DOCS_DIR / "ui" / sub
-    p.mkdir(parents=True, exist_ok=True)
-    idx = p / "index.html"
-    idx.write_text(FORWARDER_TEMPLATE.format(target=target, title=title), encoding="utf-8")
-    print(f"Created forwarder at {idx}")
+</html>"""
+    fpath = os.path.join(fdir, "index.html")
+    with open(fpath, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"Created forwarder {fpath} -> {target}")
